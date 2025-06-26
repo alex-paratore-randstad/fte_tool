@@ -15,6 +15,7 @@ import { Logo } from '../logo';
 import { Separator } from '../ui/separator';
 import { Button } from '../ui/button';
 import { LifeBuoy, LogOut } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -24,7 +25,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Logo />
         </SidebarHeader>
         <SidebarContent>
-          <SidebarNav />
+          <ScrollArea className="h-full">
+            <SidebarNav />
+          </ScrollArea>
         </SidebarContent>
         <SidebarFooter>
           <Separator className="my-2" />
