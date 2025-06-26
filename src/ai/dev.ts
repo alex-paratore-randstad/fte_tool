@@ -1,4 +1,1 @@
-import { config } from 'dotenv';
-config();
-
-import '@/ai/flows/generate-fte-forecast.ts';
+// This file is intentionally left blank as Genkit is no longer used.
