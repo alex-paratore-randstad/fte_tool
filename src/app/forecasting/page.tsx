@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/page-header';
 import {
   Card,
@@ -44,12 +44,12 @@ const COLORS = [
 ];
 
 export default function ForecastingPage() {
-  const [selectedAccount, setSelectedAccount] = useState<string>('');
+  const [selectedAccount, setSelectedAccount] = useState<string>(accounts[0]?.id || '');
   const [chartData, setChartData] = useState<any[] | null>(null);
   const [chartConfig, setChartConfig] = useState<ChartConfig | null>(null);
   const [forecastMonths, setForecastMonths] = useState<number>(0);
 
-  const handleGenerateForecast = () => {
+  const handleGenerateForecast = useCallback(() => {
     if (!selectedAccount) return;
 
     const accountAllocations = allocations.flatMap((a) =>
@@ -61,9 +61,8 @@ export default function ForecastingPage() {
     const newChartData = ALL_MONTHS.map(m => ({ month: m }));
     const newChartConfig: ChartConfig = {};
     
-    // Generate 11 forecast lines, one for each month from Jan to Nov.
-    // A forecast from Dec isn't needed as there are no future months in the year.
-    const forecastsToGenerate = 11; 
+    // Generate 5 forecast lines, one for each month from Jan to May.
+    const forecastsToGenerate = 5; 
 
     for (let i = 0; i < forecastsToGenerate; i++) {
       const forecastLabel = `Forecast from ${ALL_MONTHS[i]}`;
@@ -113,8 +112,15 @@ export default function ForecastingPage() {
     setChartData(newChartData);
     setChartConfig(newChartConfig);
     setForecastMonths(forecastsToGenerate);
-  };
+  }, [selectedAccount]);
   
+  // Automatically generate forecast on initial load for demo purposes
+  useEffect(() => {
+    if (selectedAccount) {
+      handleGenerateForecast();
+    }
+  }, [selectedAccount, handleGenerateForecast]);
+
   const selectedAccountName = accounts.find(a => a.id === selectedAccount)?.name || '';
 
   return (
