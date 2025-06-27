@@ -9,14 +9,6 @@ import {
   TrendingUp,
   Users,
   Settings,
-  DollarSign,
-  UserPlus,
-  ShieldCheck,
-  Clock,
-  Heart,
-  FileText,
-  HardDrive,
-  BookOpen,
 } from 'lucide-react';
 
 import {
@@ -33,16 +25,6 @@ const navItems = [
   { href: '/forecasting', label: 'Forecasting', icon: TrendingUp },
   { href: '/team', label: 'Team Management', icon: Users },
   { href: '/settings', label: 'Settings', icon: Settings },
-  { href: '#', label: 'Human Resources', icon: Users },
-  { href: '#', label: 'Payroll', icon: DollarSign },
-  { href: '#', label: 'Recruitment', icon: UserPlus },
-  { href: '#', label: 'Employee Analytics', icon: BarChart3 },
-  { href: '#', label: 'Compliance', icon: ShieldCheck },
-  { href: '#', label: 'Time Tracking', icon: Clock },
-  { href: '#', label: 'Benefits', icon: Heart },
-  { href: '#', label: 'Company Policy', icon: FileText },
-  { href: '#', label: 'IT Support', icon: HardDrive },
-  { href: '#', label: 'Knowledge Base', icon: BookOpen },
 ];
 
 export function SidebarNav() {
