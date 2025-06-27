@@ -58,11 +58,14 @@ export default function ForecastingPage() {
     const baseFte = accountAllocations.reduce((sum, alloc) => sum + alloc.fte, 0);
     const fteForProjection = baseFte > 0 ? baseFte : 10;
 
-    const currentMonthIndex = new Date().getMonth();
     const newChartData = ALL_MONTHS.map(m => ({ month: m }));
     const newChartConfig: ChartConfig = {};
+    
+    // Generate 11 forecast lines, one for each month from Jan to Nov.
+    // A forecast from Dec isn't needed as there are no future months in the year.
+    const forecastsToGenerate = 11; 
 
-    for (let i = 0; i <= currentMonthIndex; i++) {
+    for (let i = 0; i < forecastsToGenerate; i++) {
       const forecastLabel = `Forecast from ${ALL_MONTHS[i]}`;
       const solidDataKey = `solid-${i}`;
       const dottedDataKey = `dotted-${i}`;
@@ -78,9 +81,10 @@ export default function ForecastingPage() {
       for (let j = 0; j < 12; j++) {
         let value;
         if (j <= i) {
-          value = monthBaseFte * (1 + (j * 0.02)); // Simulate linear growth for past "actuals"
+          // This represents the "actual" or historical data (solid line).
+          value = monthBaseFte * (1 + (j * 0.02));
         } else {
-          // Use previous value for projection
+          // This represents the projected data (dotted line).
           const prevValue = j === (i + 1) ? lastProjectedValue : newChartData[j-1][dottedDataKey];
           const variation = (Math.random() * 0.1) - 0.05;
           value = prevValue * (1 + variation);
@@ -88,15 +92,18 @@ export default function ForecastingPage() {
         
         const finalValue = parseFloat(value.toFixed(2));
 
+        // Assign data for solid line part
         if (j <= i) {
           newChartData[j][solidDataKey] = finalValue;
           newChartData[j][dottedDataKey] = null;
         }
-        if (j >= i) { // Overlap one point to connect the lines
+        // Assign data for dotted line part (with one overlapping point to connect)
+        if (j >= i) { 
           newChartData[j][dottedDataKey] = finalValue;
           if (j > i) newChartData[j][solidDataKey] = null;
         }
 
+        // Store the last "actual" value to base the projection on.
         if (j === i) {
           lastProjectedValue = finalValue;
         }
@@ -105,7 +112,7 @@ export default function ForecastingPage() {
     
     setChartData(newChartData);
     setChartConfig(newChartConfig);
-    setForecastMonths(currentMonthIndex + 1);
+    setForecastMonths(forecastsToGenerate);
   };
   
   const selectedAccountName = accounts.find(a => a.id === selectedAccount)?.name || '';
