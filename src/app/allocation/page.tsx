@@ -38,10 +38,12 @@ import {
   AlertCircle,
   PlusCircle,
   Trash2,
+  Copy,
 } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { Calendar } from '@/components/ui/calendar';
 import { addWeeks, subWeeks, endOfWeek, format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AllocationPage() {
   const [weekEndingDate, setWeekEndingDate] = useState(endOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -57,6 +59,7 @@ export default function AllocationPage() {
   });
 
   const { currentUser, isManager } = useCurrentUser();
+  const { toast } = useToast();
 
   // Admins see all employees, managers see their direct reports.
   const displayedEmployees = isManager
@@ -135,6 +138,20 @@ export default function AllocationPage() {
         })
     );
   };
+  
+  const handleCopyLastWeek = () => {
+    const initialAllocations = employees.map(emp => {
+      const existingAlloc = allocations.find(a => a.employeeId === emp.id);
+      return existingAlloc 
+        ? JSON.parse(JSON.stringify(existingAlloc)) 
+        : { employeeId: emp.id, allocations: [] };
+    });
+    setEmployeeAllocations(initialAllocations);
+    toast({
+      title: 'Allocations Copied',
+      description: 'The allocations from last week have been copied to the current week.',
+    });
+  };
 
   const weekEnding = format(weekEndingDate, "eeee, MMMM d, yyyy");
 
@@ -170,6 +187,10 @@ export default function AllocationPage() {
               </Button>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleCopyLastWeek}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy Last Week
+              </Button>
               <Button>Save Allocations</Button>
             </div>
           </div>
