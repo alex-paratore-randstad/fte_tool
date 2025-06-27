@@ -1,3 +1,6 @@
+'use client';
+
+import { useCurrentUser } from '@/hooks/use-current-user';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,11 +24,18 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function TeamPage() {
+  const { currentUser, isManager } = useCurrentUser();
+
+  // Admins see all employees, managers see their direct reports.
+  const displayedEmployees = isManager
+    ? employees.filter((employee) => employee.manager === currentUser.name)
+    : employees;
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Team Management"
-        description="View and manage all GBS personnel."
+        description={isManager ? "View and manage your direct reports." : "View and manage all GBS personnel."}
         actions={
           <Button className="gap-2">
             <PlusCircle className="h-4 w-4" />
@@ -35,9 +45,9 @@ export default function TeamPage() {
       />
       <Card>
         <CardHeader>
-          <CardTitle>All Personnel</CardTitle>
+          <CardTitle>{isManager ? "My Team" : "All Personnel"}</CardTitle>
           <CardDescription>
-            A list of all employees in the GBS organization.
+            {isManager ? "A list of your direct reports." : "A list of all employees in the GBS organization."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -55,7 +65,7 @@ export default function TeamPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {employees.map((employee) => (
+              {displayedEmployees.map((employee) => (
                 <TableRow key={employee.id}>
                   <TableCell className="font-medium">{employee.name}</TableCell>
                   <TableCell>{employee.title}</TableCell>

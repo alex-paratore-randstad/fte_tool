@@ -1,3 +1,5 @@
+'use client';
+
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,9 +15,19 @@ import {
 import { accounts, employees, allocations } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 import { Calendar, ChevronLeft, ChevronRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { useCurrentUser } from '@/hooks/use-current-user';
 
 export default function AllocationPage() {
   const weekEnding = 'Sunday, July 28, 2024';
+  const { currentUser, isManager } = useCurrentUser();
+
+  // Admins see all employees, managers see their direct reports.
+  const displayedEmployees = isManager
+    ? employees.filter((employee) => employee.manager === currentUser.name)
+    : employees;
+
+  // The manager's team name for the card title
+  const cardTitle = isManager && displayedEmployees.length > 0 ? `${displayedEmployees[0].team} Team` : 'All Teams';
 
   const getEmployeeAllocation = (employeeId: string) => {
     return allocations.find((a) => a.employeeId === employeeId) || { allocations: [] };
@@ -50,7 +62,7 @@ export default function AllocationPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Core Platform Team</CardTitle>
+          <CardTitle>{cardTitle}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -66,7 +78,7 @@ export default function AllocationPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {employees.filter(e => e.team === 'Core Platform').map((emp) => {
+              {displayedEmployees.map((emp) => {
                 const totalFte = calculateTotalFte(emp.id);
                 return (
                   <TableRow key={emp.id}>
