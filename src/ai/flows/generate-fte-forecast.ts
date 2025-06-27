@@ -1,13 +1,14 @@
 'use server';
 
 /**
- * @fileOverview FTE Forecasting utility.
+ * @fileOverview FTE Forecasting utility using Genkit AI.
  *
  * - generateFTEForecast - A function that handles the FTE forecast generation process.
  * - GenerateFTEForecastInput - The input type for the generateFTEForecast function.
  * - GenerateFTEForecastOutput - The return type for the generateFTEForecast function.
  */
 
+import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
 const GenerateFTEForecastInputSchema = z.object({
@@ -28,40 +29,51 @@ const GenerateFTEForecastOutputSchema = z.object({
       fte: z.number().describe('The forecasted FTE value for the specified month.'),
       rationale: z.string().describe('The rationale behind the forecasted FTE value.'),
     })
-  ).describe('An array of forecasted FTE values for the next twelve months, along with the rationale behind the forecast.'),
+  ).length(12).describe('An array of forecasted FTE values for the next twelve months, along with the rationale behind the forecast.'),
 });
 export type GenerateFTEForecastOutput = z.infer<typeof GenerateFTEForecastOutputSchema>;
 
 export async function generateFTEForecast(input: GenerateFTEForecastInput): Promise<GenerateFTEForecastOutput> {
-  const { priorFTEData } = input;
-  
-  // Simple trend calculation
-  const ftes = priorFTEData.map(d => d.fte);
-  const monthlyTrend = (ftes[3] - ftes[0]) / 3; // Average monthly change over the 4 months
-
-  const forecast: GenerateFTEForecastOutput['forecast'] = [];
-  let lastFte = ftes[3];
-  
-  // Parse date as UTC to avoid timezone issues
-  const lastMonthDate = new Date(`${priorFTEData[3].month}-01T00:00:00Z`);
-
-  for (let i = 1; i <= 12; i++) {
-    const forecastDate = new Date(lastMonthDate);
-    forecastDate.setUTCMonth(lastMonthDate.getUTCMonth() + i);
-    
-    const year = forecastDate.getUTCFullYear();
-    const month = (forecastDate.getUTCMonth() + 1).toString().padStart(2, '0');
-    
-    // Apply trend
-    const newFte = lastFte + monthlyTrend;
-    lastFte = newFte;
-
-    forecast.push({
-      month: `${year}-${month}`,
-      fte: Math.max(0, parseFloat(newFte.toFixed(2))), // Ensure FTE is not negative
-      rationale: `Forecast based on a calculated monthly trend of ${monthlyTrend.toFixed(2)} FTE.`,
-    });
-  }
-
-  return { forecast };
+  return generateFTEForecastFlow(input);
 }
+
+const forecastPrompt = ai.definePrompt({
+    name: 'fteForecastPrompt',
+    input: { schema: GenerateFTEForecastInputSchema },
+    output: { schema: GenerateFTEForecastOutputSchema },
+    prompt: `You are an expert financial analyst specializing in workforce planning and FTE (Full-Time Equivalent) forecasting.
+
+Your task is to generate a 12-month FTE forecast for the account: '{{accountName}}'.
+
+You have been provided with the actual FTE data for the past four months. Analyze this historical data to identify trends, seasonality, or other patterns.
+
+Historical FTE Data:
+{{#each priorFTEData as |data|}}
+- Month: {{data.month}}, FTE: {{data.fte}}
+{{/each}}
+
+Based on your analysis of the historical data, create a month-by-month forecast for the next 12 months. For each month in the forecast, you must provide:
+1.  The 'month' in 'YYYY-MM' format.
+2.  The forecasted 'fte' value (a number, to two decimal places).
+3.  A concise 'rationale' explaining the reasoning for that month's forecast (e.g., "Continuing the upward trend observed in prior months," "Seasonal dip expected based on typical project cycles," "Stabilization after a period of rapid growth.").
+
+The last month of historical data is {{priorFTEData.[3].month}}. Your forecast should start from the following month.
+
+Produce the output in the required structured format.
+`,
+});
+
+const generateFTEForecastFlow = ai.defineFlow(
+  {
+    name: 'generateFTEForecastFlow',
+    inputSchema: GenerateFTEForecastInputSchema,
+    outputSchema: GenerateFTEForecastOutputSchema,
+  },
+  async (input) => {
+    const { output } = await forecastPrompt(input);
+    if (!output) {
+      throw new Error('Failed to generate forecast from AI model.');
+    }
+    return output;
+  }
+);
