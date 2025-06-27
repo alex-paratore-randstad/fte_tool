@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import {
   Card,
@@ -20,58 +19,93 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { accounts, allocations } from '@/lib/mock-data';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
+import type { ChartConfig } from '@/components/ui/chart';
 
-type Forecast = {
-  month: string;
-  fte: number;
-};
+const ALL_MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
 
-const chartConfig = {
-  fte: {
-    label: 'Forecasted FTE',
-    color: 'hsl(var(--chart-1))',
-  },
-};
-
+const COLORS = [
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+];
 
 export default function ForecastingPage() {
   const [selectedAccount, setSelectedAccount] = useState<string>('');
-  const [forecastData, setForecastData] = useState<Forecast[] | null>(null);
+  const [chartData, setChartData] = useState<any[] | null>(null);
+  const [chartConfig, setChartConfig] = useState<ChartConfig | null>(null);
+  const [forecastMonths, setForecastMonths] = useState<number>(0);
 
   const handleGenerateForecast = () => {
     if (!selectedAccount) return;
 
-    // 1. Calculate the base FTE from existing allocations for the selected account.
-    // This simulates using "prior reported periods" from the mock data.
     const accountAllocations = allocations.flatMap((a) =>
       a.allocations.filter((alloc) => alloc.accountId === selectedAccount)
     );
     const baseFte = accountAllocations.reduce((sum, alloc) => sum + alloc.fte, 0);
-    
-    // If no data, use a default to ensure a chart is still generated
-    const fteForProjection = baseFte > 0 ? baseFte : 10; 
+    const fteForProjection = baseFte > 0 ? baseFte : 10;
 
-    // 2. Generate forecast for the rest of the year.
     const currentMonthIndex = new Date().getMonth();
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
-    ];
+    const newChartData = ALL_MONTHS.map(m => ({ month: m }));
+    const newChartConfig: ChartConfig = {};
 
-    const generatedForecast: Forecast[] = [];
-    for (let i = currentMonthIndex; i < 12; i++) {
-      // Simple projection with slight random variation (+/- 10%)
-      const variation = (Math.random() * 0.2) - 0.1;
-      const forecastedFte = fteForProjection * (1 + variation);
-      generatedForecast.push({
-        month: months[i].substring(0, 3), // Use short month names for chart
-        fte: parseFloat(forecastedFte.toFixed(2)),
-      });
+    for (let i = 0; i <= currentMonthIndex; i++) {
+      const forecastLabel = `Forecast from ${ALL_MONTHS[i]}`;
+      const solidDataKey = `solid-${i}`;
+      const dottedDataKey = `dotted-${i}`;
+
+      newChartConfig[solidDataKey] = {
+        label: forecastLabel,
+        color: COLORS[i],
+      };
+      
+      const monthBaseFte = fteForProjection * (1 + (i * 0.05));
+      let lastProjectedValue = 0;
+
+      for (let j = 0; j < 12; j++) {
+        let value;
+        if (j <= i) {
+          value = monthBaseFte * (1 + (j * 0.02)); // Simulate linear growth for past "actuals"
+        } else {
+          // Use previous value for projection
+          const prevValue = j === (i + 1) ? lastProjectedValue : newChartData[j-1][dottedDataKey];
+          const variation = (Math.random() * 0.1) - 0.05;
+          value = prevValue * (1 + variation);
+        }
+        
+        const finalValue = parseFloat(value.toFixed(2));
+
+        if (j <= i) {
+          newChartData[j][solidDataKey] = finalValue;
+          newChartData[j][dottedDataKey] = null;
+        }
+        if (j >= i) { // Overlap one point to connect the lines
+          newChartData[j][dottedDataKey] = finalValue;
+          if (j > i) newChartData[j][solidDataKey] = null;
+        }
+
+        if (j === i) {
+          lastProjectedValue = finalValue;
+        }
+      }
     }
-
-    setForecastData(generatedForecast);
+    
+    setChartData(newChartData);
+    setChartConfig(newChartConfig);
+    setForecastMonths(currentMonthIndex + 1);
   };
   
   const selectedAccountName = accounts.find(a => a.id === selectedAccount)?.name || '';
@@ -80,13 +114,13 @@ export default function ForecastingPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="FTE Forecasting"
-        description="Generate a 12-month FTE forecast for an account using historical data."
+        description="Generate FTE forecast projections based on trends from prior months."
       />
       <Card>
         <CardHeader>
           <CardTitle>Generate Forecast</CardTitle>
           <CardDescription>
-            Select an account to generate a forecast for the remainder of the current year based on past allocation data.
+            Select an account to generate forecast projections for the year. Each line represents a forecast based on the trend up to that month.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -112,18 +146,18 @@ export default function ForecastingPage() {
         </CardFooter>
       </Card>
 
-      {forecastData && (
+      {chartData && chartConfig && (
         <Card>
           <CardHeader>
             <CardTitle>Forecast for {selectedAccountName}</CardTitle>
             <CardDescription>
-              This is an estimated FTE demand for the rest of the year. You can review and adjust as needed.
+              Solid lines represent historical data; dotted lines represent projections.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px] w-full">
+            <ChartContainer config={chartConfig} className="h-[400px] w-full">
               <ResponsiveContainer>
-                <BarChart data={forecastData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+                <LineChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
                   <XAxis
                     dataKey="month"
                     stroke="hsl(var(--muted-foreground))"
@@ -137,27 +171,45 @@ export default function ForecastingPage() {
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(value) => `${value}`}
+                    domain={['dataMin - 2', 'dataMax + 2']}
                   />
                   <Tooltip
-                    cursor={{ fill: 'hsl(var(--secondary))' }}
+                    cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '3 3' }}
                     content={<ChartTooltipContent />}
                   />
                   <Legend content={<ChartLegendContent />} />
-                  <Bar
-                    dataKey="fte"
-                    fill="var(--color-fte)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
+                  
+                  {Array.from({ length: forecastMonths }).map((_, i) => (
+                    <React.Fragment key={`forecast-series-${i}`}>
+                      <Line
+                        dataKey={`solid-${i}`}
+                        type="monotone"
+                        stroke={`var(--color-solid-${i})`}
+                        strokeWidth={2}
+                        dot={false}
+                        name={chartConfig[`solid-${i}`]?.label as string}
+                        connectNulls={false}
+                      />
+                      <Line
+                        dataKey={`dotted-${i}`}
+                        type="monotone"
+                        stroke={`var(--color-solid-${i})`}
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        name={chartConfig[`solid-${i}`]?.label as string}
+                        connectNulls={false}
+                        legendType="none"
+                      />
+                    </React.Fragment>
+                  ))}
+
+                </LineChart>
               </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
-          <CardFooter className="flex-col items-start gap-4">
+          <CardFooter>
             <p className="text-sm text-muted-foreground">This is a system-generated forecast. To improve accuracy for future projections, ensure weekly allocations are always up-to-date.</p>
-            <div className='flex gap-2'>
-              <Button>Accept & Save Forecast</Button>
-              <Button variant="outline">Edit Forecast</Button>
-            </div>
           </CardFooter>
         </Card>
       )}
