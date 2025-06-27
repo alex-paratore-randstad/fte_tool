@@ -40,7 +40,7 @@ export function useCurrentUser() {
 
   // To demonstrate the manager view, we return the manager user.
   // To show the admin view, change this line to: `const currentUser: CurrentUser = adminUser;`
-  const currentUser: CurrentUser = managerUser;
+  const currentUser: CurrentUser = adminUser;
 
   const isAdmin = currentUser.role === 'admin';
   const isManager = !isAdmin;
