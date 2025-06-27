@@ -20,6 +20,18 @@ export const employees: Employee[] = [
 
   // Unassigned or different manager
   { id: '12', name: 'Walter White', title: 'Chemistry Consultant', region: 'Central', manager: 'Heisenberg', team: 'Special Projects' },
+
+  // New employees
+  { id: '13', name: 'Jesse Pinkman', title: 'Associate Engineer', region: 'NAM', manager: 'Sawyer Ames', team: 'Core Platform' },
+  { id: '14', name: 'Skyler White', title: 'Accountant', region: 'NAM', manager: 'Cheryl MacMillan', team: 'Client Integrations' },
+  { id: '15', name: 'Saul Goodman', title: 'Legal Counsel', region: 'EMEA', manager: 'Cheryl MacMillan', team: 'Client Integrations' },
+  { id: '16', name: 'Jane Margolis', title: 'UI/UX Intern', region: 'NAM', manager: 'Sawyer Ames', team: 'Core Platform' },
+  { id: '17', name: 'Todd Alquist', title: 'Junior Data Analyst', region: 'HYD', manager: 'John Slocum', team: 'Analytics' },
+  { id: '18', name: 'Lydia Rodarte-Quayle', title: 'Logistics Coordinator', region: 'EMEA', manager: 'Cheryl MacMillan', team: 'Client Integrations' },
+  { id: '19', name: 'Hector Salamanca', title: 'Senior Consultant', region: 'NAM', manager: 'Heisenberg', team: 'Special Projects' },
+  { id: '20', name: 'Tuco Salamanca', title: 'Distribution Manager', region: 'NAM', manager: 'Heisenberg', team: 'Special Projects' },
+  { id: '21', name: 'Marie Schrader', title: 'HR Business Partner', region: 'NAM', manager: 'Sawyer Ames', team: 'Core Platform' },
+  { id: '22', name: 'Steven Gomez', title: 'Security Analyst', region: 'NAM', manager: 'Sawyer Ames', team: 'Core Platform' }
 ];
 
 export const accounts: Account[] = [
@@ -49,6 +61,18 @@ export const allocations: Allocation[] = [
 
   // Other
   { employeeId: '12', allocations: [] }, // No allocation
+
+  // New employee allocations
+  { employeeId: '13', allocations: [{ accountId: 'acc-1', fte: 1.0 }] },
+  { employeeId: '14', allocations: [{ accountId: 'acc-2', fte: 1.0 }] },
+  { employeeId: '15', allocations: [{ accountId: 'acc-4', fte: 0.5 }, { accountId: 'acc-1', fte: 0.5 }] },
+  { employeeId: '16', allocations: [{ accountId: 'acc-2', fte: 0.8 }] }, // Under-allocated
+  { employeeId: '17', allocations: [{ accountId: 'acc-3', fte: 1.0 }] },
+  { employeeId: '18', allocations: [{ accountId: 'acc-1', fte: 0.2 }, { accountId: 'acc-2', fte: 0.8 }] },
+  { employeeId: '19', allocations: [{ accountId: 'acc-4', fte: 1.0 }] },
+  { employeeId: '20', allocations: [] }, // No allocation
+  { employeeId: '21', allocations: [{ accountId: 'acc-4', fte: 1.0 }] },
+  { employeeId: '22', allocations: [{ accountId: 'acc-1', fte: 1.1 }] } // Over-allocated
 ];
 
 
@@ -60,4 +84,7 @@ export const recentActivities: Activity[] = [
     { id: 'act-5', user: 'System', avatar: 'SYS', action: 'flagged missing allocation for', target: 'Hank Schrader', time: '1d ago' },
     { id: 'act-6', user: 'Cheryl MacMillan', avatar: 'CM', action: 'flagged over-allocation for', target: 'Lalo Salamanca', time: '1d ago' },
     { id: 'act-7', user: 'John Slocum', avatar: 'JS', action: 'updated allocation for', target: 'Mike Ehrmantraut', time: '2d ago' },
+    { id: 'act-8', user: 'Sawyer Ames', avatar: 'SA', action: 'added new team member', target: 'Jesse Pinkman', time: '2d ago' },
+    { id: 'act-9', user: 'System', avatar: 'SYS', action: 'flagged missing allocation for', target: 'Tuco Salamanca', time: '3d ago' },
+    { id: 'act-10', user: 'System', avatar: 'SYS', action: 'flagged over-allocation for', target: 'Steven Gomez', time: '3d ago' },
 ];
