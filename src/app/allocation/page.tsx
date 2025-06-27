@@ -18,16 +18,27 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { accounts, employees, allocations } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, ListFilter } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { Calendar } from '@/components/ui/calendar';
 import { addWeeks, subWeeks, endOfWeek, format } from 'date-fns';
 
 export default function AllocationPage() {
   const [weekEndingDate, setWeekEndingDate] = useState(endOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>(
+    accounts.map((a) => a.id)
+  );
   const { currentUser, isManager } = useCurrentUser();
 
   // Admins see all employees, managers see their direct reports.
@@ -65,36 +76,71 @@ export default function AllocationPage() {
 
   const weekEnding = format(weekEndingDate, "eeee, MMMM d, yyyy");
 
+  const displayedAccounts = accounts.filter((acc) =>
+    selectedAccountIds.includes(acc.id)
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Weekly Allocation"
         description={`Enter FTE allocations for the week ending ${weekEnding}.`}
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={handlePreviousWeek}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-             <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[280px] justify-start text-left font-normal gap-2">
-                  <CalendarIcon className="h-4 w-4" />
-                  <span>{weekEnding}</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={weekEndingDate}
-                  onSelect={handleDateSelect}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            <Button variant="outline" size="icon" onClick={handleNextWeek}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button>Save Allocations</Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={handlePreviousWeek}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-[280px] justify-start text-left font-normal gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    <span>{weekEnding}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={weekEndingDate}
+                    onSelect={handleDateSelect}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button variant="outline" size="icon" onClick={handleNextWeek}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-2">
+                      <ListFilter className="h-4 w-4" />
+                      <span>Filter Accounts</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Visible Accounts</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {accounts.map((account) => (
+                      <DropdownMenuCheckboxItem
+                        key={account.id}
+                        checked={selectedAccountIds.includes(account.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedAccountIds((prev) =>
+                            checked
+                              ? [...prev, account.id]
+                              : prev.filter((id) => id !== account.id)
+                          );
+                        }}
+                      >
+                        {account.name}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button>Save Allocations</Button>
+            </div>
           </div>
         }
       />
@@ -108,7 +154,7 @@ export default function AllocationPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
-                {accounts.map((acc) => (
+                {displayedAccounts.map((acc) => (
                   <TableHead key={acc.id} className="text-center">
                     {acc.name}
                   </TableHead>
@@ -125,7 +171,7 @@ export default function AllocationPage() {
                       <div className="font-medium">{emp.name}</div>
                       <div className="text-sm text-muted-foreground">{emp.title}</div>
                     </TableCell>
-                    {accounts.map((acc) => {
+                    {displayedAccounts.map((acc) => {
                       const allocation = getEmployeeAllocation(emp.id).allocations.find(a => a.accountId === acc.id);
                       return (
                         <TableCell key={acc.id} className="w-32">
