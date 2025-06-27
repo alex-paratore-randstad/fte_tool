@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment } from 'react';
-import { addWeeks, subWeeks, startOfWeek, endOfWeek, format } from 'date-fns';
+import { addWeeks, subWeeks, startOfWeek, endOfWeek, format, isBefore, isSameWeek } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,9 +21,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { accounts, employees, allocations as initialAllocations } from '@/lib/mock-data';
+import { cn } from '@/lib/utils';
+import { Badge } from '../ui/badge';
 
 // Helper to format date as a consistent key
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -127,13 +129,17 @@ export function MultiWeekGrid() {
     });
   };
 
+  const today = new Date();
+  const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
+
+
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <CardTitle>Multi-Week Allocation Grid</CardTitle>
-            <CardDescription>Allocate FTEs across multiple weeks for each team member.</CardDescription>
+            <CardDescription>Allocate FTEs across multiple weeks. Past weeks are locked.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="icon" onClick={handlePrevWeeks}><ChevronLeft className="h-4 w-4" /></Button>
@@ -151,11 +157,22 @@ export function MultiWeekGrid() {
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Account</TableHead>
-                {weeks.map(week => (
-                  <TableHead key={week.toISOString()} className="text-center min-w-[150px]">
-                    W/E {format(endOfWeek(week, { weekStartsOn: 1 }), 'MMM d')}
-                  </TableHead>
-                ))}
+                {weeks.map(week => {
+                  const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                  const isCurrent = isSameWeek(week, today, { weekStartsOn: 1 });
+                  return (
+                    <TableHead key={week.toISOString()} className={cn("text-center min-w-[150px] transition-colors", {
+                      "bg-muted/40": isPast,
+                      "bg-primary/10": isCurrent,
+                    })}>
+                      <div className='flex items-center justify-center gap-2'>
+                        {isPast && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                        <span>W/E {format(endOfWeek(week, { weekStartsOn: 1 }), 'MMM d')}</span>
+                      </div>
+                      {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
+                    </TableHead>
+                  )
+                })}
                 <TableHead className="w-[50px]"> </TableHead>
               </TableRow>
             </TableHeader>
@@ -183,11 +200,19 @@ export function MultiWeekGrid() {
                       <TableCell></TableCell>
                     </TableRow>
 
-                    {empAllocations.map((alloc) => (
+                    {empAllocations.map((alloc) => {
+                      // An allocation row can be removed if it has no past values entered.
+                      const isRowLocked = weeks.some(week => {
+                        const weekKey = formatDateKey(week);
+                        const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                        return isPast && (alloc.weeklyFtes[weekKey] || 0) > 0;
+                      });
+
+                      return (
                       <TableRow key={alloc.id}>
                         <TableCell className="sticky left-0 bg-card z-10">
                           <div className="pl-6">
-                            <Select value={alloc.accountId} onValueChange={(newAccId) => handleAccountChange(emp.id, alloc.id, newAccId)}>
+                            <Select value={alloc.accountId} onValueChange={(newAccId) => handleAccountChange(emp.id, alloc.id, newAccId)} disabled={isRowLocked}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select Account..." />
                               </SelectTrigger>
@@ -199,27 +224,32 @@ export function MultiWeekGrid() {
                         </TableCell>
                         {weeks.map(week => {
                           const weekKey = formatDateKey(week);
+                          const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                           return (
-                            <TableCell key={week.toISOString()} className="text-center">
+                            <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast})}>
                               <Input
                                 type="number"
                                 step="0.05"
                                 min="0"
                                 placeholder="0.00"
-                                className="w-24 text-center mx-auto"
+                                className={cn("w-24 text-center mx-auto", {
+                                  "bg-muted/50 cursor-not-allowed": isPast
+                                })}
                                 value={alloc.weeklyFtes[weekKey] || ''}
                                 onChange={(e) => handleFteChange(emp.id, alloc.id, weekKey, e.target.value)}
+                                disabled={isPast}
+                                readOnly={isPast}
                               />
                             </TableCell>
                           )
                         })}
                          <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocation(emp.id, alloc.id)}>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocation(emp.id, alloc.id)} disabled={isRowLocked}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )})}
 
                     <TableRow>
                       <TableCell className="sticky left-0 bg-card z-10 py-2">

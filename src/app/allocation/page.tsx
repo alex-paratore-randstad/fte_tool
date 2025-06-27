@@ -38,13 +38,15 @@ import {
   PlusCircle,
   Trash2,
   Copy,
+  Lock,
 } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { Calendar } from '@/components/ui/calendar';
-import { addWeeks, subWeeks, endOfWeek, format } from 'date-fns';
+import { addWeeks, subWeeks, endOfWeek, format, isBefore, startOfWeek, isSameWeek } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MultiWeekGrid } from '@/components/allocation/multi-week-grid';
+import { Badge } from '@/components/ui/badge';
 
 
 export default function AllocationPage() {
@@ -60,6 +62,13 @@ export default function AllocationPage() {
 
   const { currentUser, isManager } = useCurrentUser();
   const { toast } = useToast();
+
+  // Date logic for locking
+  const today = new Date();
+  const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
+  const isPastWeek = isBefore(weekEndingDate, startOfCurrentWeek);
+  const isCurrentWeek = isSameWeek(weekEndingDate, today, { weekStartsOn: 1 });
+  const isLocked = isPastWeek; // Past weeks are locked
 
   const displayedEmployees = isManager
     ? employees.filter((employee) => employee.manager === currentUser.name)
@@ -169,8 +178,15 @@ export default function AllocationPage() {
           <div className="flex flex-col gap-8">
             <div className="flex items-center justify-between flex-wrap gap-4 rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
                 <div className="grid gap-1">
-                    <h2 className="text-lg font-semibold tracking-tight">Week Ending {weekEnding}</h2>
-                    <p className="text-sm text-muted-foreground">Enter FTE allocations for the selected week.</p>
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-lg font-semibold tracking-tight">Week Ending {weekEnding}</h2>
+                      {isLocked && <Badge variant="destructive" className="gap-1.5"><Lock className="h-3 w-3" /> Locked</Badge>}
+                      {isCurrentWeek && <Badge variant="default">Current Week</Badge>}
+                      {!isLocked && !isCurrentWeek && <Badge variant="secondary">Future</Badge>}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isLocked ? 'These allocations are locked as they are in the past.' : 'Enter FTE allocations for the selected week.'}
+                    </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                     <div className="flex items-center gap-2">
@@ -198,11 +214,11 @@ export default function AllocationPage() {
                         </Button>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={handleCopyLastWeek}>
+                        <Button variant="outline" onClick={handleCopyLastWeek} disabled={isLocked}>
                             <Copy className="mr-2 h-4 w-4" />
                             Copy Last Week
                         </Button>
-                        <Button>Save Allocations</Button>
+                        <Button disabled={isLocked}>Save Allocations</Button>
                     </div>
                 </div>
             </div>
@@ -240,6 +256,7 @@ export default function AllocationPage() {
                                   <Select
                                     value={alloc.accountId}
                                     onValueChange={(value) => handleAllocationChange(emp.id, index, 'accountId', value)}
+                                    disabled={isLocked}
                                   >
                                     <SelectTrigger>
                                       <SelectValue placeholder="Select Account" />
@@ -255,8 +272,10 @@ export default function AllocationPage() {
                                     value={alloc.fte}
                                     onChange={(e) => handleAllocationChange(emp.id, index, 'fte', e.target.value)}
                                     className="w-28 text-center"
+                                    disabled={isLocked}
+                                    readOnly={isLocked}
                                   />
-                                  <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocation(emp.id, index)}>
+                                  <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocation(emp.id, index)} disabled={isLocked}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                   </Button>
                                 </div>
@@ -266,6 +285,7 @@ export default function AllocationPage() {
                                 size="sm" 
                                 className="mt-2 w-fit" 
                                 onClick={() => handleAddAllocation(emp.id)}
+                                disabled={isLocked}
                               >
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Add Allocation
