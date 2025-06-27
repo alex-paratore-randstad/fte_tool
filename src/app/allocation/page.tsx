@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,13 +18,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { accounts, employees, allocations } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
-import { Calendar, ChevronLeft, ChevronRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, AlertCircle } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
+import { Calendar } from '@/components/ui/calendar';
+import { addWeeks, subWeeks, endOfWeek, format } from 'date-fns';
 
 export default function AllocationPage() {
-  const weekEnding = 'Sunday, July 28, 2024';
+  const [weekEndingDate, setWeekEndingDate] = useState(endOfWeek(new Date(), { weekStartsOn: 1 }));
   const { currentUser, isManager } = useCurrentUser();
 
   // Admins see all employees, managers see their direct reports.
@@ -35,6 +39,8 @@ export default function AllocationPage() {
   const cardTitle = isManager && displayedEmployees.length > 0 ? `${displayedEmployees[0].team} Team` : 'All Teams';
 
   const getEmployeeAllocation = (employeeId: string) => {
+    // NOTE: This logic is for demonstration and doesn't change with the week.
+    // A real implementation would fetch/filter allocations for the selected week.
     return allocations.find((a) => a.employeeId === employeeId) || { allocations: [] };
   };
 
@@ -43,6 +49,22 @@ export default function AllocationPage() {
     return allocation.allocations.reduce((sum, alloc) => sum + alloc.fte, 0);
   };
   
+  const handlePreviousWeek = () => {
+    setWeekEndingDate((prev) => subWeeks(prev, 1));
+  };
+
+  const handleNextWeek = () => {
+    setWeekEndingDate((prev) => addWeeks(prev, 1));
+  };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      setWeekEndingDate(endOfWeek(date, { weekStartsOn: 1 }));
+    }
+  };
+
+  const weekEnding = format(weekEndingDate, "eeee, MMMM d, yyyy");
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
@@ -50,14 +72,26 @@ export default function AllocationPage() {
         description={`Enter FTE allocations for the week ending ${weekEnding}.`}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" onClick={handlePreviousWeek}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" className="gap-2">
-              <Calendar className="h-4 w-4" />
-              <span>{weekEnding}</span>
-            </Button>
-            <Button variant="outline" size="icon">
+             <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-[280px] justify-start text-left font-normal gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  <span>{weekEnding}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={weekEndingDate}
+                  onSelect={handleDateSelect}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <Button variant="outline" size="icon" onClick={handleNextWeek}>
               <ChevronRight className="h-4 w-4" />
             </Button>
             <Button>Save Allocations</Button>
