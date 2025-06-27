@@ -69,7 +69,7 @@ export function MultiWeekGrid() {
     return transformed;
   });
 
-  const { currentUser, isManager } = useCurrentUser();
+  const { currentUser, isManager, isAdmin } = useCurrentUser();
 
   const displayedEmployees = useMemo(() => (isManager
     ? employees.filter((employee) => employee.manager === currentUser.name)
@@ -139,7 +139,7 @@ export function MultiWeekGrid() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <CardTitle>Multi-Week Allocation Grid</CardTitle>
-            <CardDescription>Allocate FTEs across multiple weeks. Past weeks are locked.</CardDescription>
+            <CardDescription>Allocate FTEs across multiple weeks. Past weeks are locked for non-admins.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="icon" onClick={handlePrevWeeks}><ChevronLeft className="h-4 w-4" /></Button>
@@ -160,13 +160,14 @@ export function MultiWeekGrid() {
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                   const isCurrent = isSameWeek(week, today, { weekStartsOn: 1 });
+                  const isLockedForUser = isPast && !isAdmin;
                   return (
                     <TableHead key={week.toISOString()} className={cn("text-center min-w-[150px] transition-colors", {
                       "bg-muted/40": isPast,
                       "bg-primary/10": isCurrent,
                     })}>
                       <div className='flex items-center justify-center gap-2'>
-                        {isPast && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                        {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
                         <span>W/E {format(endOfWeek(week, { weekStartsOn: 1 }), 'MMM d')}</span>
                       </div>
                       {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
@@ -201,11 +202,11 @@ export function MultiWeekGrid() {
                     </TableRow>
 
                     {empAllocations.map((alloc) => {
-                      // An allocation row can be removed if it has no past values entered.
                       const isRowLocked = weeks.some(week => {
                         const weekKey = formatDateKey(week);
                         const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                        return isPast && (alloc.weeklyFtes[weekKey] || 0) > 0;
+                        const isLockedForUser = isPast && !isAdmin;
+                        return isLockedForUser && (alloc.weeklyFtes[weekKey] || 0) > 0;
                       });
 
                       return (
@@ -225,6 +226,7 @@ export function MultiWeekGrid() {
                         {weeks.map(week => {
                           const weekKey = formatDateKey(week);
                           const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                          const isLockedForUser = isPast && !isAdmin;
                           return (
                             <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast})}>
                               <Input
@@ -233,12 +235,12 @@ export function MultiWeekGrid() {
                                 min="0"
                                 placeholder="0.00"
                                 className={cn("w-24 text-center mx-auto", {
-                                  "bg-muted/50 cursor-not-allowed": isPast
+                                  "bg-muted/50 cursor-not-allowed": isLockedForUser
                                 })}
                                 value={alloc.weeklyFtes[weekKey] || ''}
                                 onChange={(e) => handleFteChange(emp.id, alloc.id, weekKey, e.target.value)}
-                                disabled={isPast}
-                                readOnly={isPast}
+                                disabled={isLockedForUser}
+                                readOnly={isLockedForUser}
                               />
                             </TableCell>
                           )

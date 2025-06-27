@@ -60,15 +60,14 @@ export default function AllocationPage() {
     });
   });
 
-  const { currentUser, isManager } = useCurrentUser();
+  const { currentUser, isManager, isAdmin } = useCurrentUser();
   const { toast } = useToast();
 
-  // Date logic for locking
   const today = new Date();
   const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
   const isPastWeek = isBefore(weekEndingDate, startOfCurrentWeek);
   const isCurrentWeek = isSameWeek(weekEndingDate, today, { weekStartsOn: 1 });
-  const isLocked = isPastWeek; // Past weeks are locked
+  const isLocked = isPastWeek && !isAdmin; // Past weeks are locked for non-admins
 
   const displayedEmployees = isManager
     ? employees.filter((employee) => employee.manager === currentUser.name)
@@ -180,12 +179,25 @@ export default function AllocationPage() {
                 <div className="grid gap-1">
                     <div className="flex items-center gap-3">
                       <h2 className="text-lg font-semibold tracking-tight">Week Ending {weekEnding}</h2>
-                      {isLocked && <Badge variant="destructive" className="gap-1.5"><Lock className="h-3 w-3" /> Locked</Badge>}
-                      {isCurrentWeek && <Badge variant="default">Current Week</Badge>}
-                      {!isLocked && !isCurrentWeek && <Badge variant="secondary">Future</Badge>}
+                      {isPastWeek ? (
+                        !isAdmin ? (
+                          <Badge variant="destructive" className="gap-1.5"><Lock className="h-3 w-3" /> Locked</Badge>
+                        ) : (
+                          <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <Badge variant="secondary" className="gap-1.5 cursor-help"><Lock className="h-3 w-3" /> Admin Mode</Badge>
+                              </TooltipTrigger>
+                              <TooltipContent><p>Past week is editable for admins.</p></TooltipContent>
+                          </Tooltip>
+                        )
+                      ) : isCurrentWeek ? (
+                          <Badge variant="default">Current Week</Badge>
+                      ) : (
+                          <Badge variant="secondary">Future</Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isLocked ? 'These allocations are locked as they are in the past.' : 'Enter FTE allocations for the selected week.'}
+                      {isLocked ? 'These allocations are locked. Admins can edit past weeks.' : 'Enter FTE allocations for the selected week.'}
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
