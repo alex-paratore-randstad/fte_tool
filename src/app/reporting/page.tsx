@@ -10,9 +10,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { accounts, employees, allocations } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
-import { Download } from 'lucide-react';
+import { Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function ReportingPage() {
@@ -131,13 +136,26 @@ export default function ReportingPage() {
                       <TableCell className="font-medium">{account.name}</TableCell>
                       <TableCell className="text-right">{account.totalFte.toFixed(2)}</TableCell>
                       <TableCell className="text-right">{account.employeeCount}</TableCell>
-                      <TableCell
-                        className={cn('text-right', {
-                          'text-green-600': account.variance > 0,
-                          'text-destructive': account.variance < 0,
-                        })}
-                      >
-                        {account.variance.toFixed(2)}
+                      <TableCell className="text-right">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className={cn({
+                                'text-green-600': account.variance > 0,
+                                'text-destructive': account.variance < 0,
+                              })}
+                            >
+                              {account.variance.toFixed(2)}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              {account.variance > 0
+                                ? 'Allocations are over forecast.'
+                                : 'Allocations are under forecast.'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -200,14 +218,26 @@ export default function ReportingPage() {
                       <TableCell className="font-medium">{region.name}</TableCell>
                       <TableCell className="text-right">{region.totalEmployees}</TableCell>
                       <TableCell className="text-right">{region.allocatedFte.toFixed(2)}</TableCell>
-                      <TableCell
-                        className={cn('text-right', {
-                          'text-destructive': region.unallocatedFte > 0.1,
-                          'text-green-600': region.unallocatedFte < -0.1,
-                        })}
-                      >
-                        {/* A positive number means unallocated, negative means over-allocated */}
-                        {region.unallocatedFte.toFixed(2)}
+                      <TableCell className="text-right">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className={cn({
+                                'text-destructive': region.unallocatedFte > 0.1,
+                                'text-green-600': region.unallocatedFte < -0.1,
+                              })}
+                            >
+                              {region.unallocatedFte.toFixed(2)}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              {region.unallocatedFte > 0
+                                ? 'Potential FTE is unallocated for this region.'
+                                : 'Region is over-allocated.'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -242,13 +272,39 @@ export default function ReportingPage() {
                       <TableCell>
                         <Badge variant="outline">{employee.region}</Badge>
                       </TableCell>
-                      <TableCell
-                        className={cn('text-right font-semibold', {
-                          'text-green-600': employee.totalFte === 1,
-                          'text-destructive': employee.totalFte !== 1,
-                        })}
-                      >
-                        {employee.totalFte.toFixed(2)}
+                      <TableCell className="text-right">
+                        {employee.totalFte !== 1 ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div
+                                className={cn(
+                                  'flex items-center justify-end gap-2 font-semibold',
+                                  'text-destructive'
+                                )}
+                              >
+                                <AlertCircle className="h-4 w-4" />
+                                {employee.totalFte.toFixed(2)}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>
+                                {employee.totalFte > 1
+                                  ? 'Total FTE is over-allocated.'
+                                  : 'Total FTE is under-allocated.'}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <div
+                            className={cn(
+                              'flex items-center justify-end gap-2 font-semibold',
+                              'text-green-600'
+                            )}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            {employee.totalFte.toFixed(2)}
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

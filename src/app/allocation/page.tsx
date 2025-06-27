@@ -12,6 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { accounts, employees, allocations } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 import { Calendar, ChevronLeft, ChevronRight, CheckCircle, AlertCircle } from 'lucide-react';
@@ -102,13 +107,38 @@ export default function AllocationPage() {
                       );
                     })}
                     <TableCell className="text-right">
-                      <div className={cn(
-                        "flex items-center justify-end gap-2 font-semibold",
-                        totalFte === 1 ? "text-green-600" : "text-destructive"
-                      )}>
-                        {totalFte === 1 ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                        {totalFte.toFixed(2)}
-                      </div>
+                      {totalFte !== 1 ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={cn(
+                                'flex items-center justify-end gap-2 font-semibold',
+                                'text-destructive'
+                              )}
+                            >
+                              <AlertCircle className="h-4 w-4" />
+                              {totalFte.toFixed(2)}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              {totalFte > 1
+                                ? 'Total FTE is over-allocated.'
+                                : 'Total FTE is under-allocated.'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <div
+                          className={cn(
+                            'flex items-center justify-end gap-2 font-semibold',
+                            'text-green-600'
+                          )}
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          {totalFte.toFixed(2)}
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
