@@ -8,6 +8,8 @@
 - Weekly FTE Allocation: Streamline weekly FTE allocation with an intuitive UI that allows entry for the current and one future week ending on Sundays, ensuring individual allocations do not exceed 1.0.
 - FTE Forecasting: Provide monthly forecasts by using the prior four reported periods to generate future projections; this tool prompts users to confirm and update their forecasts as needed.
 - Automated User Sync: Automate the weekly synchronization of active users from regional HR systems to manage user access, and automate single sign on (SSO) with Randstad.
+- Bulk Employee Upload: Enable efficient uploading of multiple employee records via a standardized CSV file format, including validation of required fields and data types.
+
 - Centralized Repository: Establish a single source of truth for all FTE-related data that can feed into IFS reporting, improving productivity analysis across GBS.
 
 ## Style Guidelines:
