@@ -76,36 +76,27 @@ export default function ForecastingPage() {
       };
       
       const monthBaseFte = fteForProjection * (1 + (i * 0.05));
-      let lastProjectedValue = 0;
+      let lastValue = 0;
 
       for (let j = 0; j < 12; j++) {
-        let value;
         if (j <= i) {
-          // This represents the "actual" or historical data (solid line).
-          value = monthBaseFte * (1 + (j * 0.02));
-        } else {
-          // This represents the projected data (dotted line).
-          const prevValue = j === (i + 1) ? lastProjectedValue : newChartData[j-1][dottedDataKey];
-          const variation = (Math.random() * 0.1) - 0.05;
-          value = prevValue * (1 + variation);
-        }
-        
-        const finalValue = parseFloat(value.toFixed(2));
-
-        // Assign data for solid line part
-        if (j <= i) {
-          newChartData[j][solidDataKey] = finalValue;
+          // This is "actual" data.
+          const value = monthBaseFte * (1 + (j * 0.02));
+          lastValue = parseFloat(value.toFixed(2));
+          newChartData[j][solidDataKey] = lastValue;
           newChartData[j][dottedDataKey] = null;
-        }
-        // Assign data for dotted line part (with one overlapping point to connect)
-        if (j >= i) { 
-          newChartData[j][dottedDataKey] = finalValue;
-          if (j > i) newChartData[j][solidDataKey] = null;
+        } else {
+          // This is projected data, based on the previous month's value.
+          const variation = (Math.random() * 0.1) - 0.05;
+          const projectedValue = lastValue * (1 + variation);
+          lastValue = parseFloat(projectedValue.toFixed(2));
+          newChartData[j][solidDataKey] = null;
+          newChartData[j][dottedDataKey] = lastValue;
         }
 
-        // Store the last "actual" value to base the projection on.
+        // Create the connecting point where solid turns to dotted.
         if (j === i) {
-          lastProjectedValue = finalValue;
+          newChartData[j][dottedDataKey] = newChartData[j][solidDataKey];
         }
       }
     }
