@@ -65,7 +65,7 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">
                 By connecting to DOMO, you can pull live employee and account data directly from your DOMO datasets, replacing the current mock data.
               </p>
-            </Content>
+            </CardContent>
             <CardFooter className="border-t pt-6">
               <Button onClick={handleDomoConnect}>
                 <LinkIcon className="mr-2 h-4 w-4" />
