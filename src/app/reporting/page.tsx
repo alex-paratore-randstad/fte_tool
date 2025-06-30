@@ -29,18 +29,18 @@ import type { ChartConfig } from '@/components/ui/chart';
 import type { Employee, Account, Allocation } from '@/types';
 
 const fteTrendData = [
-  { month: 'Jan', 'Project Alpha': 150, 'Project Bravo': 120, 'Project Charlie': 80 },
-  { month: 'Feb', 'Project Alpha': 160, 'Project Bravo': 130, 'Project Charlie': 85 },
-  { month: 'Mar', 'Project Alpha': 170, 'Project Bravo': 135, 'Project Charlie': 90 },
-  { month: 'Apr', 'Project Alpha': 165, 'Project Bravo': 140, 'Project Charlie': 95 },
-  { month: 'May', 'Project Alpha': 180, 'Project Bravo': 145, 'Project Charlie': 100 },
-  { month: 'Jun', 'Project Alpha': 185, 'Project Bravo': 150, 'Project Charlie': 105 },
+  { month: 'Jan', projectAlpha: 150, projectBravo: 120, projectCharlie: 80 },
+  { month: 'Feb', projectAlpha: 160, projectBravo: 130, projectCharlie: 85 },
+  { month: 'Mar', projectAlpha: 170, projectBravo: 135, projectCharlie: 90 },
+  { month: 'Apr', projectAlpha: 165, projectBravo: 140, projectCharlie: 95 },
+  { month: 'May', projectAlpha: 180, projectBravo: 145, projectCharlie: 100 },
+  { month: 'Jun', projectAlpha: 185, projectBravo: 150, projectCharlie: 105 },
 ];
 
 const trendChartConfig = {
-  'Project Alpha': { label: 'Project Alpha', color: 'hsl(var(--chart-1))' },
-  'Project Bravo': { label: 'Project Bravo', color: 'hsl(var(--chart-2))' },
-  'Project Charlie': { label: 'Project Charlie', color: 'hsl(var(--chart-3))' },
+  projectAlpha: { label: 'Project Alpha', color: 'hsl(var(--chart-1))' },
+  projectBravo: { label: 'Project Bravo', color: 'hsl(var(--chart-2))' },
+  projectCharlie: { label: 'Project Charlie', color: 'hsl(var(--chart-3))' },
 } satisfies ChartConfig;
 
 

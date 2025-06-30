@@ -17,24 +17,24 @@ import {
 } from '@/components/ui/chart';
 
 const chartData = [
-  { month: 'Jan', 'Project Alpha': 150, 'Project Bravo': 120, 'Project Charlie': 80 },
-  { month: 'Feb', 'Project Alpha': 160, 'Project Bravo': 130, 'Project Charlie': 85 },
-  { month: 'Mar', 'Project Alpha': 170, 'Project Bravo': 135, 'Project Charlie': 90 },
-  { month: 'Apr', 'Project Alpha': 165, 'Project Bravo': 140, 'Project Charlie': 95 },
-  { month: 'May', 'Project Alpha': 180, 'Project Bravo': 145, 'Project Charlie': 100 },
-  { month: 'Jun', 'Project Alpha': 185, 'Project Bravo': 150, 'Project Charlie': 105 },
+  { month: 'Jan', projectAlpha: 150, projectBravo: 120, projectCharlie: 80 },
+  { month: 'Feb', projectAlpha: 160, projectBravo: 130, projectCharlie: 85 },
+  { month: 'Mar', projectAlpha: 170, projectBravo: 135, projectCharlie: 90 },
+  { month: 'Apr', projectAlpha: 165, projectBravo: 140, projectCharlie: 95 },
+  { month: 'May', projectAlpha: 180, projectBravo: 145, projectCharlie: 100 },
+  { month: 'Jun', projectAlpha: 185, projectBravo: 150, projectCharlie: 105 },
 ];
 
 const chartConfig = {
-  'Project Alpha': {
+  projectAlpha: {
     label: 'Project Alpha',
     color: 'hsl(var(--chart-1))',
   },
-  'Project Bravo': {
+  projectBravo: {
     label: 'Project Bravo',
     color: 'hsl(var(--chart-2))',
   },
-  'Project Charlie': {
+  projectCharlie: {
     label: 'Project Charlie',
     color: 'hsl(var(--chart-3))',
   },
@@ -65,21 +65,21 @@ export default function FteAllocationChart() {
           />
           <Legend content={<ChartLegendContent />} />
           <Bar
-            dataKey="Project Alpha"
+            dataKey="projectAlpha"
             stackId="a"
-            fill="var(--color-Project Alpha)"
+            fill="var(--color-projectAlpha)"
             radius={[4, 4, 0, 0]}
           />
           <Bar
-            dataKey="Project Bravo"
+            dataKey="projectBravo"
             stackId="a"
-            fill="var(--color-Project Bravo)"
+            fill="var(--color-projectBravo)"
             radius={[4, 4, 0, 0]}
           />
           <Bar
-            dataKey="Project Charlie"
+            dataKey="projectCharlie"
             stackId="a"
-            fill="var(--color-Project Charlie)"
+            fill="var(--color-projectCharlie)"
             radius={[4, 4, 0, 0]}
           />
         </BarChart>
