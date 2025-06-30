@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { employees } from '@/lib/mock-data';
+import { getEmployees } from '@/services/domo';
+import type { Employee } from '@/types';
 import { PlusCircle, MoreHorizontal, ChevronDown, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -33,11 +35,42 @@ import { BulkUploadDialog } from '@/components/team/bulk-upload-dialog';
 export default function TeamPage() {
   const { currentUser, isManager } = useCurrentUser();
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getEmployees().then((data) => {
+      setEmployees(data);
+      setLoading(false);
+    });
+  }, []);
 
   // Admins see all employees, managers see their direct reports.
   const displayedEmployees = isManager
     ? employees.filter((employee) => employee.manager === currentUser.name)
     : employees;
+    
+  if (loading) {
+    return (
+       <div className="flex flex-col gap-8">
+        <PageHeader
+          title="Team Management"
+          description="View and manage all GBS personnel."
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle>All Personnel</CardTitle>
+            <CardDescription>
+              A list of all employees in the GBS organization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>Loading employees...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <>

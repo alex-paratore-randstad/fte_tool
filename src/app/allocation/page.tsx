@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +27,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { accounts, employees, allocations } from '@/lib/mock-data';
+import { getAccounts, getEmployees, getAllocations } from '@/services/domo';
+import type { Employee, Account, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { 
   Calendar as CalendarIcon, 
@@ -51,17 +52,39 @@ import { Badge } from '@/components/ui/badge';
 
 export default function AllocationPage() {
   const [weekEndingDate, setWeekEndingDate] = useState(endOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [employeeAllocations, setEmployeeAllocations] = useState(() => {
-    return employees.map(emp => {
-      const existingAlloc = allocations.find(a => a.employeeId === emp.id);
-      return existingAlloc 
-        ? JSON.parse(JSON.stringify(existingAlloc)) 
-        : { employeeId: emp.id, allocations: [] };
-    });
-  });
+  
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [baseAllocations, setBaseAllocations] = useState<Allocation[]>([]);
+  const [employeeAllocations, setEmployeeAllocations] = useState<Allocation[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const { currentUser, isManager, isAdmin } = useCurrentUser();
   const { toast } = useToast();
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const [empData, accData, allocData] = await Promise.all([
+        getEmployees(),
+        getAccounts(),
+        getAllocations(),
+      ]);
+      setEmployees(empData);
+      setAccounts(accData);
+      setBaseAllocations(allocData);
+
+      const initialAllocs = empData.map(emp => {
+        const existingAlloc = allocData.find(a => a.employeeId === emp.id);
+        return existingAlloc 
+          ? JSON.parse(JSON.stringify(existingAlloc)) 
+          : { employeeId: emp.id, allocations: [] };
+      });
+      setEmployeeAllocations(initialAllocs);
+      setLoading(false);
+    }
+    fetchData();
+  }, []);
 
   const today = new Date();
   const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
@@ -147,7 +170,7 @@ export default function AllocationPage() {
   
   const handleCopyLastWeek = () => {
     const initialAllocations = employees.map(emp => {
-      const existingAlloc = allocations.find(a => a.employeeId === emp.id);
+      const existingAlloc = baseAllocations.find(a => a.employeeId === emp.id);
       return existingAlloc 
         ? JSON.parse(JSON.stringify(existingAlloc)) 
         : { employeeId: emp.id, allocations: [] };
@@ -160,6 +183,18 @@ export default function AllocationPage() {
   };
 
   const weekEnding = format(weekEndingDate, "eeee, MMMM d, yyyy");
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-8">
+        <PageHeader
+          title="Weekly Allocation"
+          description="Enter FTE allocations for your team. Choose a view that works best for you."
+        />
+        <p>Loading allocation data...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-8">

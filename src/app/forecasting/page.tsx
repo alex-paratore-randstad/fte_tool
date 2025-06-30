@@ -19,7 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { accounts, allocations } from '@/lib/mock-data';
+import { getAccounts, getAllocations } from '@/services/domo';
+import type { Account, Allocation } from '@/types';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
@@ -45,13 +46,30 @@ const COLORS = [
 ];
 
 export default function ForecastingPage() {
-  const [selectedAccount, setSelectedAccount] = useState<string>(accounts[0]?.id || '');
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [allocations, setAllocations] = useState<Allocation[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [chartData, setChartData] = useState<any[] | null>(null);
   const [chartConfig, setChartConfig] = useState<ChartConfig | null>(null);
   const [forecastMonths, setForecastMonths] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const [accData, allocData] = await Promise.all([getAccounts(), getAllocations()]);
+      setAccounts(accData);
+      setAllocations(allocData);
+      if (accData.length > 0) {
+        setSelectedAccount(accData[0].id);
+      }
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
 
   const handleGenerateForecast = useCallback(() => {
-    if (!selectedAccount) return;
+    if (!selectedAccount || !allocations.length) return;
 
     const accountAllocations = allocations.flatMap((a) =>
       a.allocations.filter((alloc) => alloc.accountId === selectedAccount)
@@ -104,14 +122,14 @@ export default function ForecastingPage() {
     setChartData(newChartData);
     setChartConfig(newChartConfig);
     setForecastMonths(forecastsToGenerate);
-  }, [selectedAccount]);
+  }, [selectedAccount, allocations]);
   
   // Automatically generate forecast on initial load for demo purposes
   useEffect(() => {
-    if (selectedAccount) {
+    if (selectedAccount && allocations.length > 0) {
       handleGenerateForecast();
     }
-  }, [selectedAccount, handleGenerateForecast]);
+  }, [selectedAccount, allocations, handleGenerateForecast]);
 
   const selectedAccountName = accounts.find(a => a.id === selectedAccount)?.name || '';
 
@@ -129,23 +147,27 @@ export default function ForecastingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="max-w-sm">
-            <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select an account..." />
-              </SelectTrigger>
-              <SelectContent>
-                {accounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {loading ? (
+            <p>Loading accounts...</p>
+          ) : (
+            <div className="max-w-sm">
+              <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an account..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardContent>
         <CardFooter>
-          <Button onClick={handleGenerateForecast} disabled={!selectedAccount}>
+          <Button onClick={handleGenerateForecast} disabled={!selectedAccount || loading}>
             Generate Forecast
           </Button>
         </CardFooter>

@@ -1,3 +1,4 @@
+
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,12 +16,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { accounts, employees, allocations } from '@/lib/mock-data';
+import { getAccounts, getEmployees, getAllocations } from '@/services/domo';
 import { cn } from '@/lib/utils';
 import { Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
-export default function ReportingPage() {
+export default async function ReportingPage() {
+  const [accounts, employees, allocations] = await Promise.all([
+    getAccounts(),
+    getEmployees(),
+    getAllocations(),
+  ]);
+
   // Data processing for "By Account" tab
   const accountData = accounts.map((account) => {
     const accountAllocations = allocations.flatMap((a) =>

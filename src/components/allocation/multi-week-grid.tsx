@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo, Fragment, useEffect } from 'react';
 import { addWeeks, subWeeks, startOfWeek, endOfWeek, format, isBefore, isSameWeek } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -23,7 +23,8 @@ import {
 } from '@/components/ui/table';
 import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { accounts, employees, allocations as initialAllocations } from '@/lib/mock-data';
+import { getAccounts, getEmployees, getAllocations } from '@/services/domo';
+import type { Employee, Account, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 
@@ -45,35 +46,51 @@ type MultiWeekAllocationState = {
 export function MultiWeekGrid() {
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  const [allocations, setAllocations] = useState<MultiWeekAllocationState>(() => {
-    const transformed: MultiWeekAllocationState = {};
-    
-    employees.forEach(emp => {
-      transformed[emp.id] = { allocations: [] };
-    });
+  const [allocations, setAllocations] = useState<MultiWeekAllocationState>({});
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    initialAllocations.forEach(empAlloc => {
-      const weekKey = formatDateKey(new Date());
-      if (transformed[empAlloc.employeeId]) {
-        const employeeGridAllocs = empAlloc.allocations.map((accAlloc, index) => ({
-          id: `${empAlloc.employeeId}-${accAlloc.accountId}-${Date.now()}-${index}`, // More unique id
-          accountId: accAlloc.accountId,
-          weeklyFtes: {
-            [weekKey]: accAlloc.fte,
-          },
-        }));
-        transformed[empAlloc.employeeId].allocations.push(...employeeGridAllocs);
-      }
-    });
-    
-    return transformed;
-  });
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const [empData, accData, initialAllocations] = await Promise.all([
+        getEmployees(),
+        getAccounts(),
+        getAllocations(),
+      ]);
+      setEmployees(empData);
+      setAccounts(accData);
+
+      const transformed: MultiWeekAllocationState = {};
+      empData.forEach(emp => {
+        transformed[emp.id] = { allocations: [] };
+      });
+
+      initialAllocations.forEach(empAlloc => {
+        const weekKey = formatDateKey(new Date());
+        if (transformed[empAlloc.employeeId]) {
+          const employeeGridAllocs = empAlloc.allocations.map((accAlloc, index) => ({
+            id: `${empAlloc.employeeId}-${accAlloc.accountId}-${Date.now()}-${index}`, // More unique id
+            accountId: accAlloc.accountId,
+            weeklyFtes: {
+              [weekKey]: accAlloc.fte,
+            },
+          }));
+          transformed[empAlloc.employeeId].allocations.push(...employeeGridAllocs);
+        }
+      });
+      setAllocations(transformed);
+      setLoading(false);
+    }
+    fetchData();
+  }, []);
 
   const { currentUser, isManager, isAdmin } = useCurrentUser();
 
   const displayedEmployees = useMemo(() => (isManager
     ? employees.filter((employee) => employee.manager === currentUser.name)
-    : employees), [isManager, currentUser.name]);
+    : employees), [isManager, currentUser?.name, employees]);
 
   const weeks = useMemo(() => {
     const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -132,6 +149,19 @@ export function MultiWeekGrid() {
   const today = new Date();
   const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
 
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Multi-Week Allocation Grid</CardTitle>
+          <CardDescription>Allocate FTEs across multiple weeks. Past weeks are locked for non-admins.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>Loading grid data...</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>
