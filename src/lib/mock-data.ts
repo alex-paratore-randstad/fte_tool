@@ -1,6 +1,14 @@
 import type { Employee, Account, Allocation, Activity } from '@/types';
 
 export const employees: Employee[] = [
+  // Leadership
+  { id: 'vp-1', name: 'Caroline Reynolds', title: 'Vice President, GBS', region: 'NAM', manager: 'N/A', team: 'Leadership' },
+  { id: 'mgr-1', name: 'Sawyer Ames', title: 'Manager, Core Platform', region: 'NAM', manager: 'Caroline Reynolds', team: 'Core Platform' },
+  { id: 'mgr-2', name: 'Cheryl MacMillan', title: 'Manager, Client Integrations', region: 'EMEA', manager: 'Caroline Reynolds', team: 'Client Integrations' },
+  { id: 'mgr-3', name: 'John Slocum', title: 'Manager, Analytics', region: 'HYD', manager: 'Caroline Reynolds', team: 'Analytics' },
+  { id: 'mgr-4', name: 'Heisenberg', title: 'Manager, Special Projects', region: 'Central', manager: 'Caroline Reynolds', team: 'Special Projects' },
+  { id: 'admin-01', name: 'Super Admin', title: 'System Administrator', region: 'Central', manager: 'N/A', team: 'System' },
+
   // Sawyer Ames' Team: Core Platform
   { id: '1', name: 'Alisha Collier', title: 'Software Engineer', region: 'NAM', manager: 'Sawyer Ames', team: 'Core Platform' },
   { id: '4', name: 'Dana Scully', title: 'UX Designer', region: 'NAM', manager: 'Sawyer Ames', team: 'Core Platform' },
@@ -17,9 +25,8 @@ export const employees: Employee[] = [
   { id: '3', name: 'Chadwick Dorsey', title: 'Data Scientist', region: 'HYD', manager: 'John Slocum', team: 'Analytics' },
   { id: '10', name: 'Mike Ehrmantraut', title: 'Data Engineer', region: 'HYD', manager: 'John Slocum', team: 'Analytics' },
   { id: '11', name: 'Nacho Varga', title: 'BI Developer', region: 'HYD', manager: 'John Slocum', team: 'Analytics' },
-
-  // Unassigned or different manager
   { id: '12', name: 'Walter White', title: 'Chemistry Consultant', region: 'Central', manager: 'Heisenberg', team: 'Special Projects' },
+
 
   // New employees
   { id: '13', name: 'Jesse Pinkman', title: 'Associate Engineer', region: 'NAM', manager: 'Sawyer Ames', team: 'Core Platform' },

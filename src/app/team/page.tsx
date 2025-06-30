@@ -33,7 +33,7 @@ import {
 import { BulkUploadDialog } from '@/components/team/bulk-upload-dialog';
 
 export default function TeamPage() {
-  const { currentUser, isManager } = useCurrentUser();
+  const { currentUser, isManager, isVp } = useCurrentUser();
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,9 +45,18 @@ export default function TeamPage() {
     });
   }, []);
 
-  // Admins see all employees, managers see their direct reports.
+  // Admins see all, VPs see their managers' teams, managers see direct reports.
   const displayedEmployees = isManager
     ? employees.filter((employee) => employee.manager === currentUser.name)
+    : isVp
+    ? (() => {
+        const managersUnderVp = employees
+          .filter((e) => e.manager === currentUser.name)
+          .map((m) => m.name);
+        return employees.filter(
+          (e) => e.manager === currentUser.name || managersUnderVp.includes(e.manager)
+        );
+      })()
     : employees;
     
   if (loading) {
@@ -72,16 +81,24 @@ export default function TeamPage() {
     )
   }
 
+  const getPageTitle = () => {
+    if (isManager) return 'My Team';
+    if (isVp) return 'My Organization';
+    return 'All Personnel'
+  }
+
+  const getPageDescription = () => {
+    if (isManager) return 'View and manage your direct reports.';
+    if (isVp) return "View your direct reports and their teams.";
+    return 'View and manage all GBS personnel.'
+  }
+
   return (
     <>
       <div className="flex flex-col gap-8">
         <PageHeader
           title="Team Management"
-          description={
-            isManager
-              ? 'View and manage your direct reports.'
-              : 'View and manage all GBS personnel.'
-          }
+          description={getPageDescription()}
           actions={
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -105,11 +122,9 @@ export default function TeamPage() {
         />
         <Card>
           <CardHeader>
-            <CardTitle>{isManager ? 'My Team' : 'All Personnel'}</CardTitle>
+            <CardTitle>{getPageTitle()}</CardTitle>
             <CardDescription>
-              {isManager
-                ? 'A list of your direct reports.'
-                : 'A list of all employees in the GBS organization.'}
+              {getPageDescription()}
             </CardDescription>
           </CardHeader>
           <CardContent>

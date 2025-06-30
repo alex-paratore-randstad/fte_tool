@@ -4,46 +4,44 @@ import { employees } from '@/lib/mock-data';
 import type { Employee } from '@/types';
 
 export type CurrentUser = Employee & {
-  role: 'manager' | 'admin';
+  role: 'manager' | 'admin' | 'vp';
 };
 
 export function useCurrentUser() {
-  // For this prototype, we'll hardcode the current user name.
-  // In a real application, this would come from an authentication context.
-  const currentUserName = 'Sawyer Ames';
+  // To demonstrate different roles, change this name:
+  // 'Sawyer Ames' (Manager)
+  // 'Caroline Reynolds' (Vice President)
+  // 'Super Admin' (Administrator)
+  const currentUserName = 'Caroline Reynolds';
 
-  // We can define an admin user for testing different roles.
-  const adminUser: CurrentUser = {
-      id: 'admin-01',
-      name: 'Super Admin',
-      title: 'System Administrator',
-      region: 'Central',
-      manager: 'N/A',
-      team: 'System',
-      role: 'admin',
-  };
+  const loggedInEmployee = employees.find(e => e.name === currentUserName);
 
-  // Find the manager from the employees list.
-  const managerEmployee = employees.find(e => e.name === currentUserName);
+  let role: 'manager' | 'admin' | 'vp' = 'manager'; // Default role
 
-  // If the manager isn't found, we can create a placeholder to avoid crashing.
-  const managerUser: CurrentUser = managerEmployee 
-      ? { ...managerEmployee, role: 'manager' }
+  if (loggedInEmployee) {
+      if (loggedInEmployee.title.includes('Administrator')) {
+          role = 'admin';
+      } else if (loggedInEmployee.title.includes('Vice President')) {
+          role = 'vp';
+      } else if (loggedInEmployee.title.includes('Manager')) {
+          role = 'manager';
+      }
+  }
+
+  const currentUser: CurrentUser = loggedInEmployee 
+      ? { ...loggedInEmployee, role }
       : { 
-          id: 'placeholder-manager', 
+          id: 'placeholder-user', 
           name: 'Loading...', 
           title: '', region: 'NAM', 
           manager: '', 
           team: '', 
           role: 'manager' 
-        };
-
-  // To demonstrate the manager view, we return the manager user.
-  // To show the admin view, change this line to: `const currentUser: CurrentUser = adminUser;`
-  const currentUser: CurrentUser = adminUser;
+      };
 
   const isAdmin = currentUser.role === 'admin';
-  const isManager = !isAdmin;
+  const isVp = currentUser.role === 'vp';
+  const isManager = currentUser.role === 'manager';
 
-  return { currentUser, isAdmin, isManager };
+  return { currentUser, isAdmin, isVp, isManager };
 }

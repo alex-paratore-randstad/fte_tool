@@ -59,7 +59,7 @@ export default function AllocationPage() {
   const [employeeAllocations, setEmployeeAllocations] = useState<Allocation[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { currentUser, isManager, isAdmin } = useCurrentUser();
+  const { currentUser, isManager, isAdmin, isVp } = useCurrentUser();
   const { toast } = useToast();
   
   useEffect(() => {
@@ -94,9 +94,21 @@ export default function AllocationPage() {
 
   const displayedEmployees = isManager
     ? employees.filter((employee) => employee.manager === currentUser.name)
-    : employees;
+    : isVp
+    ? (() => {
+        const managersUnderVp = employees
+          .filter(e => e.manager === currentUser.name)
+          .map(m => m.name);
+        // VPs see the employees of the managers who report to them.
+        return employees.filter((e) => managersUnderVp.includes(e.manager));
+      })()
+    : employees; // Admins see all
 
-  const cardTitle = isManager && displayedEmployees.length > 0 ? `${displayedEmployees[0].team} Team` : 'All Teams';
+  const getCardTitle = () => {
+    if (isManager) return `${currentUser.team} Team`;
+    if (isVp) return `My Organization's Teams`;
+    return 'All Teams';
+  }
 
   const getEmployeeAllocation = (employeeId: string) => {
     return employeeAllocations.find((a) => a.employeeId === employeeId) || { employeeId, allocations: [] };
@@ -272,7 +284,7 @@ export default function AllocationPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>{cardTitle}</CardTitle>
+                <CardTitle>{getCardTitle()}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>

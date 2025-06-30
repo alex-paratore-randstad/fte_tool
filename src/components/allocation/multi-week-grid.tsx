@@ -51,6 +51,8 @@ export function MultiWeekGrid() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const { currentUser, isManager, isAdmin, isVp } = useCurrentUser();
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -86,11 +88,18 @@ export function MultiWeekGrid() {
     fetchData();
   }, []);
 
-  const { currentUser, isManager, isAdmin } = useCurrentUser();
-
-  const displayedEmployees = useMemo(() => (isManager
-    ? employees.filter((employee) => employee.manager === currentUser.name)
-    : employees), [isManager, currentUser?.name, employees]);
+  const displayedEmployees = useMemo(() => {
+    if (isManager) {
+        return employees.filter((employee) => employee.manager === currentUser.name);
+    }
+    if (isVp) {
+        const managersUnderVp = employees
+          .filter(e => e.manager === currentUser.name)
+          .map(m => m.name);
+        return employees.filter(e => managersUnderVp.includes(e.manager));
+    }
+    return employees; // Admins and default
+  }, [isManager, isVp, currentUser?.name, employees]);
 
   const weeks = useMemo(() => {
     const start = startOfWeek(currentDate, { weekStartsOn: 1 });
