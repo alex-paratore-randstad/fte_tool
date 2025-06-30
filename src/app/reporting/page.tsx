@@ -1,4 +1,7 @@
 
+'use client';
+
+import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import type { Employee, Account, Allocation } from '@/types';
 
 const fteTrendData = [
   { month: 'Jan', 'Project Alpha': 150, 'Project Bravo': 120, 'Project Charlie': 80 },
@@ -40,12 +44,27 @@ const trendChartConfig = {
 } satisfies ChartConfig;
 
 
-export default async function ReportingPage() {
-  const [accounts, employees, allocations] = await Promise.all([
-    getAccounts(),
-    getEmployees(),
-    getAllocations(),
-  ]);
+export default function ReportingPage() {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [allocations, setAllocations] = useState<Allocation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const [accData, empData, allocData] = await Promise.all([
+        getAccounts(),
+        getEmployees(),
+        getAllocations(),
+      ]);
+      setAccounts(accData);
+      setEmployees(empData);
+      setAllocations(allocData);
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
 
   // Data processing for "By Account" tab
   const accountData = accounts.map((account) => {
@@ -119,6 +138,25 @@ export default async function ReportingPage() {
       totalFte: totalFte,
     };
   });
+  
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-8">
+        <PageHeader
+          title="FTE Reports"
+          description="Analyze FTE utilization across different dimensions."
+        />
+        <Card>
+            <CardHeader>
+                <CardTitle>Loading Reports</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p>Please wait while we fetch the latest data...</p>
+            </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8">
