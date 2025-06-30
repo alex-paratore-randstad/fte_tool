@@ -24,6 +24,7 @@ import type { Account, Allocation } from '@/types';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import { Download } from 'lucide-react';
 
 const ALL_MONTHS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -70,24 +71,24 @@ export default function ForecastingPage() {
 
   const handleGenerateForecast = useCallback(() => {
     if (!selectedAccount || !allocations.length) return;
-
+  
     const accountAllocations = allocations.flatMap((a) =>
       a.allocations.filter((alloc) => alloc.accountId === selectedAccount)
     );
     const baseFte = accountAllocations.reduce((sum, alloc) => sum + alloc.fte, 0);
     const fteForProjection = baseFte > 0 ? baseFte : 10;
-
+  
     const newChartData = ALL_MONTHS.map(m => ({ month: m }));
     const newChartConfig: ChartConfig = {};
     
     // Generate 5 forecast lines, one for each month from Jan to May.
-    const forecastsToGenerate = 5; 
-
+    const forecastsToGenerate = 5;
+  
     for (let i = 0; i < forecastsToGenerate; i++) {
       const forecastLabel = `Forecast from ${ALL_MONTHS[i]}`;
       const solidDataKey = `solid-${i}`;
       const dottedDataKey = `dotted-${i}`;
-
+  
       newChartConfig[solidDataKey] = {
         label: forecastLabel,
         color: COLORS[i],
@@ -95,7 +96,7 @@ export default function ForecastingPage() {
       
       const monthBaseFte = fteForProjection * (1 + (i * 0.05));
       let lastValue = 0;
-
+  
       for (let j = 0; j < 12; j++) {
         if (j <= i) {
           // This is "actual" data.
@@ -111,7 +112,7 @@ export default function ForecastingPage() {
           newChartData[j][solidDataKey] = null;
           newChartData[j][dottedDataKey] = lastValue;
         }
-
+  
         // Create the connecting point where solid turns to dotted.
         if (j === i) {
           newChartData[j][dottedDataKey] = newChartData[j][solidDataKey];
@@ -130,6 +131,42 @@ export default function ForecastingPage() {
       handleGenerateForecast();
     }
   }, [selectedAccount, allocations, handleGenerateForecast]);
+
+  const handleExport = () => {
+    if (!chartData || !chartConfig) return;
+
+    // 1. Get headers from chartConfig
+    const headers = ['Month'];
+    const forecastLabels = Object.values(chartConfig).map(config => config.label as string);
+    headers.push(...forecastLabels);
+
+    // 2. Build CSV rows
+    const rows = chartData.map(dataPoint => {
+        const row = [dataPoint.month];
+        for (let i = 0; i < forecastLabels.length; i++) {
+            const solidKey = `solid-${i}`;
+            const dottedKey = `dotted-${i}`;
+            const value = dataPoint[solidKey] ?? dataPoint[dottedKey] ?? '';
+            row.push(value);
+        }
+        return row.join(',');
+    });
+
+    // 3. Combine headers and rows
+    const csvContent = [headers.join(','), ...rows].join('\n');
+
+    // 4. Trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8,' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const accountName = accounts.find(a => a.id === selectedAccount)?.name || 'forecast';
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${accountName.replace(/\s+/g, '_')}_forecast.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const selectedAccountName = accounts.find(a => a.id === selectedAccount)?.name || '';
 
@@ -235,8 +272,12 @@ export default function ForecastingPage() {
               </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">This is a system-generated forecast. To improve accuracy for future projections, ensure weekly allocations are always up-to-date.</p>
+            <Button onClick={handleExport} disabled={!chartData} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Export Forecast
+            </Button>
           </CardFooter>
         </Card>
       )}

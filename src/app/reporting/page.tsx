@@ -1,7 +1,7 @@
 
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -20,6 +20,25 @@ import { getAccounts, getEmployees, getAllocations } from '@/services/domo';
 import { cn } from '@/lib/utils';
 import { Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
+import type { ChartConfig } from '@/components/ui/chart';
+
+const fteTrendData = [
+  { month: 'Jan', 'Project Alpha': 150, 'Project Bravo': 120, 'Project Charlie': 80 },
+  { month: 'Feb', 'Project Alpha': 160, 'Project Bravo': 130, 'Project Charlie': 85 },
+  { month: 'Mar', 'Project Alpha': 170, 'Project Bravo': 135, 'Project Charlie': 90 },
+  { month: 'Apr', 'Project Alpha': 165, 'Project Bravo': 140, 'Project Charlie': 95 },
+  { month: 'May', 'Project Alpha': 180, 'Project Bravo': 145, 'Project Charlie': 100 },
+  { month: 'Jun', 'Project Alpha': 185, 'Project Bravo': 150, 'Project Charlie': 105 },
+];
+
+const trendChartConfig = {
+  'Project Alpha': { label: 'Project Alpha', color: 'hsl(var(--chart-1))' },
+  'Project Bravo': { label: 'Project Bravo', color: 'hsl(var(--chart-2))' },
+  'Project Charlie': { label: 'Project Charlie', color: 'hsl(var(--chart-3))' },
+} satisfies ChartConfig;
+
 
 export default async function ReportingPage() {
   const [accounts, employees, allocations] = await Promise.all([
@@ -115,11 +134,12 @@ export default async function ReportingPage() {
       />
 
       <Tabs defaultValue="account">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
           <TabsTrigger value="account">By Account</TabsTrigger>
           <TabsTrigger value="leader">By Leader</TabsTrigger>
           <TabsTrigger value="region">By Region</TabsTrigger>
           <TabsTrigger value="individual">By Individual</TabsTrigger>
+          <TabsTrigger value="trends">Trends</TabsTrigger>
         </TabsList>
 
         <TabsContent value="account" className="mt-4">
@@ -317,6 +337,52 @@ export default async function ReportingPage() {
                   ))}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="trends" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>FTE Trends by Account</CardTitle>
+              <CardDescription>Monthly FTE allocation trends for top accounts.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={trendChartConfig} className="h-[400px] w-full">
+                <ResponsiveContainer>
+                  <LineChart data={fteTrendData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+                    <XAxis
+                      dataKey="month"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `${value}`}
+                    />
+                    <RechartsTooltip
+                      cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '3 3' }}
+                      content={<ChartTooltipContent />}
+                    />
+                    <Legend content={<ChartLegendContent />} />
+                    {Object.keys(trendChartConfig).map((key) => (
+                      <Line
+                        key={key}
+                        dataKey={key}
+                        type="monotone"
+                        stroke={`var(--color-${key})`}
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             </CardContent>
           </Card>
         </TabsContent>
