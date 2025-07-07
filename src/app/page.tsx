@@ -1,6 +1,8 @@
+'use client';
+
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign, Users, Briefcase, AlertTriangle } from 'lucide-react';
+import { Users, Briefcase, AlertTriangle } from 'lucide-react';
 import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import RecentActivityTable from '@/components/dashboard/recent-activity-table';
 import SummaryCard from '@/components/dashboard/summary-card';

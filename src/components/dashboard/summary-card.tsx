@@ -1,13 +1,30 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
-import type { LucideIcon } from 'lucide-react';
+'use client';
 
-type SummaryCardProps = {
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { LucideIcon } from 'lucide-react';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
+
+const changeTextVariants = cva(
+  'text-xs',
+  {
+    variants: {
+      variant: {
+        default: 'text-muted-foreground',
+        destructive: 'text-destructive',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+    },
+  }
+);
+
+export interface SummaryCardProps extends VariantProps<typeof changeTextVariants> {
   title: string;
   value: string;
   icon: LucideIcon;
   change?: string;
-  variant?: 'default' | 'destructive';
 };
 
 export default function SummaryCard({
@@ -15,7 +32,7 @@ export default function SummaryCard({
   value,
   icon: Icon,
   change,
-  variant = 'default',
+  variant,
 }: SummaryCardProps) {
   return (
     <Card>
@@ -26,12 +43,7 @@ export default function SummaryCard({
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
         {change && (
-          <p
-            className={cn(
-              'text-xs text-muted-foreground',
-              variant === 'destructive' && 'text-destructive'
-            )}
-          >
+          <p className={cn(changeTextVariants({ variant }))}>
             {change}
           </p>
         )}
