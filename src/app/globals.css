@@ -27,11 +27,11 @@ body {
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 217 65% 50%;
-    --chart-1: 217 65% 40%;
-    --chart-2: 71 93% 42%;
-    --chart-3: 183 100% 25%;
-    --chart-4: 217 65% 82%;
-    --chart-5: 182 100% 40%;
+    --chart-1: 217 65% 40%; /* primary */
+    --chart-2: 71 93% 42%; /* accent */
+    --chart-3: 195 85% 35%; /* cyan */
+    --chart-4: 45 90% 50%; /* gold */
+    --chart-5: 345 80% 55%; /* pink */
     --radius: 0.5rem;
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
@@ -64,9 +64,9 @@ body {
     --ring: 215 20% 65%;
     --chart-1: 217 65% 50%;
     --chart-2: 71 85% 52%;
-    --chart-3: 183 90% 35%;
-    --chart-4: 217 65% 72%;
-    --chart-5: 182 90% 50%;
+    --chart-3: 195 85% 45%;
+    --chart-4: 45 90% 60%;
+    --chart-5: 345 80% 65%;
     --sidebar-background: 222 47% 11%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 210 40% 98%;

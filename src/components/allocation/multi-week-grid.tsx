@@ -27,6 +27,7 @@ import { getAccounts, getEmployees, getAllocations } from '@/services/domo';
 import type { Employee, Account, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 // Helper to format date as a consistent key
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -52,6 +53,7 @@ export function MultiWeekGrid() {
   const [loading, setLoading] = useState(true);
 
   const { currentUser, isManager, isAdmin, isVp } = useCurrentUser();
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -155,6 +157,13 @@ export function MultiWeekGrid() {
     });
   };
 
+  const handleSave = () => {
+    toast({
+      title: 'Allocations Saved',
+      description: 'Your changes have been saved successfully.',
+    });
+  };
+
   const today = new Date();
   const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
 
@@ -186,7 +195,7 @@ export function MultiWeekGrid() {
               {format(weeks[0], 'MMM d')} - {format(endOfWeek(weeks[3], { weekStartsOn: 1 }), 'MMM d, yyyy')}
             </span>
             <Button variant="outline" size="icon" onClick={handleNextWeeks}><ChevronRight className="h-4 w-4" /></Button>
-            <Button>Save All</Button>
+            <Button onClick={handleSave}>Save All</Button>
           </div>
         </div>
       </CardHeader>

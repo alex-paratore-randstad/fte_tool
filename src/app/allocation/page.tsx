@@ -194,6 +194,14 @@ export default function AllocationPage() {
     });
   };
 
+  const handleSave = () => {
+    // In a real app, this would be an API call.
+    toast({
+      title: 'Allocations Saved',
+      description: 'Your changes have been saved successfully.',
+    });
+  };
+
   const weekEnding = format(weekEndingDate, "eeee, MMMM d, yyyy");
 
   if (loading) {
@@ -277,7 +285,7 @@ export default function AllocationPage() {
                             <Copy className="mr-2 h-4 w-4" />
                             Copy Last Week
                         </Button>
-                        <Button disabled={isLocked}>Save Allocations</Button>
+                        <Button disabled={isLocked} onClick={handleSave}>Save Allocations</Button>
                     </div>
                 </div>
             </div>
