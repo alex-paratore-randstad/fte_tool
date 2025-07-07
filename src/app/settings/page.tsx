@@ -58,7 +58,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>DOMO Integration</CardTitle>
               <CardDescription>
-                Connect your FTE Vision app to your DOMO environment to sync data and enable integrated features.
+                Connect your Randstad FTE app to your DOMO environment to sync data and enable integrated features.
               </CardDescription>
             </CardHeader>
             <CardContent>

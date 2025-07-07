@@ -4,7 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import AppShell from '@/components/layout/app-shell';
 
 export const metadata: Metadata = {
-  title: 'FTE Vision',
+  title: 'Randstad FTE',
   description: 'FTE Allocation Tracking Tool',
   icons: {
     icon: '/favicon.ico',
