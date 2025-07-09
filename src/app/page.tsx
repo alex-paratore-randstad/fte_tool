@@ -4,7 +4,6 @@ import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Briefcase, AlertTriangle } from 'lucide-react';
 import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
-import RecentActivityTable from '@/components/dashboard/recent-activity-table';
 import SummaryCard from '@/components/dashboard/summary-card';
 
 export default function DashboardPage() {
@@ -40,22 +39,13 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
+      <div className="grid grid-cols-1 gap-8">
+        <Card>
           <CardHeader>
             <CardTitle>FTE Allocation by Account</CardTitle>
           </CardHeader>
           <CardContent>
             <FteAllocationChart />
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RecentActivityTable />
           </CardContent>
         </Card>
       </div>
