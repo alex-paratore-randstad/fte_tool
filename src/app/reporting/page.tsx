@@ -23,7 +23,7 @@ import { getAccounts, getEmployees, getAllocations } from '@/services/domo';
 import { cn } from '@/lib/utils';
 import { Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
 import type { Employee, Account, Allocation } from '@/types';
@@ -388,7 +388,7 @@ export default function ReportingPage() {
             <CardContent>
               <ChartContainer config={trendChartConfig} className="h-[400px] w-full">
                 <ResponsiveContainer>
-                  <LineChart data={fteTrendData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+                  <BarChart data={fteTrendData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
                     <XAxis
                       dataKey="month"
                       stroke="hsl(var(--muted-foreground))"
@@ -404,21 +404,20 @@ export default function ReportingPage() {
                       tickFormatter={(value) => `${value}`}
                     />
                     <RechartsTooltip
-                      cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '3 3' }}
+                      cursor={{ fill: 'hsl(var(--secondary))' }}
                       content={<ChartTooltipContent />}
                     />
                     <Legend content={<ChartLegendContent />} />
                     {Object.keys(trendChartConfig).map((key) => (
-                      <Line
+                      <Bar
                         key={key}
                         dataKey={key}
-                        type="monotone"
-                        stroke={`var(--color-${key})`}
-                        strokeWidth={2}
-                        dot={false}
+                        stackId="a"
+                        fill={`var(--color-${key})`}
+                        radius={[4, 4, 0, 0]}
                       />
                     ))}
-                  </LineChart>
+                  </BarChart>
                 </ResponsiveContainer>
               </ChartContainer>
             </CardContent>
