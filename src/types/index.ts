@@ -3,7 +3,7 @@ export type Employee = {
   name: string;
   title: string;
   region: 'HYD' | 'EMEA' | 'NAM' | 'Central';
-  manager: string;
+  manager: string; // Represents the current manager
   team: string;
 };
 
@@ -14,6 +14,9 @@ export type Account = {
 
 export type Allocation = {
   employeeId: string;
+  // This manager field will allow us to track who the manager was for a given allocation period.
+  // This is key to ensuring historical data integrity when manager assignments change.
+  manager: string; 
   allocations: { accountId: string; fte: number }[];
 };
 

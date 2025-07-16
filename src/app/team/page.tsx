@@ -46,6 +46,7 @@ export default function TeamPage() {
   }, []);
 
   // Admins see all, VPs see their managers' teams, managers see direct reports.
+  // This view always shows the *current* manager from the employee record.
   const displayedEmployees = isManager
     ? employees.filter((employee) => employee.manager === currentUser.name)
     : isVp
@@ -124,7 +125,7 @@ export default function TeamPage() {
           <CardHeader>
             <CardTitle>{getPageTitle()}</CardTitle>
             <CardDescription>
-              {getPageDescription()}
+              This page reflects the current organizational structure. Manager changes made here will apply to the current and future weeks.
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -48,38 +48,40 @@ export const accounts: Account[] = [
   { id: 'acc-4', name: 'Internal R&D' },
 ];
 
+// Note: The 'manager' field in allocations now represents the manager for that specific allocation period.
+// The 'manager' in the 'employees' array represents the CURRENT manager.
 export const allocations: Allocation[] = [
   // Sawyer Ames' Team
-  { employeeId: '1', allocations: [{ accountId: 'acc-1', fte: 0.5 }, { accountId: 'acc-4', fte: 0.5 }] },
-  { employeeId: '4', allocations: [{ accountId: 'acc-2', fte: 1.0 }] },
-  { employeeId: '6', allocations: [{ accountId: 'acc-1', fte: 0.8 }, { accountId: 'acc-4', fte: 0.2 }] },
-  { employeeId: '7', allocations: [{ accountId: 'acc-1', fte: 0.9 }] }, // Under-allocated
+  { employeeId: '1', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-1', fte: 0.5 }, { accountId: 'acc-4', fte: 0.5 }] },
+  { employeeId: '4', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-2', fte: 1.0 }] },
+  { employeeId: '6', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-1', fte: 0.8 }, { accountId: 'acc-4', fte: 0.2 }] },
+  { employeeId: '7', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-1', fte: 0.9 }] }, // Under-allocated
 
   // Cheryl MacMillan's Team
-  { employeeId: '2', allocations: [{ accountId: 'acc-1', fte: 1.0 }] },
-  { employeeId: '5', allocations: [{ accountId: 'acc-3', fte: 0.75 }, { accountId: 'acc-4', fte: 0.25 }] },
-  { employeeId: '8', allocations: [{ accountId: 'acc-2', fte: 0.5 }, { accountId: 'acc-3', fte: 0.5 }] },
-  { employeeId: '9', allocations: [{ accountId: 'acc-2', fte: 1.2 }] }, // Over-allocated
+  { employeeId: '2', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-1', fte: 1.0 }] },
+  { employeeId: '5', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-3', fte: 0.75 }, { accountId: 'acc-4', fte: 0.25 }] },
+  { employeeId: '8', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-2', fte: 0.5 }, { accountId: 'acc-3', fte: 0.5 }] },
+  { employeeId: '9', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-2', fte: 1.2 }] }, // Over-allocated
 
   // John Slocum's Team
-  { employeeId: '3', allocations: [{ accountId: 'acc-2', fte: 0.8 }, { accountId: 'acc-3', fte: 0.2 }] },
-  { employeeId: '10', allocations: [{ accountId: 'acc-1', fte: 0.4 }, { accountId: 'acc-2', fte: 0.6 }] },
-  { employeeId: '11', allocations: [{ accountId: 'acc-3', fte: 1.0 }] },
+  { employeeId: '3', manager: 'John Slocum', allocations: [{ accountId: 'acc-2', fte: 0.8 }, { accountId: 'acc-3', fte: 0.2 }] },
+  { employeeId: '10', manager: 'John Slocum', allocations: [{ accountId: 'acc-1', fte: 0.4 }, { accountId: 'acc-2', fte: 0.6 }] },
+  { employeeId: '11', manager: 'John Slocum', allocations: [{ accountId: 'acc-3', fte: 1.0 }] },
 
   // Other
-  { employeeId: '12', allocations: [] }, // No allocation
+  { employeeId: '12', manager: 'Heisenberg', allocations: [] }, // No allocation
 
   // New employee allocations
-  { employeeId: '13', allocations: [{ accountId: 'acc-1', fte: 1.0 }] },
-  { employeeId: '14', allocations: [{ accountId: 'acc-2', fte: 1.0 }] },
-  { employeeId: '15', allocations: [{ accountId: 'acc-4', fte: 0.5 }, { accountId: 'acc-1', fte: 0.5 }] },
-  { employeeId: '16', allocations: [{ accountId: 'acc-2', fte: 0.8 }] }, // Under-allocated
-  { employeeId: '17', allocations: [{ accountId: 'acc-3', fte: 1.0 }] },
-  { employeeId: '18', allocations: [{ accountId: 'acc-1', fte: 0.2 }, { accountId: 'acc-2', fte: 0.8 }] },
-  { employeeId: '19', allocations: [{ accountId: 'acc-4', fte: 1.0 }] },
-  { employeeId: '20', allocations: [] }, // No allocation
-  { employeeId: '21', allocations: [{ accountId: 'acc-4', fte: 1.0 }] },
-  { employeeId: '22', allocations: [{ accountId: 'acc-1', fte: 1.1 }] } // Over-allocated
+  { employeeId: '13', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-1', fte: 1.0 }] },
+  { employeeId: '14', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-2', fte: 1.0 }] },
+  { employeeId: '15', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-4', fte: 0.5 }, { accountId: 'acc-1', fte: 0.5 }] },
+  { employeeId: '16', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-2', fte: 0.8 }] }, // Under-allocated
+  { employeeId: '17', manager: 'John Slocum', allocations: [{ accountId: 'acc-3', fte: 1.0 }] },
+  { employeeId: '18', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-1', fte: 0.2 }, { accountId: 'acc-2', fte: 0.8 }] },
+  { employeeId: '19', manager: 'Heisenberg', allocations: [{ accountId: 'acc-4', fte: 1.0 }] },
+  { employeeId: '20', manager: 'Heisenberg', allocations: [] }, // No allocation
+  { employeeId: '21', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-4', fte: 1.0 }] },
+  { employeeId: '22', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-1', fte: 1.1 }] } // Over-allocated
 ];
 
 

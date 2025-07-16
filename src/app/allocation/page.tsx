@@ -62,6 +62,12 @@ export default function AllocationPage() {
   const { currentUser, isManager, isAdmin, isVp } = useCurrentUser();
   const { toast } = useToast();
   
+  const today = new Date();
+  const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
+  const isPastWeek = isBefore(weekEndingDate, startOfCurrentWeek);
+  const isCurrentWeek = isSameWeek(weekEndingDate, today, { weekStartsOn: 1 });
+  const isLocked = isPastWeek && !isAdmin; // Past weeks are locked for non-admins
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -74,35 +80,59 @@ export default function AllocationPage() {
       setAccounts(accData);
       setBaseAllocations(allocData);
 
+      // Initialize allocations for the selected week
       const initialAllocs = empData.map(emp => {
+        const managerForWeek = isPastWeek
+          ? allocData.find(a => a.employeeId === emp.id)?.manager || emp.manager // Historical manager
+          : emp.manager; // Current manager
+
         const existingAlloc = allocData.find(a => a.employeeId === emp.id);
-        return existingAlloc 
-          ? JSON.parse(JSON.stringify(existingAlloc)) 
-          : { employeeId: emp.id, allocations: [] };
+        
+        return {
+          employeeId: emp.id,
+          manager: managerForWeek,
+          allocations: existingAlloc ? JSON.parse(JSON.stringify(existingAlloc.allocations)) : []
+        };
       });
       setEmployeeAllocations(initialAllocs);
       setLoading(false);
     }
     fetchData();
-  }, []);
+  }, [isPastWeek]);
 
-  const today = new Date();
-  const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
-  const isPastWeek = isBefore(weekEndingDate, startOfCurrentWeek);
-  const isCurrentWeek = isSameWeek(weekEndingDate, today, { weekStartsOn: 1 });
-  const isLocked = isPastWeek && !isAdmin; // Past weeks are locked for non-admins
+  // When week changes, re-evaluate managers for display
+  useEffect(() => {
+    setEmployeeAllocations(currentAllocs => {
+      return currentAllocs.map(alloc => {
+        const emp = employees.find(e => e.id === alloc.employeeId);
+        if (!emp) return alloc;
+        
+        const managerForWeek = isPastWeek
+          ? baseAllocations.find(a => a.employeeId === emp.id)?.manager || emp.manager
+          : emp.manager;
+          
+        return { ...alloc, manager: managerForWeek };
+      });
+    });
+  }, [weekEndingDate, employees, baseAllocations, isPastWeek]);
 
-  const displayedEmployees = isManager
-    ? employees.filter((employee) => employee.manager === currentUser.name)
-    : isVp
-    ? (() => {
-        const managersUnderVp = employees
+
+  const displayedEmployees = employees.filter(emp => {
+    const alloc = employeeAllocations.find(a => a.employeeId === emp.id);
+    const managerForWeek = alloc?.manager || emp.manager;
+
+    if (isAdmin) return true;
+    if (isVp) {
+       const managersUnderVp = employees
           .filter(e => e.manager === currentUser.name)
           .map(m => m.name);
-        // VPs see the employees of the managers who report to them.
-        return employees.filter((e) => managersUnderVp.includes(e.manager));
-      })()
-    : employees; // Admins see all
+       return managersUnderVp.includes(managerForWeek);
+    }
+    if (isManager) {
+      return managerForWeek === currentUser.name;
+    }
+    return false;
+  });
 
   const getCardTitle = () => {
     if (isManager) return `${currentUser.team} Team`;
@@ -111,7 +141,7 @@ export default function AllocationPage() {
   }
 
   const getEmployeeAllocation = (employeeId: string) => {
-    return employeeAllocations.find((a) => a.employeeId === employeeId) || { employeeId, allocations: [] };
+    return employeeAllocations.find((a) => a.employeeId === employeeId) || { employeeId, manager: '', allocations: [] };
   };
 
   const calculateTotalFte = (employeeId: string) => {
@@ -181,13 +211,20 @@ export default function AllocationPage() {
   };
   
   const handleCopyLastWeek = () => {
-    const initialAllocations = employees.map(emp => {
-      const existingAlloc = baseAllocations.find(a => a.employeeId === emp.id);
-      return existingAlloc 
-        ? JSON.parse(JSON.stringify(existingAlloc)) 
-        : { employeeId: emp.id, allocations: [] };
+    setEmployeeAllocations(currentAllocs => {
+      return currentAllocs.map(currentAlloc => {
+        const emp = employees.find(e => e.id === currentAlloc.employeeId);
+        if (!emp) return currentAlloc;
+
+        const lastWeekAlloc = baseAllocations.find(a => a.employeeId === emp.id);
+        return {
+          ...currentAlloc,
+          allocations: lastWeekAlloc ? JSON.parse(JSON.stringify(lastWeekAlloc.allocations)) : [],
+          manager: emp.manager // Copying last week means we use the *current* manager
+        };
+      });
     });
-    setEmployeeAllocations(initialAllocations);
+
     toast({
       title: 'Allocations Copied',
       description: 'The allocations from last week have been copied to the current week.',
@@ -196,6 +233,7 @@ export default function AllocationPage() {
 
   const handleSave = () => {
     // In a real app, this would be an API call.
+    // Here you would also update the manager for the current/future week if it changed.
     toast({
       title: 'Allocations Saved',
       description: 'Your changes have been saved successfully.',
