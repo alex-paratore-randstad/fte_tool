@@ -23,8 +23,8 @@ import {
 } from '@/components/ui/table';
 import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { getAccounts, getEmployees, getAllocations } from '@/services/domo';
-import type { Employee, Account, Allocation } from '@/types';
+import { getCostCenters, getEmployees, getAllocations } from '@/services/domo';
+import type { Employee, CostCenter, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -34,7 +34,7 @@ const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1
 
 type AllocationRow = {
   id: string;
-  accountId: string;
+  costCenterId: string;
   weeklyFtes: { [weekKey: string]: number };
 };
 
@@ -49,7 +49,7 @@ export function MultiWeekGrid() {
 
   const [allocations, setAllocations] = useState<MultiWeekAllocationState>({});
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { currentUser, isManager, isAdmin, isVp } = useCurrentUser();
@@ -58,13 +58,13 @@ export function MultiWeekGrid() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const [empData, accData, initialAllocations] = await Promise.all([
+      const [empData, ccData, initialAllocations] = await Promise.all([
         getEmployees(),
-        getAccounts(),
+        getCostCenters(),
         getAllocations(),
       ]);
       setEmployees(empData);
-      setAccounts(accData);
+      setCostCenters(ccData);
 
       const transformed: MultiWeekAllocationState = {};
       empData.forEach(emp => {
@@ -74,11 +74,11 @@ export function MultiWeekGrid() {
       initialAllocations.forEach(empAlloc => {
         const weekKey = formatDateKey(new Date());
         if (transformed[empAlloc.employeeId]) {
-          const employeeGridAllocs = empAlloc.allocations.map((accAlloc, index) => ({
-            id: `${empAlloc.employeeId}-${accAlloc.accountId}-${Date.now()}-${index}`, // More unique id
-            accountId: accAlloc.accountId,
+          const employeeGridAllocs = empAlloc.allocations.map((ccAlloc, index) => ({
+            id: `${empAlloc.employeeId}-${ccAlloc.costCenterId}-${Date.now()}-${index}`, // More unique id
+            costCenterId: ccAlloc.costCenterId,
             weeklyFtes: {
-              [weekKey]: accAlloc.fte,
+              [weekKey]: ccAlloc.fte,
             },
           }));
           transformed[empAlloc.employeeId].allocations.push(...employeeGridAllocs);
@@ -124,13 +124,13 @@ export function MultiWeekGrid() {
     });
   };
   
-  const handleAccountChange = (employeeId: string, allocId: string, newAccountId: string) => {
+  const handleCostCenterChange = (employeeId: string, allocId: string, newCostCenterId: string) => {
      setAllocations(prev => {
       const newState = JSON.parse(JSON.stringify(prev));
       const empAllocs = newState[employeeId].allocations;
       const allocIndex = empAllocs.findIndex((a: AllocationRow) => a.id === allocId);
       if (allocIndex > -1) {
-        empAllocs[allocIndex].accountId = newAccountId;
+        empAllocs[allocIndex].costCenterId = newCostCenterId;
       }
       return newState;
     });
@@ -141,7 +141,7 @@ export function MultiWeekGrid() {
       const newState = JSON.parse(JSON.stringify(prev));
       const newAlloc: AllocationRow = {
         id: `${employeeId}-new-${Date.now()}`,
-        accountId: '',
+        costCenterId: '',
         weeklyFtes: {},
       };
       newState[employeeId].allocations.push(newAlloc);
@@ -204,7 +204,7 @@ export function MultiWeekGrid() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Account</TableHead>
+                <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Cost Center</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                   const isCurrent = isSameWeek(week, today, { weekStartsOn: 1 });
@@ -261,12 +261,12 @@ export function MultiWeekGrid() {
                       <TableRow key={alloc.id}>
                         <TableCell className="sticky left-0 bg-card z-10">
                           <div className="pl-6">
-                            <Select value={alloc.accountId} onValueChange={(newAccId) => handleAccountChange(emp.id, alloc.id, newAccId)} disabled={isRowLocked}>
+                            <Select value={alloc.costCenterId} onValueChange={(newCcId) => handleCostCenterChange(emp.id, alloc.id, newCcId)} disabled={isRowLocked}>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select Account..." />
+                                <SelectValue placeholder="Select Cost Center..." />
                               </SelectTrigger>
                               <SelectContent>
-                                {accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>)}
+                                {costCenters.map(cc => <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           </div>

@@ -1,4 +1,4 @@
-import type { Employee, Account, Allocation, Activity } from '@/types';
+import type { Employee, CostCenter, Allocation, Activity } from '@/types';
 
 export const employees: Employee[] = [
   // Leadership
@@ -41,48 +41,48 @@ export const employees: Employee[] = [
   { id: '22', name: 'Steven Gomez', title: 'Security Analyst', region: 'NAM', manager: 'Sawyer Ames', team: 'Core Platform' }
 ];
 
-export const accounts: Account[] = [
-  { id: 'acc-1', name: 'Project Alpha' },
-  { id: 'acc-2', name: 'Project Bravo' },
-  { id: 'acc-3', name: 'Project Charlie' },
-  { id: 'acc-4', name: 'Internal R&D' },
-  { id: 'acc-pto', name: 'PTO' },
+export const costCenters: CostCenter[] = [
+  { id: 'cc-1', code: 'P-ALPHA', name: 'Project Alpha' },
+  { id: 'cc-2', code: 'P-BRAVO', name: 'Project Bravo' },
+  { id: 'cc-3', code: 'P-CHARLIE', name: 'Project Charlie' },
+  { id: 'cc-4', code: 'G-RD', name: 'Internal R&D' },
+  { id: 'cc-pto', code: 'G-PTO', name: 'PTO' },
 ];
 
 // Note: The 'manager' field in allocations now represents the manager for that specific allocation period.
 // The 'manager' in the 'employees' array represents the CURRENT manager.
 export const allocations: Allocation[] = [
   // Sawyer Ames' Team
-  { employeeId: '1', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-1', fte: 0.5 }, { accountId: 'acc-4', fte: 0.5 }] },
-  { employeeId: '4', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-2', fte: 1.0 }] },
-  { employeeId: '6', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-1', fte: 0.8 }, { accountId: 'acc-4', fte: 0.2 }] },
-  { employeeId: '7', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-1', fte: 0.9 }] }, // Under-allocated
+  { employeeId: '1', manager: 'Sawyer Ames', allocations: [{ costCenterId: 'cc-1', fte: 0.5 }, { costCenterId: 'cc-4', fte: 0.5 }] },
+  { employeeId: '4', manager: 'Sawyer Ames', allocations: [{ costCenterId: 'cc-2', fte: 1.0 }] },
+  { employeeId: '6', manager: 'Sawyer Ames', allocations: [{ costCenterId: 'cc-1', fte: 0.8 }, { costCenterId: 'cc-4', fte: 0.2 }] },
+  { employeeId: '7', manager: 'Sawyer Ames', allocations: [{ costCenterId: 'cc-1', fte: 0.9 }] }, // Under-allocated
 
   // Cheryl MacMillan's Team
-  { employeeId: '2', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-1', fte: 1.0 }] },
-  { employeeId: '5', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-3', fte: 0.75 }, { accountId: 'acc-4', fte: 0.25 }] },
-  { employeeId: '8', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-2', fte: 0.5 }, { accountId: 'acc-3', fte: 0.5 }] },
-  { employeeId: '9', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-2', fte: 1.2 }] }, // Over-allocated
+  { employeeId: '2', manager: 'Cheryl MacMillan', allocations: [{ costCenterId: 'cc-1', fte: 1.0 }] },
+  { employeeId: '5', manager: 'Cheryl MacMillan', allocations: [{ costCenterId: 'cc-3', fte: 0.75 }, { costCenterId: 'cc-4', fte: 0.25 }] },
+  { employeeId: '8', manager: 'Cheryl MacMillan', allocations: [{ costCenterId: 'cc-2', fte: 0.5 }, { costCenterId: 'cc-3', fte: 0.5 }] },
+  { employeeId: '9', manager: 'Cheryl MacMillan', allocations: [{ costCenterId: 'cc-2', fte: 1.2 }] }, // Over-allocated
 
   // John Slocum's Team
-  { employeeId: '3', manager: 'John Slocum', allocations: [{ accountId: 'acc-2', fte: 0.8 }, { accountId: 'acc-3', fte: 0.2 }] },
-  { employeeId: '10', manager: 'John Slocum', allocations: [{ accountId: 'acc-1', fte: 0.4 }, { accountId: 'acc-2', fte: 0.6 }] },
-  { employeeId: '11', manager: 'John Slocum', allocations: [{ accountId: 'acc-3', fte: 1.0 }] },
+  { employeeId: '3', manager: 'John Slocum', allocations: [{ costCenterId: 'cc-2', fte: 0.8 }, { costCenterId: 'cc-3', fte: 0.2 }] },
+  { employeeId: '10', manager: 'John Slocum', allocations: [{ costCenterId: 'cc-1', fte: 0.4 }, { costCenterId: 'cc-2', fte: 0.6 }] },
+  { employeeId: '11', manager: 'John Slocum', allocations: [{ costCenterId: 'cc-3', fte: 1.0 }] },
 
   // Other
   { employeeId: '12', manager: 'Heisenberg', allocations: [] }, // No allocation
 
   // New employee allocations
-  { employeeId: '13', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-1', fte: 1.0 }] },
-  { employeeId: '14', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-2', fte: 1.0 }] },
-  { employeeId: '15', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-4', fte: 0.5 }, { accountId: 'acc-1', fte: 0.5 }] },
-  { employeeId: '16', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-2', fte: 0.8 }] }, // Under-allocated
-  { employeeId: '17', manager: 'John Slocum', allocations: [{ accountId: 'acc-3', fte: 1.0 }] },
-  { employeeId: '18', manager: 'Cheryl MacMillan', allocations: [{ accountId: 'acc-1', fte: 0.2 }, { accountId: 'acc-2', fte: 0.8 }] },
-  { employeeId: '19', manager: 'Heisenberg', allocations: [{ accountId: 'acc-4', fte: 1.0 }] },
+  { employeeId: '13', manager: 'Sawyer Ames', allocations: [{ costCenterId: 'cc-1', fte: 1.0 }] },
+  { employeeId: '14', manager: 'Cheryl MacMillan', allocations: [{ costCenterId: 'cc-2', fte: 1.0 }] },
+  { employeeId: '15', manager: 'Cheryl MacMillan', allocations: [{ costCenterId: 'cc-4', fte: 0.5 }, { costCenterId: 'cc-1', fte: 0.5 }] },
+  { employeeId: '16', manager: 'Sawyer Ames', allocations: [{ costCenterId: 'cc-2', fte: 0.8 }] }, // Under-allocated
+  { employeeId: '17', manager: 'John Slocum', allocations: [{ costCenterId: 'cc-3', fte: 1.0 }] },
+  { employeeId: '18', manager: 'Cheryl MacMillan', allocations: [{ costCenterId: 'cc-1', fte: 0.2 }, { costCenterId: 'cc-2', fte: 0.8 }] },
+  { employeeId: '19', manager: 'Heisenberg', allocations: [{ costCenterId: 'cc-4', fte: 1.0 }] },
   { employeeId: '20', manager: 'Heisenberg', allocations: [] }, // No allocation
-  { employeeId: '21', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-4', fte: 1.0 }] },
-  { employeeId: '22', manager: 'Sawyer Ames', allocations: [{ accountId: 'acc-1', fte: 1.1 }] } // Over-allocated
+  { employeeId: '21', manager: 'Sawyer Ames', allocations: [{ costCenterId: 'cc-4', fte: 1.0 }] },
+  { employeeId: '22', manager: 'Sawyer Ames', allocations: [{ costCenterId: 'cc-1', fte: 1.1 }] } // Over-allocated
 ];
 
 

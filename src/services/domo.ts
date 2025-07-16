@@ -1,8 +1,8 @@
 
 'use server';
 
-import { employees, accounts, allocations } from '@/lib/mock-data';
-import type { Employee, Account, Allocation } from '@/types';
+import { employees, costCenters, allocations } from '@/lib/mock-data';
+import type { Employee, CostCenter, Allocation } from '@/types';
 
 /**
  * @fileoverview This file contains placeholder functions for fetching data from DOMO datasets.
@@ -21,11 +21,11 @@ export async function getEmployees(): Promise<Employee[]> {
   return Promise.resolve(employees);
 }
 
-// Placeholder for fetching accounts from a DOMO dataset.
-export async function getAccounts(): Promise<Account[]> {
-  console.log('DOMO Service: Fetching accounts...');
-  // Real implementation would query the accounts dataset.
-  return Promise.resolve(accounts);
+// Placeholder for fetching cost centers from a DOMO dataset.
+export async function getCostCenters(): Promise<CostCenter[]> {
+  console.log('DOMO Service: Fetching cost centers...');
+  // Real implementation would query the cost centers dataset.
+  return Promise.resolve(costCenters);
 }
 
 // Placeholder for fetching allocations from a DOMO dataset.

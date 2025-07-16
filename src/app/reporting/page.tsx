@@ -19,14 +19,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { getAccounts, getEmployees, getAllocations } from '@/services/domo';
+import { getCostCenters, getEmployees, getAllocations } from '@/services/domo';
 import { cn } from '@/lib/utils';
 import { Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
-import type { Employee, Account, Allocation } from '@/types';
+import type { Employee, CostCenter, Allocation } from '@/types';
 
 const fteTrendData = [
   { month: 'Jan', projectAlpha: 150, projectBravo: 120, projectCharlie: 80 },
@@ -45,7 +45,7 @@ const trendChartConfig = {
 
 
 export default function ReportingPage() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,12 +53,12 @@ export default function ReportingPage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const [accData, empData, allocData] = await Promise.all([
-        getAccounts(),
+      const [ccData, empData, allocData] = await Promise.all([
+        getCostCenters(),
         getEmployees(),
         getAllocations(),
       ]);
-      setAccounts(accData);
+      setCostCenters(ccData);
       setEmployees(empData);
       setAllocations(allocData);
       setLoading(false);
@@ -66,21 +66,21 @@ export default function ReportingPage() {
     fetchData();
   }, []);
 
-  // Data processing for "By Account" tab
-  const accountData = accounts.map((account) => {
-    const accountAllocations = allocations.flatMap((a) =>
-      a.allocations.filter((alloc) => alloc.accountId === account.id)
+  // Data processing for "By Cost Center" tab
+  const costCenterData = costCenters.map((costCenter) => {
+    const ccAllocations = allocations.flatMap((a) =>
+      a.allocations.filter((alloc) => alloc.costCenterId === costCenter.id)
     );
-    const totalFte = accountAllocations.reduce((sum, alloc) => sum + alloc.fte, 0);
+    const totalFte = ccAllocations.reduce((sum, alloc) => sum + alloc.fte, 0);
     const employeeIds = new Set(
       allocations
-        .filter((a) => a.allocations.some((alloc) => alloc.accountId === account.id))
+        .filter((a) => a.allocations.some((alloc) => alloc.costCenterId === costCenter.id))
         .map((a) => a.employeeId)
     );
     // Placeholder for variance calculation
     const variance = (Math.random() * 2 - 1); 
     return {
-      ...account,
+      ...costCenter,
       totalFte: totalFte,
       employeeCount: employeeIds.size,
       variance: variance,
@@ -171,51 +171,51 @@ export default function ReportingPage() {
         }
       />
 
-      <Tabs defaultValue="account">
+      <Tabs defaultValue="cost-center">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
-          <TabsTrigger value="account">By Account</TabsTrigger>
+          <TabsTrigger value="cost-center">By Cost Center</TabsTrigger>
           <TabsTrigger value="leader">By Leader</TabsTrigger>
           <TabsTrigger value="region">By Region</TabsTrigger>
           <TabsTrigger value="individual">By Individual</TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="account" className="mt-4">
+        <TabsContent value="cost-center" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>FTE Utilization by Account</CardTitle>
+              <CardTitle>FTE Utilization by Cost Center</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Account</TableHead>
+                    <TableHead>Cost Center</TableHead>
                     <TableHead className="text-right">Allocated FTEs</TableHead>
                     <TableHead className="text-right">Employee Count</TableHead>
                     <TableHead className="text-right">Variance vs. Forecast</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accountData.map((account) => (
-                    <TableRow key={account.id}>
-                      <TableCell className="font-medium">{account.name}</TableCell>
-                      <TableCell className="text-right">{account.totalFte.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{account.employeeCount}</TableCell>
+                  {costCenterData.map((cc) => (
+                    <TableRow key={cc.id}>
+                      <TableCell className="font-medium">{cc.name}</TableCell>
+                      <TableCell className="text-right">{cc.totalFte.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{cc.employeeCount}</TableCell>
                       <TableCell className="text-right">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span
                               className={cn({
-                                'text-green-600': account.variance > 0,
-                                'text-destructive': account.variance < 0,
+                                'text-green-600': cc.variance > 0,
+                                'text-destructive': cc.variance < 0,
                               })}
                             >
-                              {account.variance.toFixed(2)}
+                              {cc.variance.toFixed(2)}
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>
-                              {account.variance > 0
+                              {cc.variance > 0
                                 ? 'Allocations are over forecast.'
                                 : 'Allocations are under forecast.'}
                             </p>
@@ -382,8 +382,8 @@ export default function ReportingPage() {
         <TabsContent value="trends" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>FTE Trends by Account</CardTitle>
-              <CardDescription>Monthly FTE allocation trends for top accounts.</CardDescription>
+              <CardTitle>FTE Trends by Cost Center</CardTitle>
+              <CardDescription>Monthly FTE allocation trends for top cost centers.</CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={trendChartConfig} className="h-[400px] w-full">

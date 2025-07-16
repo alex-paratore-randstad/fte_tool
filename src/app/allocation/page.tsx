@@ -27,8 +27,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { getAccounts, getEmployees, getAllocations } from '@/services/domo';
-import type { Employee, Account, Allocation } from '@/types';
+import { getCostCenters, getEmployees, getAllocations } from '@/services/domo';
+import type { Employee, CostCenter, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { 
   Calendar as CalendarIcon, 
@@ -54,7 +54,7 @@ export default function AllocationPage() {
   const [weekEndingDate, setWeekEndingDate] = useState(endOfWeek(new Date(), { weekStartsOn: 1 }));
   
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [baseAllocations, setBaseAllocations] = useState<Allocation[]>([]);
   const [employeeAllocations, setEmployeeAllocations] = useState<Allocation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,13 +71,13 @@ export default function AllocationPage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const [empData, accData, allocData] = await Promise.all([
+      const [empData, ccData, allocData] = await Promise.all([
         getEmployees(),
-        getAccounts(),
+        getCostCenters(),
         getAllocations(),
       ]);
       setEmployees(empData);
-      setAccounts(accData);
+      setCostCenters(ccData);
       setBaseAllocations(allocData);
 
       // Initialize allocations for the selected week
@@ -166,7 +166,7 @@ export default function AllocationPage() {
   const handleAllocationChange = (
     employeeId: string, 
     index: number, 
-    field: 'accountId' | 'fte', 
+    field: 'costCenterId' | 'fte', 
     value: string | number
   ) => {
     setEmployeeAllocations(currentAllocs => 
@@ -188,7 +188,7 @@ export default function AllocationPage() {
             if (alloc.employeeId === employeeId) {
                 return {
                     ...alloc,
-                    allocations: [...alloc.allocations, { accountId: '', fte: 0 }]
+                    allocations: [...alloc.allocations, { costCenterId: '', fte: 0 }]
                 };
             }
             return alloc;
@@ -359,15 +359,15 @@ export default function AllocationPage() {
                               {empAllocations.allocations.map((alloc, index) => (
                                 <div key={index} className="flex items-center gap-2">
                                   <Select
-                                    value={alloc.accountId}
-                                    onValueChange={(value) => handleAllocationChange(emp.id, index, 'accountId', value)}
+                                    value={alloc.costCenterId}
+                                    onValueChange={(value) => handleAllocationChange(emp.id, index, 'costCenterId', value)}
                                     disabled={isLocked}
                                   >
                                     <SelectTrigger>
-                                      <SelectValue placeholder="Select Account" />
+                                      <SelectValue placeholder="Select Cost Center" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>)}
+                                      {costCenters.map(cc => <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>)}
                                     </SelectContent>
                                   </Select>
                                   <Input

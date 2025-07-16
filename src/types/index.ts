@@ -7,8 +7,9 @@ export type Employee = {
   team: string;
 };
 
-export type Account = {
+export type CostCenter = {
   id: string;
+  code: string;
   name: string;
 };
 
@@ -17,7 +18,7 @@ export type Allocation = {
   // This manager field will allow us to track who the manager was for a given allocation period.
   // This is key to ensuring historical data integrity when manager assignments change.
   manager: string; 
-  allocations: { accountId: string; fte: number }[];
+  allocations: { costCenterId: string; fte: number }[];
 };
 
 export type Activity = {
