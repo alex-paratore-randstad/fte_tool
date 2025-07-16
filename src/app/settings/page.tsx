@@ -1,30 +1,18 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Link as LinkIcon, Upload } from 'lucide-react';
+import { Link as LinkIcon } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { getCostCenters } from '@/services/domo';
-import type { CostCenter } from '@/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { BulkCostCenterUploadDialog } from '@/components/settings/bulk-cost-center-upload-dialog';
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const { currentUser } = useCurrentUser();
-  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
-
-  useEffect(() => {
-    getCostCenters().then(setCostCenters);
-  }, []);
 
   const handleDomoConnect = () => {
     toast({
@@ -87,43 +75,7 @@ export default function SettingsPage() {
               </CardFooter>
             </Card>
         </div>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Cost Center Management</CardTitle>
-              <CardDescription>
-                View and add new cost centers via CSV upload.
-              </CardDescription>
-            </div>
-            <Button onClick={() => setIsBulkUploadOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" />
-              Upload CSV
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-72">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Name</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {costCenters.map(cc => (
-                    <TableRow key={cc.id}>
-                      <TableCell className="font-mono">{cc.code}</TableCell>
-                      <TableCell className="font-medium">{cc.name}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-        </Card>
       </div>
-      <BulkCostCenterUploadDialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen} />
     </>
   );
 }
