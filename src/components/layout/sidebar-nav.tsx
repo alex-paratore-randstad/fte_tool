@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   CalendarClock,
   BarChart3,
-  TrendingUp,
   Users,
   Settings,
 } from 'lucide-react';
@@ -22,7 +21,6 @@ const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock },
   { href: '/reporting', label: 'Reporting', icon: BarChart3 },
-  { href: '/forecasting', label: 'Forecasting', icon: TrendingUp },
   { href: '/team', label: 'Team Management', icon: Users },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
