@@ -46,6 +46,7 @@ export const accounts: Account[] = [
   { id: 'acc-2', name: 'Project Bravo' },
   { id: 'acc-3', name: 'Project Charlie' },
   { id: 'acc-4', name: 'Internal R&D' },
+  { id: 'acc-pto', name: 'PTO' },
 ];
 
 // Note: The 'manager' field in allocations now represents the manager for that specific allocation period.
