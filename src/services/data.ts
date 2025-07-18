@@ -1,6 +1,4 @@
 
-//'use server';
-
 import { employees, costCenters, allocations } from '@/lib/mock-data';
 import type { Employee, CostCenter, Allocation, SalesData } from '@/types';
 
