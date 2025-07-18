@@ -27,7 +27,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { getCostCenters, getEmployees, getAllocations } from '@/services/domo';
+import { getCostCenters, getEmployees, getAllocations } from '@/services/data';
 import type { Employee, CostCenter, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { 

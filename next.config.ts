@@ -19,8 +19,9 @@ const nextConfig: NextConfig = {
     ],
   },
   devIndicators: {
-    allowedDevOrigins: ['*.cloudworkstations.dev'],
+    // Remove allowedDevOrigins
   },
+  output: 'export',
 };
 
 export default nextConfig;

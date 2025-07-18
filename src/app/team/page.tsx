@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { getEmployees } from '@/services/domo';
+import { getEmployees } from '@/services/data';
 import type { Employee } from '@/types';
 import { PlusCircle, MoreHorizontal, ChevronDown, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';

@@ -4,28 +4,18 @@
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { Link as LinkIcon } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useState, useEffect } from 'react';
 
 export default function SettingsPage() {
-  const { toast } = useToast();
   const { currentUser } = useCurrentUser();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  const handleDomoConnect = () => {
-    toast({
-      title: 'Connecting to DOMO',
-      description: 'In a real DOMO environment, this would initiate the authentication process. The next step is to deploy this app as a DOMO app.',
-    });
-  };
 
   return (
     <>
@@ -34,7 +24,7 @@ export default function SettingsPage() {
           title="Settings"
           description="Manage your account settings and application preferences."
         />
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>Profile</CardTitle>
@@ -64,26 +54,6 @@ export default function SettingsPage() {
               </CardContent>
               <CardFooter className="border-t pt-6">
                   <Button>Save Profile</Button>
-              </CardFooter>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>DOMO Integration</CardTitle>
-                <CardDescription>
-                  Connect your Randstad FTE app to your DOMO environment to sync data and enable integrated features.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  By connecting to DOMO, you can pull live employee and account data directly from your DOMO datasets, replacing the current mock data.
-                </p>
-              </CardContent>
-              <CardFooter className="border-t pt-6">
-                <Button onClick={handleDomoConnect}>
-                  <LinkIcon className="mr-2 h-4 w-4" />
-                  Connect to DOMO
-                </Button>
               </CardFooter>
             </Card>
         </div>

@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { getCostCenters, getEmployees, getAllocations } from '@/services/domo';
+import { getCostCenters, getEmployees, getAllocations } from '@/services/data';
 import type { Employee, CostCenter, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
