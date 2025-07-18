@@ -1,3 +1,4 @@
+
 export type Employee = {
   id: string;
   name: string;
@@ -28,4 +29,12 @@ export type Activity = {
   action: string;
   target: string;
   time: string;
+};
+
+export type SalesData = {
+  date_ymd: string;
+  revenue: number;
+  sales_rep: string;
+  department: string;
+  state: string;
 };

@@ -10,6 +10,7 @@ import {
   Users,
   Settings,
   Building,
+  Database,
 } from 'lucide-react';
 
 import {
@@ -25,6 +26,7 @@ const navItems = [
   { href: '/reporting', label: 'Reporting', icon: BarChart3 },
   { href: '/team', label: 'Team Management', icon: Users },
   { href: '/cost-centers', label: 'Cost Centers', icon: Building },
+  { href: '/get-data', label: 'Get Data', icon: Database },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
