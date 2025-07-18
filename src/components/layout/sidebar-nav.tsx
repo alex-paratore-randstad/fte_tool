@@ -21,12 +21,12 @@ import {
 } from '@/components/ui/sidebar';
 
 const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/', label: 'Get Data', icon: Database },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock },
   { href: '/reporting', label: 'Reporting', icon: BarChart3 },
   { href: '/team', label: 'Team Management', icon: Users },
   { href: '/cost-centers', label: 'Cost Centers', icon: Building },
-  { href: '/get-data', label: 'Get Data', icon: Database },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -41,7 +41,7 @@ export function SidebarNav() {
             <SidebarMenuButton
               asChild
               className="w-full"
-              isActive={item.href !== '#' && pathname.startsWith(item.href) && (item.href === '/' ? pathname === '/' : true)}
+              isActive={item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)}
               tooltip={item.label}
             >
               <Link href={item.href}>
