@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -35,10 +36,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
              <a href="#" className="flex items-center gap-2 text-sm p-2 rounded-md hover:bg-sidebar-accent">
                 <LifeBuoy className="w-4 h-4" />
                 <span>Support</span>
-             </a>
-             <a href="#" className="flex items-center gap-2 text-sm p-2 rounded-md hover:bg-sidebar-accent">
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
              </a>
            </div>
         </SidebarFooter>

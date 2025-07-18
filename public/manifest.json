@@ -1,0 +1,57 @@
+{
+    "name": "Randstad FTE Prototype",
+    "version": "0.0.1",
+    "fullpage": true,
+    "size": {
+        "width": 5,
+        "height": 5
+    },
+    "datasetsMapping": [
+        {
+            "dataSetId": "e80daa3e-5a5f-4b72-9fb6-4f96e13bb4c0",
+            "alias": "store_example_data",
+            "fields": [
+                {
+                    "alias": "date_ymd",
+                    "columnName": "date_ymd"
+                },
+                {
+                    "alias": "revenue",
+                    "columnName": "revenue"
+                },
+                {
+                    "alias": "sales_rep",
+                    "columnName": "sales_rep"
+                },
+                {
+                    "alias": "department",
+                    "columnName": "department"
+                },
+                {
+                    "alias": "state",
+                    "columnName": "state"
+                }
+            ]
+        }
+    ],
+    "collectionsMapping": [
+        {
+            "name": "fte_prototype",
+            "schema": {
+                "columns": [
+                    {
+                        "name": "name",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "value",
+                        "type": "STRING"
+                    }
+                ]
+            },
+            "syncEnabled": false
+        }
+    ],
+    "fileName": "manifest.json",
+  "id": "0e3cfa98-87a8-4c08-a07d-5c6870c76ca6"
+}
