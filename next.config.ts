@@ -18,9 +18,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  devIndicators: {
-    // Remove allowedDevOrigins
-  },
   output: 'export',
 };
 
