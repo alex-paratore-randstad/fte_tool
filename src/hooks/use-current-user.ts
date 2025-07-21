@@ -12,7 +12,7 @@ export function useCurrentUser() {
   // 'Sawyer Ames' (Manager)
   // 'Caroline Reynolds' (Vice President)
   // 'Super Admin' (Administrator)
-  const currentUserName = 'Caroline Reynolds';
+  const currentUserName = 'Super Admin';
 
   const loggedInEmployee = employees.find(e => e.name === currentUserName);
 
