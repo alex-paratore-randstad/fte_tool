@@ -11,6 +11,7 @@ import {
   Settings,
   Building,
   Database,
+  Shield,
 } from 'lucide-react';
 
 import {
@@ -19,24 +20,29 @@ import {
   SidebarMenuButton,
   SidebarGroup,
 } from '@/components/ui/sidebar';
+import { useCurrentUser } from '@/hooks/use-current-user';
 
 const navItems = [
-  { href: '/', label: 'Get Data', icon: Database },
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock },
-  { href: '/reporting', label: 'Reporting', icon: BarChart3 },
-  { href: '/team', label: 'Team Management', icon: Users },
-  { href: '/cost-centers', label: 'Cost Centers', icon: Building },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/', label: 'Get Data', icon: Database, roles: ['admin', 'manager', 'vp'] },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'vp'] },
+  { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock, roles: ['admin', 'manager', 'vp'] },
+  { href: '/reporting', label: 'Reporting', icon: BarChart3, roles: ['admin', 'manager', 'vp'] },
+  { href: '/team', label: 'Team Management', icon: Users, roles: ['admin', 'manager', 'vp'] },
+  { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
+  { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'vp'] },
+  { href: '/admin', label: 'Admin', icon: Shield, roles: ['admin'] },
 ];
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { currentUser } = useCurrentUser();
+
+  const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser.role));
 
   return (
     <SidebarGroup>
       <SidebarMenu>
-        {navItems.map((item, index) => (
+        {filteredNavItems.map((item, index) => (
           <SidebarMenuItem key={`${item.label}-${index}`}>
             <SidebarMenuButton
               asChild
