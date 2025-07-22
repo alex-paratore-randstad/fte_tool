@@ -23,15 +23,6 @@ export type Allocation = {
   allocations: { costCenterId: string; fte: number }[];
 };
 
-export type Activity = {
-  id: string;
-  user: string;
-  avatar: string;
-  action: string;
-  target: string;
-  time: string;
-};
-
 export type FtePrototypeData = {
   _id: string;
   content: {

@@ -1,4 +1,4 @@
-import type { Employee, CostCenter, Allocation, Activity } from '@/types';
+import type { Employee, CostCenter, Allocation } from '@/types';
 
 export const employees: Employee[] = [
   // Leadership
@@ -83,18 +83,4 @@ export const allocations: Allocation[] = [
   { employeeId: '20', manager: 'Heisenberg', allocations: [] }, // No allocation
   { employeeId: '21', manager: 'Sawyer Ames', allocations: [{ costCenterId: 'cc-4', fte: 1.0 }] },
   { employeeId: '22', manager: 'Sawyer Ames', allocations: [{ costCenterId: 'cc-1', fte: 1.1 }] } // Over-allocated
-];
-
-
-export const recentActivities: Activity[] = [
-    { id: 'act-1', user: 'Sawyer Ames', avatar: 'SA', action: 'updated allocation for', target: 'Alisha Collier', time: '2m ago' },
-    { id: 'act-2', user: 'Cheryl MacMillan', avatar: 'CM', action: 'approved forecast for', target: 'Project Bravo', time: '1h ago' },
-    { id: 'act-3', user: 'John Slocum', avatar: 'JS', action: 'added new team member', target: 'Nacho Varga', time: '3h ago' },
-    { id: 'act-4', user: 'Sawyer Ames', avatar: 'SA', action: 'submitted weekly hours for', target: 'Core Platform team', time: '8h ago' },
-    { id: 'act-5', user: 'System', avatar: 'SYS', action: 'flagged missing allocation for', target: 'Hank Schrader', time: '1d ago' },
-    { id: 'act-6', user: 'Cheryl MacMillan', avatar: 'CM', action: 'flagged over-allocation for', target: 'Lalo Salamanca', time: '1d ago' },
-    { id: 'act-7', user: 'John Slocum', avatar: 'JS', action: 'updated allocation for', target: 'Mike Ehrmantraut', time: '2d ago' },
-    { id: 'act-8', user: 'Sawyer Ames', avatar: 'SA', action: 'added new team member', target: 'Jesse Pinkman', time: '2d ago' },
-    { id: 'act-9', user: 'System', avatar: 'SYS', action: 'flagged missing allocation for', target: 'Tuco Salamanca', time: '3d ago' },
-    { id: 'act-10', user: 'System', avatar: 'SYS', action: 'flagged over-allocation for', target: 'Steven Gomez', time: '3d ago' },
 ];
