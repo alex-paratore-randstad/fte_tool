@@ -12,8 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { getStoreExampleData } from '@/services/data';
-import type { SalesData } from '@/types';
+import { getStoreExampleData, getFtePrototypeData } from '@/services/data';
+import type { SalesData, FtePrototypeData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Upload } from 'lucide-react';
@@ -23,9 +23,19 @@ import { Label } from '@/components/ui/label';
 export default function GetDataPage() {
   const [data, setData] = useState<SalesData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [prototypeData, setPrototypeData] = useState<FtePrototypeData[]>([]);
+  const [prototypeLoading, setPrototypeLoading] = useState(true);
+
   const [name, setName] = useState('Bill and Teds');
   const [value, setValue] = useState('Bill S. Preston, Esquire');
   const { toast } = useToast();
+
+  const fetchPrototypeData = async () => {
+    setPrototypeLoading(true);
+    const fteData = await getFtePrototypeData();
+    setPrototypeData(fteData);
+    setPrototypeLoading(false);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,6 +45,7 @@ export default function GetDataPage() {
       setLoading(false);
     };
     fetchData();
+    fetchPrototypeData();
   }, []);
   
   const handleSendData = async () => {
@@ -61,6 +72,8 @@ export default function GetDataPage() {
         title: 'Data Sent Successfully',
         description: `Document created with ID: ${result._id}`,
       });
+      // Refresh the data in the prototype table
+      fetchPrototypeData(); 
     } catch (error) {
       console.error('Error sending data:', error);
       toast({
@@ -104,6 +117,37 @@ export default function GetDataPage() {
           </div>
         }
       />
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>FTE Prototype Documents</CardTitle>
+          <CardDescription>
+            This table displays data from the /domo/datastores/v1/collections/fte_prototype/documents/ endpoint.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {prototypeLoading ? (
+            <p>Loading data...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {prototypeData.map((row) => (
+                  <TableRow key={row._id}>
+                    <TableCell className="font-medium">{row.content.name}</TableCell>
+                    <TableCell>{row.content.value}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

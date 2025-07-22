@@ -1,4 +1,5 @@
 
+
 export type Employee = {
   id: string;
   name: string;
@@ -37,4 +38,12 @@ export type SalesData = {
   sales_rep: string;
   department: string;
   state: string;
+};
+
+export type FtePrototypeData = {
+  _id: string;
+  content: {
+    name: string;
+    value: string;
+  };
 };
