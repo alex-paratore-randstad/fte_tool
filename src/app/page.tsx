@@ -17,10 +17,13 @@ import type { SalesData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Upload } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function GetDataPage() {
   const [data, setData] = useState<SalesData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [name, setName] = useState('Bill and Teds');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -42,7 +45,7 @@ export default function GetDataPage() {
         },
         body: JSON.stringify({
           content: {
-            name: 'Bill and Teds',
+            name: name,
             value: 'Bill S. Preston, Esquire',
           },
         }),
@@ -74,10 +77,21 @@ export default function GetDataPage() {
         title="Get Data"
         description="Displaying sample data fetched from an endpoint."
         actions={
+          <div className="flex items-end gap-2">
+            <div className="grid gap-2">
+              <Label htmlFor="name-input">Name</Label>
+              <Input 
+                id="name-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter a name"
+              />
+            </div>
             <Button onClick={handleSendData}>
                 <Upload className="mr-2 h-4 w-4" />
                 Send Data
             </Button>
+          </div>
         }
       />
 
