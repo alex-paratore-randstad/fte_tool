@@ -6,9 +6,6 @@ import AppShell from '@/components/layout/app-shell';
 export const metadata: Metadata = {
   title: 'Randstad FTE',
   description: 'FTE Allocation Tracking Tool',
-  icons: {
-    icon: '/favicon.ico',
-  },
 };
 
 export default function RootLayout({
