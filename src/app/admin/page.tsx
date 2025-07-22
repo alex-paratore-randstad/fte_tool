@@ -18,7 +18,6 @@ const datasets = [
     { name: 'FTE Allocations', guid: 'a1b2c3d4-e5f6-7890-1234-567890abcdef' },
     { name: 'Cost Center Master', guid: 'b2c3d4e5-f6a7-8901-2345-67890abcdef0' },
     { name: 'Employee Roster', guid: 'c3d4e5f6-a7b8-9012-3456-7890abcdef01' },
-    { name: 'Store Example Data', guid: 'd4e5f6a7-b8c9-0123-4567-890abcdef012' },
 ]
 
 export default function AdminPage() {

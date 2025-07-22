@@ -32,14 +32,6 @@ export type Activity = {
   time: string;
 };
 
-export type SalesData = {
-  date_ymd: string;
-  revenue: number;
-  sales_rep: string;
-  department: string;
-  state: string;
-};
-
 export type FtePrototypeData = {
   _id: string;
   content: {
