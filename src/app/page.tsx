@@ -24,6 +24,7 @@ export default function GetDataPage() {
   const [data, setData] = useState<SalesData[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('Bill and Teds');
+  const [value, setValue] = useState('Bill S. Preston, Esquire');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function GetDataPage() {
         body: JSON.stringify({
           content: {
             name: name,
-            value: 'Bill S. Preston, Esquire',
+            value: value,
           },
         }),
       });
@@ -85,6 +86,15 @@ export default function GetDataPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter a name"
+              />
+            </div>
+             <div className="grid gap-2">
+              <Label htmlFor="value-input">Value</Label>
+              <Input 
+                id="value-input"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="Enter a value"
               />
             </div>
             <Button onClick={handleSendData}>
