@@ -14,10 +14,14 @@ import {
 } from '@/components/ui/table';
 import { getStoreExampleData } from '@/services/data';
 import type { SalesData } from '@/types';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { Upload } from 'lucide-react';
 
 export default function GetDataPage() {
   const [data, setData] = useState<SalesData[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -28,12 +32,53 @@ export default function GetDataPage() {
     };
     fetchData();
   }, []);
+  
+  const handleSendData = async () => {
+    try {
+      const response = await fetch('/domo/datastores/v1/collections/fte_prototype/documents/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: {
+            name: 'Bill and Teds',
+            value: 'Bill S. Preston, Esquire',
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      toast({
+        title: 'Data Sent Successfully',
+        description: `Document created with ID: ${result._id}`,
+      });
+    } catch (error) {
+      console.error('Error sending data:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error Sending Data',
+        description: 'There was a problem with the request. See the console for more details.',
+      });
+    }
+  };
+
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Get Data"
         description="Displaying sample data fetched from an endpoint."
+        actions={
+            <Button onClick={handleSendData}>
+                <Upload className="mr-2 h-4 w-4" />
+                Send Data
+            </Button>
+        }
       />
 
       <Card>
