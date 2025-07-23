@@ -18,6 +18,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  TooltipProvider
 } from '@/components/ui/tooltip';
 import { getCostCenters, getEmployees, getAllocations } from '@/services/data';
 import { cn } from '@/lib/utils';
@@ -67,7 +68,6 @@ export default function ReportingPage() {
       setEmployees(empData);
       setAllocations(allocData);
       
-      // Process cost center data with random variance after fetching
       const processedCostCenters = ccData.map((costCenter) => {
         const ccAllocations = allocData.flatMap((a) =>
           a.allocations.filter((alloc) => alloc.costCenterId === costCenter.id)
@@ -78,7 +78,6 @@ export default function ReportingPage() {
             .filter((a) => a.allocations.some((alloc) => alloc.costCenterId === costCenter.id))
             .map((a) => a.employeeId)
         );
-        // Variance calculation moved to useEffect to prevent hydration issues
         const variance = (Math.random() * 2 - 1); 
         return {
           ...costCenter,
@@ -166,271 +165,273 @@ export default function ReportingPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        title="FTE Reports"
-        description="Analyze FTE utilization across different dimensions."
-        actions={
-          <Button variant="outline" className="gap-2">
-            <Download className="h-4 w-4" />
-            Export All
-          </Button>
-        }
-      />
+    <TooltipProvider>
+      <div className="flex flex-col gap-8">
+        <PageHeader
+          title="FTE Reports"
+          description="Analyze FTE utilization across different dimensions."
+          actions={
+            <Button variant="outline" className="gap-2">
+              <Download className="h-4 w-4" />
+              Export All
+            </Button>
+          }
+        />
 
-      <Tabs defaultValue="cost-center">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
-          <TabsTrigger value="cost-center">By Cost Center</TabsTrigger>
-          <TabsTrigger value="leader">By Leader</TabsTrigger>
-          <TabsTrigger value="region">By Region</TabsTrigger>
-          <TabsTrigger value="individual">By Individual</TabsTrigger>
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="cost-center">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
+            <TabsTrigger value="cost-center">By Cost Center</TabsTrigger>
+            <TabsTrigger value="leader">By Leader</TabsTrigger>
+            <TabsTrigger value="region">By Region</TabsTrigger>
+            <TabsTrigger value="individual">By Individual</TabsTrigger>
+            <TabsTrigger value="trends">Trends</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="cost-center" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>FTE Utilization by Cost Center</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cost Center</TableHead>
-                    <TableHead className="text-right">Allocated FTEs</TableHead>
-                    <TableHead className="text-right">Employee Count</TableHead>
-                    <TableHead className="text-right">Variance vs. Forecast</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {costCenterData.map((cc) => (
-                    <TableRow key={cc.id}>
-                      <TableCell className="font-medium">{cc.name}</TableCell>
-                      <TableCell className="text-right">{cc.totalFte.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{cc.employeeCount}</TableCell>
-                      <TableCell className="text-right">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span
-                              className={cn({
-                                'text-green-600': cc.variance > 0,
-                                'text-destructive': cc.variance < 0,
-                              })}
-                            >
-                              {cc.variance.toFixed(2)}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>
-                              {cc.variance > 0
-                                ? 'Allocations are over forecast.'
-                                : 'Allocations are under forecast.'}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TableCell>
+          <TabsContent value="cost-center" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>FTE Utilization by Cost Center</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cost Center</TableHead>
+                      <TableHead className="text-right">Allocated FTEs</TableHead>
+                      <TableHead className="text-right">Employee Count</TableHead>
+                      <TableHead className="text-right">Variance vs. Forecast</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="leader" className="mt-4">
-           <Card>
-            <CardHeader>
-              <CardTitle>FTE Utilization by Leader</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Leader</TableHead>
-                    <TableHead>Team</TableHead>
-                    <TableHead className="text-right">Team Size</TableHead>
-                    <TableHead className="text-right">Total Allocated FTE</TableHead>
-                    <TableHead className="text-right">Avg. Allocation</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {leaderData.map((leader) => (
-                     <TableRow key={leader.name}>
-                      <TableCell className="font-medium">{leader.name}</TableCell>
-                      <TableCell>{leader.team}</TableCell>
-                      <TableCell className="text-right">{leader.teamSize}</TableCell>
-                      <TableCell className="text-right">{leader.totalFte.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{leader.avgFte.toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="region" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>FTE Utilization by Region</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Region</TableHead>
-                    <TableHead className="text-right">Total Employees</TableHead>
-                    <TableHead className="text-right">Allocated FTEs</TableHead>
-                    <TableHead className="text-right">Unallocated Potential FTE</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {regionData.map((region) => (
-                    <TableRow key={region.name}>
-                      <TableCell className="font-medium">{region.name}</TableCell>
-                      <TableCell className="text-right">{region.totalEmployees}</TableCell>
-                      <TableCell className="text-right">{region.allocatedFte.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span
-                              className={cn({
-                                'text-destructive': region.unallocatedFte > 0.1,
-                                'text-green-600': region.unallocatedFte < -0.1,
-                              })}
-                            >
-                              {region.unallocatedFte.toFixed(2)}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>
-                              {region.unallocatedFte > 0
-                                ? 'Potential FTE is unallocated for this region.'
-                                : 'Region is over-allocated.'}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="individual" className="mt-4">
-           <Card>
-            <CardHeader>
-              <CardTitle>FTE Utilization by Individual</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Team</TableHead>
-                    <TableHead>Region</TableHead>
-                    <TableHead className="text-right">Total Allocated FTE</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {individualData.map((employee) => (
-                     <TableRow key={employee.id}>
-                      <TableCell className="font-medium">{employee.name}</TableCell>
-                      <TableCell>{employee.title}</TableCell>
-                      <TableCell>{employee.team}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{employee.region}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {employee.totalFte !== 1 ? (
+                  </TableHeader>
+                  <TableBody>
+                    {costCenterData.map((cc) => (
+                      <TableRow key={cc.id}>
+                        <TableCell className="font-medium">{cc.name}</TableCell>
+                        <TableCell className="text-right">{cc.totalFte.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{cc.employeeCount}</TableCell>
+                        <TableCell className="text-right">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div
-                                className={cn(
-                                  'flex items-center justify-end gap-2 font-semibold',
-                                  'text-destructive'
-                                )}
+                              <span
+                                className={cn({
+                                  'text-green-600': cc.variance > 0,
+                                  'text-destructive': cc.variance < 0,
+                                })}
                               >
-                                <AlertCircle className="h-4 w-4" />
-                                {employee.totalFte.toFixed(2)}
-                              </div>
+                                {cc.variance.toFixed(2)}
+                              </span>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>
-                                {employee.totalFte > 1
-                                  ? 'Total FTE is over-allocated.'
-                                  : 'Total FTE is under-allocated.'}
+                                {cc.variance > 0
+                                  ? 'Allocations are over forecast.'
+                                  : 'Allocations are under forecast.'}
                               </p>
                             </TooltipContent>
                           </Tooltip>
-                        ) : (
-                          <div
-                            className={cn(
-                              'flex items-center justify-end gap-2 font-semibold',
-                              'text-green-600'
-                            )}
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            {employee.totalFte.toFixed(2)}
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="trends" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>FTE Trends by Cost Center</CardTitle>
-              <CardDescription>Monthly FTE allocation trends for top cost centers.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={trendChartConfig} className="h-[400px] w-full">
-                <ResponsiveContainer>
-                  <BarChart data={fteTrendData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-                    <XAxis
-                      dataKey="month"
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => `${value}`}
-                    />
-                    <RechartsTooltip
-                      cursor={{ fill: 'hsl(var(--secondary))' }}
-                      content={<ChartTooltipContent />}
-                    />
-                    <Legend content={<ChartLegendContent />} />
-                    {Object.keys(trendChartConfig).map((key) => (
-                      <Bar
-                        key={key}
-                        dataKey={key}
-                        stackId="a"
-                        fill={`var(--color-${key})`}
-                        radius={[4, 4, 0, 0]}
-                      />
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="leader" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>FTE Utilization by Leader</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Leader</TableHead>
+                      <TableHead>Team</TableHead>
+                      <TableHead className="text-right">Team Size</TableHead>
+                      <TableHead className="text-right">Total Allocated FTE</TableHead>
+                      <TableHead className="text-right">Avg. Allocation</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {leaderData.map((leader) => (
+                      <TableRow key={leader.name}>
+                        <TableCell className="font-medium">{leader.name}</TableCell>
+                        <TableCell>{leader.team}</TableCell>
+                        <TableCell className="text-right">{leader.teamSize}</TableCell>
+                        <TableCell className="text-right">{leader.totalFte.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{leader.avgFte.toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="region" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>FTE Utilization by Region</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Region</TableHead>
+                      <TableHead className="text-right">Total Employees</TableHead>
+                      <TableHead className="text-right">Allocated FTEs</TableHead>
+                      <TableHead className="text-right">Unallocated Potential FTE</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {regionData.map((region) => (
+                      <TableRow key={region.name}>
+                        <TableCell className="font-medium">{region.name}</TableCell>
+                        <TableCell className="text-right">{region.totalEmployees}</TableCell>
+                        <TableCell className="text-right">{region.allocatedFte.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className={cn({
+                                  'text-destructive': region.unallocatedFte > 0.1,
+                                  'text-green-600': region.unallocatedFte < -0.1,
+                                })}
+                              >
+                                {region.unallocatedFte.toFixed(2)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>
+                                {region.unallocatedFte > 0
+                                  ? 'Potential FTE is unallocated for this region.'
+                                  : 'Region is over-allocated.'}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="individual" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>FTE Utilization by Individual</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Team</TableHead>
+                      <TableHead>Region</TableHead>
+                      <TableHead className="text-right">Total Allocated FTE</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {individualData.map((employee) => (
+                      <TableRow key={employee.id}>
+                        <TableCell className="font-medium">{employee.name}</TableCell>
+                        <TableCell>{employee.title}</TableCell>
+                        <TableCell>{employee.team}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{employee.region}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {employee.totalFte !== 1 ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  className={cn(
+                                    'flex items-center justify-end gap-2 font-semibold',
+                                    'text-destructive'
+                                  )}
+                                >
+                                  <AlertCircle className="h-4 w-4" />
+                                  {employee.totalFte.toFixed(2)}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {employee.totalFte > 1
+                                    ? 'Total FTE is over-allocated.'
+                                    : 'Total FTE is under-allocated.'}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <div
+                              className={cn(
+                                'flex items-center justify-end gap-2 font-semibold',
+                                'text-green-600'
+                              )}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              {employee.totalFte.toFixed(2)}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="trends" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>FTE Trends by Cost Center</CardTitle>
+                <CardDescription>Monthly FTE allocation trends for top cost centers.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={trendChartConfig} className="h-[400px] w-full">
+                  <ResponsiveContainer>
+                    <BarChart data={fteTrendData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+                      <XAxis
+                        dataKey="month"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) => `${value}`}
+                      />
+                      <RechartsTooltip
+                        cursor={{ fill: 'hsl(var(--secondary))' }}
+                        content={<ChartTooltipContent />}
+                      />
+                      <Legend content={<ChartLegendContent />} />
+                      {Object.keys(trendChartConfig).map((key) => (
+                        <Bar
+                          key={key}
+                          dataKey={key}
+                          stackId="a"
+                          fill={`var(--color-${key})`}
+                          radius={[4, 4, 0, 0]}
+                        />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </TooltipProvider>
   );
 }

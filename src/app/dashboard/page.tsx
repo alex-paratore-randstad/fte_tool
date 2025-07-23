@@ -6,8 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Briefcase, AlertTriangle } from 'lucide-react';
 import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import SummaryCard from '@/components/dashboard/summary-card';
+import { useEffect, useState } from 'react';
 
 export default function DashboardPage() {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return null; // or a loading skeleton
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Dashboard" />
