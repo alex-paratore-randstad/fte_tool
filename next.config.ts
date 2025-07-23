@@ -2,6 +2,7 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  poweredByHeader: false,
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -19,19 +20,6 @@ const nextConfig: NextConfig = {
     ],
   },
   trailingSlash: true,
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'ALLOWALL',
-          },
-        ],
-      },
-    ];
-  },
   generateBuildId: async () => {
     // This will be used as a static build ID
     return 'randstad-fte-build'
