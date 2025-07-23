@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "deploy": "npm run build && cd out && npx domo publish"
+    "deploy": "next build && next export && cd out && npx domo publish"
   },
   "dependencies": {
     "@hookform/resolvers": "4.1.3",
