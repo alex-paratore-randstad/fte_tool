@@ -19,7 +19,6 @@ const nextConfig: NextConfig = {
     ],
   },
   assetPrefix: './',
-  output: 'export',
   generateBuildId: async () => {
     // This will be used as a static build ID
     return 'randstad-fte-build'
