@@ -23,7 +23,6 @@ import {
 import { useCurrentUser } from '@/hooks/use-current-user';
 
 const navItems = [
-  { href: '/', label: 'Get Data', icon: Database, roles: ['admin', 'manager', 'vp'] },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'vp'] },
   { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock, roles: ['admin', 'manager', 'vp'] },
   { href: '/reporting', label: 'Reporting', icon: BarChart3, roles: ['admin', 'manager', 'vp'] },
@@ -47,7 +46,7 @@ export function SidebarNav() {
             <SidebarMenuButton
               asChild
               className="w-full"
-              isActive={item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)}
+              isActive={item.href === '/' ? pathname === '/dashboard' : pathname.startsWith(item.href)}
               tooltip={item.label}
             >
               <Link href={item.href}>

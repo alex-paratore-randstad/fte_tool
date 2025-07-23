@@ -1,70 +1,45 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { getFtePrototypeData } from '@/services/data';
-import type { FtePrototypeData } from '@/types';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 
-export default function GetDataPage() {
-  const [prototypeData, setPrototypeData] = useState<FtePrototypeData[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchAllData = async () => {
-      setLoading(true);
-      const fteData = await getFtePrototypeData();
-      setPrototypeData(fteData);
-      setLoading(false);
-    };
-
-    fetchAllData();
-  }, []);
-
+export default function WelcomePage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="Get Data"
-        description="Displaying sample data fetched from an endpoint."
+        title="Welcome to Randstad FTE Vision"
+        description="Your central hub for managing and analyzing Full-Time Equivalent resources."
       />
       
       <Card>
         <CardHeader>
-          <CardTitle>FTE Prototype Documents</CardTitle>
+          <CardTitle>Getting Started</CardTitle>
           <CardDescription>
-            This table displays data from the /domo/datastores/v1/collections/fte_prototype/documents/ endpoint.
+            This application provides the tools you need to effectively track allocations, manage team data, and generate insightful reports.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p>Loading data...</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Value</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {prototypeData.map((row) => (
-                  <TableRow key={row._id}>
-                    <TableCell className="font-medium">{row.content.name}</TableCell>
-                    <TableCell>{row.content.value}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+        <CardContent className="grid gap-4">
+          <p>
+            Navigate through the application using the sidebar to access different modules. Here’s a quick overview of what you can do:
+          </p>
+          <ul className="list-disc list-inside space-y-2 pl-4">
+            <li><strong>Dashboard:</strong> Get a high-level overview of FTE allocation and key metrics.</li>
+            <li><strong>Weekly Allocation:</strong> Enter and update FTE allocations for your team members.</li>
+            <li><strong>Reporting:</strong> Analyze FTE data across various dimensions like cost center, leader, and region.</li>
+            <li><strong>Team Management:</strong> View and manage your team roster.</li>
+          </ul>
+          <div className="mt-4">
+            <Button asChild>
+              <Link href="/dashboard">
+                Go to Dashboard
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

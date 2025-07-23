@@ -18,16 +18,7 @@ export const getAllocations = async (): Promise<Allocation[]> => {
 };
 
 export const getFtePrototypeData = async (): Promise<FtePrototypeData[]> => {
-  try {
-    const response = await fetch('/domo/datastores/v1/collections/fte_prototype/documents/');
-    if (!response.ok) {
-      console.error('Failed to fetch fte prototype data:', response.statusText);
-      return [];
-    }
-    const data: FtePrototypeData[] = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error fetching fte prototype data:', error);
-    return [];
-  }
+    // This function is no longer called by the main page but is kept for potential future use.
+    // In a real application, you would ensure this endpoint is reliable or remove it.
+    return Promise.resolve([]);
 };
