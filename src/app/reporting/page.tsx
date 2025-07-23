@@ -28,6 +28,12 @@ import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } 
 import type { ChartConfig } from '@/components/ui/chart';
 import type { Employee, CostCenter, Allocation } from '@/types';
 
+type ProcessedCostCenter = CostCenter & {
+    totalFte: number;
+    employeeCount: number;
+    variance: number;
+};
+
 const fteTrendData = [
   { month: 'Jan', projectAlpha: 150, projectBravo: 120, projectCharlie: 80 },
   { month: 'Feb', projectAlpha: 160, projectBravo: 130, projectCharlie: 85 },
@@ -45,7 +51,7 @@ const trendChartConfig = {
 
 
 export default function ReportingPage() {
-  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [costCenterData, setCostCenterData] = useState<ProcessedCostCenter[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,34 +64,35 @@ export default function ReportingPage() {
         getEmployees(),
         getAllocations(),
       ]);
-      setCostCenters(ccData);
       setEmployees(empData);
       setAllocations(allocData);
+      
+      // Process cost center data with random variance after fetching
+      const processedCostCenters = ccData.map((costCenter) => {
+        const ccAllocations = allocData.flatMap((a) =>
+          a.allocations.filter((alloc) => alloc.costCenterId === costCenter.id)
+        );
+        const totalFte = ccAllocations.reduce((sum, alloc) => sum + alloc.fte, 0);
+        const employeeIds = new Set(
+          allocData
+            .filter((a) => a.allocations.some((alloc) => alloc.costCenterId === costCenter.id))
+            .map((a) => a.employeeId)
+        );
+        // Variance calculation moved to useEffect to prevent hydration issues
+        const variance = (Math.random() * 2 - 1); 
+        return {
+          ...costCenter,
+          totalFte: totalFte,
+          employeeCount: employeeIds.size,
+          variance: variance,
+        };
+      });
+      setCostCenterData(processedCostCenters)
+
       setLoading(false);
     };
     fetchData();
   }, []);
-
-  // Data processing for "By Cost Center" tab
-  const costCenterData = costCenters.map((costCenter) => {
-    const ccAllocations = allocations.flatMap((a) =>
-      a.allocations.filter((alloc) => alloc.costCenterId === costCenter.id)
-    );
-    const totalFte = ccAllocations.reduce((sum, alloc) => sum + alloc.fte, 0);
-    const employeeIds = new Set(
-      allocations
-        .filter((a) => a.allocations.some((alloc) => alloc.costCenterId === costCenter.id))
-        .map((a) => a.employeeId)
-    );
-    // Placeholder for variance calculation
-    const variance = (Math.random() * 2 - 1); 
-    return {
-      ...costCenter,
-      totalFte: totalFte,
-      employeeCount: employeeIds.size,
-      variance: variance,
-    };
-  });
 
   // Data processing for "By Leader" tab
   const managers = [...new Set(employees.map((e) => e.manager))].filter(m => m !== 'N/A' && m);

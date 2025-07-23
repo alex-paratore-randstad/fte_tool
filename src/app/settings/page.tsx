@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    // This effect runs only on the client, after hydration
     setIsClient(true);
   }, []);
 
