@@ -28,6 +28,7 @@ const navItems = [
   { href: '/reporting', label: 'Reporting', icon: BarChart3, roles: ['admin', 'manager', 'vp'] },
   { href: '/team', label: 'Team Management', icon: Users, roles: ['admin', 'manager', 'vp'] },
   { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
+  { href: '/get-data', label: 'Get Data', icon: DatabaseZap, roles: ['admin', 'manager', 'vp'] },
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'vp'] },
   { href: '/admin', label: 'Admin', icon: Shield, roles: ['admin'] },
 ];
