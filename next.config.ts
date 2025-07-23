@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  trailingSlash: true,
   async headers() {
     return [
       {
