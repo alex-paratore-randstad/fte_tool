@@ -10,7 +10,7 @@ import {
   Users,
   Settings,
   Building,
-  Database,
+  DatabaseZap,
   Shield,
 } from 'lucide-react';
 
