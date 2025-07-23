@@ -18,7 +18,19 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  assetPrefix: './',
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'ALLOWALL',
+          },
+        ],
+      },
+    ];
+  },
   generateBuildId: async () => {
     // This will be used as a static build ID
     return 'randstad-fte-build'
