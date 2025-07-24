@@ -2,11 +2,11 @@
 'use client';
 
 import { PageHeader } from '@/components/page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Briefcase, AlertTriangle } from 'lucide-react';
 import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import SummaryCard from '@/components/dashboard/summary-card';
 import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function DashboardPage() {
   const [isClient, setIsClient] = useState(false);
@@ -19,7 +19,40 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col gap-8">
         <PageHeader title="Dashboard" />
-        <p>Loading dashboard...</p>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total FTEs</CardTitle>
+                </CardHeader>
+                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Allocated FTEs</CardTitle>
+                </CardHeader>
+                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Unallocated FTEs</CardTitle>
+                </CardHeader>
+                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Missing Allocations</CardTitle>
+                </CardHeader>
+                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+            </Card>
+        </div>
+         <Card>
+            <CardHeader>
+                <CardTitle>FTE Allocation by Account</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="h-[300px] w-full rounded-md bg-muted animate-pulse" />
+            </CardContent>
+        </Card>
       </div>
     )
   }
