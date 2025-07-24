@@ -35,6 +35,25 @@ type ProcessedCostCenter = CostCenter & {
     variance: number;
 };
 
+type ProcessedLeader = {
+    name: string;
+    team: string;
+    teamSize: number;
+    totalFte: number;
+    avgFte: number;
+}
+
+type ProcessedRegion = {
+    name: string;
+    totalEmployees: number;
+    allocatedFte: number;
+    unallocatedFte: number;
+}
+
+type ProcessedIndividual = Employee & {
+    totalFte: number;
+}
+
 const fteTrendData = [
   { month: 'Jan', projectAlpha: 150, projectBravo: 120, projectCharlie: 80 },
   { month: 'Feb', projectAlpha: 160, projectBravo: 130, projectCharlie: 85 },
@@ -53,8 +72,9 @@ const trendChartConfig = {
 
 export default function ReportingPage() {
   const [costCenterData, setCostCenterData] = useState<ProcessedCostCenter[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [allocations, setAllocations] = useState<Allocation[]>([]);
+  const [leaderData, setLeaderData] = useState<ProcessedLeader[]>([]);
+  const [regionData, setRegionData] = useState<ProcessedRegion[]>([]);
+  const [individualData, setIndividualData] = useState<ProcessedIndividual[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -65,9 +85,8 @@ export default function ReportingPage() {
         getEmployees(),
         getAllocations(),
       ]);
-      setEmployees(empData);
-      setAllocations(allocData);
-      
+
+      // Process cost center data
       const processedCostCenters = ccData.map((costCenter) => {
         const ccAllocations = allocData.flatMap((a) =>
           a.allocations.filter((alloc) => alloc.costCenterId === costCenter.id)
@@ -86,65 +105,68 @@ export default function ReportingPage() {
           variance: variance,
         };
       });
-      setCostCenterData(processedCostCenters)
+      setCostCenterData(processedCostCenters);
+
+      // Process leader data
+      const managers = [...new Set(empData.map((e) => e.manager))].filter(m => m !== 'N/A' && m);
+      const processedLeaders = managers.map((manager) => {
+        const reports = empData.filter((e) => e.manager === manager);
+        const reportIds = new Set(reports.map((r) => r.id));
+        let totalFte = 0;
+        allocData.forEach((alloc) => {
+          if (reportIds.has(alloc.employeeId)) {
+            totalFte += alloc.allocations.reduce((sum, item) => sum + item.fte, 0);
+          }
+        });
+        return {
+          name: manager,
+          team: reports[0]?.team || 'N/A',
+          teamSize: reports.length,
+          totalFte: totalFte,
+          avgFte: reports.length > 0 ? totalFte / reports.length : 0,
+        };
+      });
+      setLeaderData(processedLeaders);
+
+      // Process region data
+      const regionNames = [...new Set(empData.map(e => e.region))];
+      const processedRegions = regionNames.map((region) => {
+        const employeesInRegion = empData.filter((e) => e.region === region);
+        const employeeIdsInRegion = new Set(employeesInRegion.map((e) => e.id));
+        let allocatedFte = 0;
+        allocData.forEach((alloc) => {
+          if (employeeIdsInRegion.has(alloc.employeeId)) {
+            allocatedFte += alloc.allocations.reduce((sum, item) => sum + item.fte, 0);
+          }
+        });
+        const totalPossibleFte = employeesInRegion.length;
+        return {
+          name: region,
+          totalEmployees: employeesInRegion.length,
+          allocatedFte: allocatedFte,
+          unallocatedFte: totalPossibleFte - allocatedFte,
+        };
+      });
+      setRegionData(processedRegions);
+
+      // Process individual data
+      const processedIndividuals = empData.map((employee) => {
+        const allocation = allocData.find((a) => a.employeeId === employee.id);
+        const totalFte = allocation
+          ? allocation.allocations.reduce((sum, alloc) => sum + alloc.fte, 0)
+          : 0;
+        return {
+          ...employee,
+          totalFte: totalFte,
+        };
+      });
+      setIndividualData(processedIndividuals);
 
       setLoading(false);
     };
     fetchData();
   }, []);
 
-  // Data processing for "By Leader" tab
-  const managers = [...new Set(employees.map((e) => e.manager))].filter(m => m !== 'N/A' && m);
-  const leaderData = managers.map((manager) => {
-    const reports = employees.filter((e) => e.manager === manager);
-    const reportIds = new Set(reports.map((r) => r.id));
-    let totalFte = 0;
-    allocations.forEach((alloc) => {
-      if (reportIds.has(alloc.employeeId)) {
-        totalFte += alloc.allocations.reduce((sum, item) => sum + item.fte, 0);
-      }
-    });
-    return {
-      name: manager,
-      team: reports[0]?.team || 'N/A',
-      teamSize: reports.length,
-      totalFte: totalFte,
-      avgFte: reports.length > 0 ? totalFte / reports.length : 0,
-    };
-  });
-
-  // Data processing for "By Region" tab
-  const regionNames = [...new Set(employees.map(e => e.region))];
-  const regionData = regionNames.map((region) => {
-    const employeesInRegion = employees.filter((e) => e.region === region);
-    const employeeIdsInRegion = new Set(employeesInRegion.map((e) => e.id));
-    let allocatedFte = 0;
-    allocations.forEach((alloc) => {
-      if (employeeIdsInRegion.has(alloc.employeeId)) {
-        allocatedFte += alloc.allocations.reduce((sum, item) => sum + item.fte, 0);
-      }
-    });
-    const totalPossibleFte = employeesInRegion.length;
-    return {
-      name: region,
-      totalEmployees: employeesInRegion.length,
-      allocatedFte: allocatedFte,
-      unallocatedFte: totalPossibleFte - allocatedFte,
-    };
-  });
-
-  // Data processing for "By Individual" tab
-  const individualData = employees.map((employee) => {
-    const allocation = allocations.find((a) => a.employeeId === employee.id);
-    const totalFte = allocation
-      ? allocation.allocations.reduce((sum, alloc) => sum + alloc.fte, 0)
-      : 0;
-    return {
-      ...employee,
-      totalFte: totalFte,
-    };
-  });
-  
   if (loading) {
     return (
       <div className="flex flex-col gap-8">

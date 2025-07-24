@@ -37,6 +37,7 @@ export default function TeamPage() {
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [displayedEmployees, setDisplayedEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
     getEmployees().then((data) => {
@@ -45,20 +46,25 @@ export default function TeamPage() {
     });
   }, []);
 
-  // Admins see all, VPs see their managers' teams, managers see direct reports.
-  // This view always shows the *current* manager from the employee record.
-  const displayedEmployees = isManager
-    ? employees.filter((employee) => employee.manager === currentUser.name)
-    : isVp
-    ? (() => {
-        const managersUnderVp = employees
-          .filter((e) => e.manager === currentUser.name)
-          .map((m) => m.name);
-        return employees.filter(
-          (e) => e.manager === currentUser.name || managersUnderVp.includes(e.manager)
-        );
-      })()
-    : employees;
+  useEffect(() => {
+    if (employees.length > 0 && currentUser) {
+        const getDisplayedEmployees = () => {
+            if (isManager) {
+                return employees.filter((employee) => employee.manager === currentUser.name);
+            }
+            if (isVp) {
+                const managersUnderVp = employees
+                    .filter((e) => e.manager === currentUser.name)
+                    .map((m) => m.name);
+                return employees.filter(
+                    (e) => e.manager === currentUser.name || managersUnderVp.includes(e.manager)
+                );
+            }
+            return employees;
+        };
+        setDisplayedEmployees(getDisplayedEmployees());
+    }
+  }, [employees, currentUser, isManager, isVp]);
     
   if (loading) {
     return (
