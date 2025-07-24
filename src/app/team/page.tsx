@@ -42,52 +42,30 @@ export default function TeamPage() {
   useEffect(() => {
     getEmployees().then((data) => {
       setEmployees(data);
-      setLoading(false);
     });
   }, []);
 
   useEffect(() => {
-    if (employees.length > 0 && currentUser) {
-        const getDisplayedEmployees = () => {
-            if (isManager) {
-                return employees.filter((employee) => employee.manager === currentUser.name);
-            }
-            if (isVp) {
-                const managersUnderVp = employees
-                    .filter((e) => e.manager === currentUser.name)
-                    .map((m) => m.name);
-                return employees.filter(
-                    (e) => e.manager === currentUser.name || managersUnderVp.includes(e.manager)
-                );
-            }
-            return employees;
-        };
-        setDisplayedEmployees(getDisplayedEmployees());
+    if (employees.length > 0 && currentUser.id !== 'placeholder-user') {
+      const getDisplayedEmployees = () => {
+          if (isManager) {
+              return employees.filter((employee) => employee.manager === currentUser.name);
+          }
+          if (isVp) {
+              const managersUnderVp = employees
+                  .filter((e) => e.manager === currentUser.name)
+                  .map((m) => m.name);
+              return employees.filter(
+                  (e) => e.manager === currentUser.name || managersUnderVp.includes(e.manager)
+              );
+          }
+          return employees;
+      };
+      setDisplayedEmployees(getDisplayedEmployees());
+      setLoading(false);
     }
   }, [employees, currentUser, isManager, isVp]);
     
-  if (loading) {
-    return (
-       <div className="flex flex-col gap-8">
-        <PageHeader
-          title="Team Management"
-          description="View and manage all GBS personnel."
-        />
-        <Card>
-          <CardHeader>
-            <CardTitle>All Personnel</CardTitle>
-            <CardDescription>
-              A list of all employees in the GBS organization.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>Loading employees...</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   const getPageTitle = () => {
     if (isManager) return 'My Team';
     if (isVp) return 'My Organization';
@@ -100,33 +78,24 @@ export default function TeamPage() {
     return 'View and manage all GBS personnel.'
   }
 
-  return (
-    <>
-      <div className="flex flex-col gap-8">
-        <PageHeader
-          title="Team Management"
-          description={getPageDescription()}
-          actions={
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button>
-                  <span>Add Employee</span>
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>
-                  <PlusCircle className="h-4 w-4" />
-                  <span>Add Single Employee</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsBulkUploadOpen(true)}>
-                  <Upload className="h-4 w-4" />
-                  <span>Bulk Upload</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          }
-        />
+  const renderContent = () => {
+    if (loading) {
+      return (
+         <Card>
+           <CardHeader>
+             <CardTitle>{getPageTitle()}</CardTitle>
+             <CardDescription>
+               Loading employee data...
+             </CardDescription>
+           </CardHeader>
+           <CardContent>
+             <p>Please wait...</p>
+           </CardContent>
+         </Card>
+      )
+    }
+
+    return (
         <Card>
           <CardHeader>
             <CardTitle>{getPageTitle()}</CardTitle>
@@ -181,6 +150,37 @@ export default function TeamPage() {
             </Table>
           </CardContent>
         </Card>
+    );
+  };
+
+  return (
+    <>
+      <div className="flex flex-col gap-8">
+        <PageHeader
+          title="Team Management"
+          description={getPageDescription()}
+          actions={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <span>Add Employee</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>
+                  <PlusCircle className="h-4 w-4" />
+                  <span>Add Single Employee</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsBulkUploadOpen(true)}>
+                  <Upload className="h-4 w-4" />
+                  <span>Bulk Upload</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />
+        {renderContent()}
       </div>
       <BulkUploadDialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen} />
     </>

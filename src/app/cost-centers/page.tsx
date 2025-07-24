@@ -24,26 +24,53 @@ export default function CostCenterPage() {
     });
   }, []);
 
-  if (loading) {
+  const renderContent = () => {
+    if (loading) {
+      return (
+         <Card>
+           <CardHeader>
+             <CardTitle>All Cost Centers</CardTitle>
+             <CardDescription>
+               A list of all cost centers available for allocation.
+             </CardDescription>
+           </CardHeader>
+           <CardContent>
+             <p>Loading cost centers...</p>
+           </CardContent>
+         </Card>
+      )
+    }
+
     return (
-       <div className="flex flex-col gap-8">
-        <PageHeader
-          title="Cost Center Management"
-          description="View and manage all cost centers."
-        />
-        <Card>
-          <CardHeader>
-            <CardTitle>All Cost Centers</CardTitle>
-            <CardDescription>
-              A list of all cost centers available for allocation.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>Loading cost centers...</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
+      <Card>
+        <CardHeader>
+          <CardTitle>All Cost Centers</CardTitle>
+          <CardDescription>
+              View and add new cost centers via CSV upload.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-96">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Name</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {costCenters.map(cc => (
+                  <TableRow key={cc.id}>
+                    <TableCell className="font-mono">{cc.code}</TableCell>
+                    <TableCell className="font-medium">{cc.name}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -59,35 +86,7 @@ export default function CostCenterPage() {
             </Button>
           }
         />
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>All Cost Centers</CardTitle>
-            <CardDescription>
-                View and add new cost centers via CSV upload.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-96">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Name</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {costCenters.map(cc => (
-                    <TableRow key={cc.id}>
-                      <TableCell className="font-mono">{cc.code}</TableCell>
-                      <TableCell className="font-medium">{cc.name}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+        {renderContent()}
       </div>
       <BulkCostCenterUploadDialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen} />
     </>

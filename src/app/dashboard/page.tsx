@@ -16,7 +16,12 @@ export default function DashboardPage() {
   }, []);
 
   if (!isClient) {
-    return null; // or a loading skeleton
+    return (
+      <div className="flex flex-col gap-8">
+        <PageHeader title="Dashboard" />
+        <p>Loading dashboard...</p>
+      </div>
+    )
   }
 
   return (
