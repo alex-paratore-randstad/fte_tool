@@ -8,13 +8,6 @@ import { useCurrentUser } from '@/hooks/use-current-user';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 
-const domoConfig = {
-  clientId: process.env.NEXT_PUBLIC_DOMO_CLIENT_ID || 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
-  clientSecret: '**********', // Should be stored securely, not in code
-  apiHost: 'api.domo.com',
-  scope: 'data user',
-};
-
 const datasets = [
     { name: 'FTE Allocations', guid: 'a1b2c3d4-e5f6-7890-1234-567890abcdef' },
     { name: 'Cost Center Master', guid: 'b2c3d4e5-f6a7-8901-2345-67890abcdef0' },
@@ -76,27 +69,10 @@ export default function AdminPage() {
             <CardHeader>
                 <CardTitle>Application Configuration</CardTitle>
                 <CardDescription>
-                    Connection details and GUIDs for data integration. These values are placeholders.
+                    Dataset GUIDs for data integration. These values are placeholders.
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6">
-               <div className="grid gap-2">
-                    <h3 className="font-semibold">API Credentials</h3>
-                    <div className="text-sm text-muted-foreground grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-                        <div>
-                            <span className="font-mono bg-muted p-1 rounded-md">Client ID:</span> {domoConfig.clientId}
-                        </div>
-                         <div>
-                            <span className="font-mono bg-muted p-1 rounded-md">API Host:</span> {domoConfig.apiHost}
-                        </div>
-                        <div>
-                            <span className="font-mono bg-muted p-1 rounded-md">Client Secret:</span> {domoConfig.clientSecret}
-                        </div>
-                        <div>
-                           <span className="font-mono bg-muted p-1 rounded-md">Scope:</span> {domoConfig.scope}
-                        </div>
-                    </div>
-               </div>
                 <div className="grid gap-2">
                     <h3 className="font-semibold">Dataset GUIDs</h3>
                     <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
