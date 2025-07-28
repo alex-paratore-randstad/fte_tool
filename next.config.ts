@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
     // effectively busting any cache.
     return new Date().getTime().toString();
   },
+  reactRoot: false,
 };
 
 export default nextConfig;
