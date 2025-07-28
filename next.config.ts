@@ -28,16 +28,6 @@ const nextConfig: NextConfig = {
     // effectively busting any cache.
     return new Date().getTime().toString();
   },
-  // This rewrite rule is a robust way to prevent the build from failing
-  // due to a missing favicon. It tells Next.js to do nothing for that path.
-  async rewrites() {
-    return [
-      {
-        source: '/favicon.ico',
-        destination: '/_next/static/favicon.ico', // A path that doesn't exist but is handled by Next.js
-      },
-    ];
-  },
 };
 
 export default nextConfig;
