@@ -12,24 +12,60 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useCurrentUser } from '@/hooks/use-current-user';
+import { useState, useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function UserNav() {
+  const { currentUser } = useCurrentUser();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const getInitials = (name: string) => {
+    if (!name || name === 'Loading...') return '';
+    const parts = name.split(' ');
+    if (parts.length > 1) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const getEmail = (name: string) => {
+     if (!name || name === 'Loading...') return '';
+     return `${name.toLowerCase().replace(' ', '.')}@example.com`;
+  }
+
+  if (!isClient) {
+    return (
+       <div className="flex items-center space-x-2">
+            <Skeleton className="h-9 w-9 rounded-full" />
+            <div className="space-y-1">
+                <Skeleton className="h-4 w-[100px]" />
+                <Skeleton className="h-3 w-[150px]" />
+            </div>
+       </div>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="@shadcn" />
-            <AvatarFallback>SA</AvatarFallback>
+            <AvatarImage src={`https://i.pravatar.cc/150?u=${currentUser.id}`} alt={currentUser.name} />
+            <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Sawyer Ames</p>
+            <p className="text-sm font-medium leading-none">{currentUser.name}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              sawyer.ames@example.com
+              {getEmail(currentUser.name)}
             </p>
           </div>
         </DropdownMenuLabel>
