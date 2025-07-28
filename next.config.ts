@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  trailingSlash: true,
+  trailingSlash: false,
   generateBuildId: async () => {
     // Using a timestamp ensures a unique build ID for each deployment,
     // effectively busting any cache.
