@@ -40,8 +40,9 @@ export function SidebarNav() {
   const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser.role));
 
   const getHref = (href: string) => {
+    // This logic ensures that links point directly to the index.html file,
+    // bypassing the problematic server-side script.
     if (href === '/') return '/index.html';
-    // Next.js with output: 'export' and trailingSlash: true will generate page/index.html
     return `${href}/index.html`;
   }
 
