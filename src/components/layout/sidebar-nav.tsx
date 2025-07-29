@@ -39,7 +39,8 @@ export function SidebarNav() {
 
   const getHref = (href: string) => {
     if (href === '/') return '/';
-    return `${href}/index.html`;
+    // Next.js with output: 'export' and trailingSlash: false will generate page.html
+    return href;
   }
 
   return (

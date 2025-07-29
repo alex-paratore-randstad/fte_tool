@@ -34,7 +34,7 @@ export default function WelcomePage() {
           </ul>
           <div className="mt-4">
             <Button asChild>
-              <Link href="/dashboard/index.html">
+              <Link href="/dashboard">
                 Go to Dashboard
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

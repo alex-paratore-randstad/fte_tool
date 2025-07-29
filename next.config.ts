@@ -22,12 +22,7 @@ const nextConfig: NextConfig = {
     ],
     unoptimized: true,
   },
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '2mb',
-    },
-  },
-  trailingSlash: true,
+  trailingSlash: false,
 };
 
 export default nextConfig;
