@@ -45,7 +45,7 @@ export function SidebarNav() {
             <SidebarMenuButton
               asChild
               className="w-full"
-              isActive={item.href === '/' ? pathname === '/dashboard' : pathname.startsWith(item.href)}
+              isActive={pathname.startsWith(item.href)}
               tooltip={item.label}
             >
               <Link href={item.href}>
