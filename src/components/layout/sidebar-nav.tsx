@@ -38,9 +38,9 @@ export function SidebarNav() {
   const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser.role));
 
   const getHref = (href: string) => {
-    if (href === '/') return '/';
-    // Next.js with output: 'export' and trailingSlash: false will generate page.html
-    return href;
+    if (href === '/') return '/index.html';
+    // Next.js with output: 'export' and trailingSlash: true will generate page/index.html
+    return `${href}/index.html`;
   }
 
   return (
