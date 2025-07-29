@@ -11,6 +11,7 @@ import {
   Settings,
   Building,
   Shield,
+  FlaskConical,
 } from 'lucide-react';
 
 import {
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'vp'] },
   { href: '/admin', label: 'Admin', icon: Shield, roles: ['admin'] },
+  { href: '/fte_prototype', label: 'FTE Prototype', icon: FlaskConical, roles: ['admin'] },
 ];
 
 export function SidebarNav() {

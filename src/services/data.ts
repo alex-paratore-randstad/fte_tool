@@ -18,7 +18,12 @@ export const getAllocations = async (): Promise<Allocation[]> => {
 };
 
 export const getFtePrototypeData = async (): Promise<FtePrototypeData[]> => {
-    // This function is no longer called by the main page but is kept for potential future use.
-    // In a real application, you would ensure this endpoint is reliable or remove it.
-    return Promise.resolve([]);
+  const mockData: FtePrototypeData[] = [
+    { _id: '1', content: { name: 'Total FTEs', value: '1,254' } },
+    { _id: '2', content: { name: 'Allocated FTEs', value: '1,120' } },
+    { _id: '3', content: { name: 'Unallocated FTEs', value: '134' } },
+    { _id: '4', content: { name: 'FTE Target', value: '1,300' } },
+    { _id: '5', content: { name: 'Data as of', value: new Date().toLocaleDateString() } },
+  ];
+  return Promise.resolve(mockData);
 };
