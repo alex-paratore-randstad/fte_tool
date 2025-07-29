@@ -158,9 +158,11 @@ export function MultiWeekGrid() {
   };
 
   const handleSave = () => {
+    console.log('--- Saving Allocations ---');
+    console.log(JSON.stringify(allocations, null, 2));
     toast({
-      title: 'Allocations Saved',
-      description: 'Your changes have been saved successfully.',
+      title: 'Allocations Saved (Simulated)',
+      description: 'Check the developer console to see the saved data.',
     });
   };
 
