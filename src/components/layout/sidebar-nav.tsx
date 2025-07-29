@@ -37,6 +37,11 @@ export function SidebarNav() {
 
   const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser.role));
 
+  const getHref = (href: string) => {
+    if (href === '/') return '/';
+    return `${href}/index.html`;
+  }
+
   return (
     <SidebarGroup>
       <SidebarMenu>
@@ -48,7 +53,7 @@ export function SidebarNav() {
               isActive={pathname.startsWith(item.href)}
               tooltip={item.label}
             >
-              <Link href={item.href}>
+              <Link href={getHref(item.href)}>
                 <item.icon className="h-4 w-4" />
                 <span className="truncate">{item.label}</span>
               </Link>
