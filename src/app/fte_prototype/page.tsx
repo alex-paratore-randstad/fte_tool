@@ -9,6 +9,7 @@ import type { FtePrototypeData } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function FtePrototypePage() {
   const [data, setData] = useState<FtePrototypeData[]>([]);
@@ -93,13 +94,22 @@ export default function FtePrototypePage() {
           {loading ? (
             <p>Loading data...</p>
           ) : (
-            <ul className="list-disc list-inside space-y-2 pl-4 font-mono text-sm">
-              {data.map((item) => (
-                <li key={item._id}>
-                  <span className="font-semibold">{item.content.name}:</span> {item.content.value}
-                </li>
-              ))}
-            </ul>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.map((item) => (
+                  <TableRow key={item._id}>
+                    <TableCell className="font-medium">{item.content.name}</TableCell>
+                    <TableCell>{item.content.value}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
