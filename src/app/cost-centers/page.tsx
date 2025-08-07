@@ -6,7 +6,6 @@ import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
-import { getCostCenters } from '@/services/data';
 import type { CostCenter } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -18,8 +17,15 @@ export default function CostCenterPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const isDomo = typeof domo !== 'undefined';
+    const getCostCenters = async (): Promise<CostCenter[]> => {
+      if (!isDomo) return Promise.resolve([]);
+      // Assuming appDb is defined elsewhere or you have access to domo directly
+      return domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`);
+    };
+
     getCostCenters().then(data => {
-        setCostCenters(data);
+        setCostCenters(data.map((d: any) => ({id: d.id, ...d.content})));
         setLoading(false);
     });
   }, []);

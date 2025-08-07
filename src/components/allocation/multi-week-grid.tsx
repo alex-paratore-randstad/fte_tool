@@ -23,11 +23,11 @@ import {
 } from '@/components/ui/table';
 import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { getCostCenters, getEmployees, getAllocations } from '@/services/data';
 import type { Employee, CostCenter, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { getEmployees, getCostCenters, getAllocations } from '@/services/data';
 
 // Helper to format date as a consistent key
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { employees } from '@/lib/mock-data';
@@ -19,7 +20,7 @@ export function useCurrentUser() {
   let role: 'manager' | 'admin' | 'vp' = 'manager'; // Default role
 
   if (loggedInEmployee) {
-      if (loggedInEmployee.title.includes('Administrator')) {
+      if (loggedInEmployee.title.includes('Administrator') || loggedInEmployee.name === 'Super Admin') {
           role = 'admin';
       } else if (loggedInEmployee.title.includes('Vice President')) {
           role = 'vp';

@@ -2,9 +2,7 @@
 'use client';
 
 import type { Employee, CostCenter, Allocation, FtePrototypeData } from '@/types';
-
-// In a real application, these functions would fetch data from a backend API.
-// For this prototype, they resolve with mock data if the domo object isn't available.
+import { employees as mockEmployees, costCenters as mockCostCenters, allocations as mockAllocations } from '@/lib/mock-data';
 
 // A simple client-side check to determine if the code is running in a Domo environment.
 const isDomo = typeof domo !== 'undefined';
@@ -24,7 +22,8 @@ export const appDb = {
       console.log(`[AppDB] Not in DOMO environment. Skipping list for ${collectionName}.`);
       return Promise.resolve([]);
     }
-    return domo.get(`/domo/datastores/v1/collections/${collectionName}/documents/`);
+    const result = await domo.get(`/domo/datastores/v1/collections/${collectionName}/documents/`);
+    return result.map((r: any) => ({...r.content, id: r.id }));
   },
 
   /**
@@ -54,7 +53,8 @@ export const appDb = {
       console.log(`[AppDB] Not in DOMO environment. Skipping get for ${collectionName}/${documentId}.`);
       return Promise.resolve({} as T);
     }
-    return domo.get(`/domo/datastores/v1/collections/${collectionName}/documents/${documentId}`);
+    const result = await domo.get(`/domo/datastores/v1/collections/${collectionName}/documents/${documentId}`);
+    return {...result.content, id: result.id };
   },
 
   /**
@@ -97,7 +97,8 @@ export const appDb = {
       console.log(`[AppDB] Not in DOMO environment. Skipping query for ${collectionName}.`);
       return Promise.resolve([]);
     }
-    return domo.post(`/domo/datastores/v1/collections/${collectionName}/documents/query`, query);
+    const result = await domo.post(`/domo/datastores/v1/collections/${collectionName}/documents/query`, query);
+    return result.map((r: any) => ({...r.content, id: r.id }));
   },
 };
 
@@ -106,16 +107,16 @@ export const appDb = {
 // These functions will be removed or replaced by AppDB calls.
 
 export const getEmployees = async (): Promise<Employee[]> => {
-  if (!isDomo) return Promise.resolve([]);
+  if (!isDomo) return Promise.resolve(mockEmployees);
   return appDb.list<Employee>('employees');
 };
 
 export const getCostCenters = async (): Promise<CostCenter[]> => {
-  if (!isDomo) return Promise.resolve([]);
+  if (!isDomo) return Promise.resolve(mockCostCenters);
   return appDb.list<CostCenter>('cost-centers');
 };
 
 export const getAllocations = async (): Promise<Allocation[]> => {
-   if (!isDomo) return Promise.resolve([]);
+   if (!isDomo) return Promise.resolve(mockAllocations);
   return appDb.list<Allocation>('allocations');
 };

@@ -20,7 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { getEmployees } from '@/services/data';
 import type { Employee } from '@/types';
 import { PlusCircle, MoreHorizontal, ChevronDown, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -40,8 +39,15 @@ export default function TeamPage() {
   const [displayedEmployees, setDisplayedEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
+    const isDomo = typeof domo !== 'undefined';
+    const getEmployees = async (): Promise<Employee[]> => {
+      if (!isDomo) return Promise.resolve([]);
+      // Assuming appDb is defined elsewhere or you have access to domo directly
+      return domo.get(`/domo/datastores/v1/collections/employees/documents/`);
+    };
+
     getEmployees().then((data) => {
-      setEmployees(data);
+      setEmployees(data.map((d: any) => ({id: d.id, ...d.content})));
     });
   }, []);
 

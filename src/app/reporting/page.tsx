@@ -20,7 +20,6 @@ import {
   TooltipTrigger,
   TooltipProvider
 } from '@/components/ui/tooltip';
-import { getCostCenters, getEmployees, getAllocations } from '@/services/data';
 import { cn } from '@/lib/utils';
 import { Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +27,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, Respon
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
 import type { Employee, CostCenter, Allocation } from '@/types';
+import { getEmployees, getCostCenters, getAllocations } from '@/services/data';
 
 type ProcessedCostCenter = CostCenter & {
     totalFte: number;
