@@ -1,57 +1,88 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getFtePrototypeData } from '@/services/data';
+import { appDb } from '@/services/data';
 import type { FtePrototypeData } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
+
+const COLLECTION_NAME = 'fte_prototype';
 
 export default function FtePrototypePage() {
   const [data, setData] = useState<FtePrototypeData[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [newValue, setNewValue] = useState('');
+  const { toast } = useToast();
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await appDb.list<FtePrototypeData>(COLLECTION_NAME);
+      setData(result);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not fetch data from the database.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
-    getFtePrototypeData().then((result) => {
-      setData(result);
-      setLoading(false);
-    });
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
-  const handleAddData = () => {
+  const handleAddData = async () => {
     if (newName.trim() === '' || newValue.trim() === '') {
-      // Basic validation to prevent empty entries
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'Name and Value fields cannot be empty.',
+      });
       return;
     }
-    const newData: FtePrototypeData = {
-      _id: new Date().toISOString(), // Use a simple unique ID for the prototype
-      content: {
-        name: newName,
-        value: newValue,
-      },
-    };
-    setData([...data, newData]);
-    setNewName('');
-    setNewValue('');
+
+    try {
+      await appDb.create(COLLECTION_NAME, { name: newName, value: newValue });
+      toast({
+        title: 'Success',
+        description: 'New data has been saved.',
+      });
+      setNewName('');
+      setNewValue('');
+      // Refresh the data to show the new entry
+      fetchData();
+    } catch (error) {
+      console.error('Error saving data:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not save the new data.',
+      });
+    }
   };
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
         title="FTE Prototype Data"
-        description="This page displays raw data fetched from the prototype data service."
+        description="This page displays raw data from the AppDB collection."
       />
       <Card>
         <CardHeader>
           <CardTitle>Add New Data</CardTitle>
           <CardDescription>
-            Use the form below to add a new key-value pair to the data list.
+            Use the form below to add a new key-value pair to the AppDB.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -87,7 +118,7 @@ export default function FtePrototypePage() {
         <CardHeader>
           <CardTitle>Live Data</CardTitle>
           <CardDescription>
-            This is the data being returned from the `getFtePrototypeData` service, including any new entries you add.
+            This is the live data being returned from the AppDB.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -103,7 +134,7 @@ export default function FtePrototypePage() {
               </TableHeader>
               <TableBody>
                 {data.map((item) => (
-                  <TableRow key={item._id}>
+                  <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.content.name}</TableCell>
                     <TableCell>{item.content.value}</TableCell>
                   </TableRow>

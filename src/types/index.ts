@@ -24,7 +24,7 @@ export type Allocation = {
 };
 
 export type FtePrototypeData = {
-  _id: string;
+  id: string; // Document ID from AppDB
   content: {
     name: string;
     value: string;
