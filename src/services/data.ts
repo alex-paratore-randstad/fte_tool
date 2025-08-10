@@ -3,6 +3,8 @@
 
 import type { Employee, CostCenter, Allocation, FtePrototypeData } from '@/types';
 import { employees as mockEmployees, costCenters as mockCostCenters, allocations as mockAllocations } from '@/lib/mock-data';
+//import 'public/assets/domo.js';
+declare var domo: any;
 
 // A simple client-side check to determine if the code is running in a Domo environment.
 const isDomo = typeof domo !== 'undefined';

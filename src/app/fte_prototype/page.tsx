@@ -73,77 +73,80 @@ export default function FtePrototypePage() {
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        title="FTE Prototype Data"
-        description="This page displays raw data from the AppDB collection."
-      />
-      <Card>
-        <CardHeader>
-          <CardTitle>Add New Data</CardTitle>
-          <CardDescription>
-            Use the form below to add a new key-value pair to the AppDB.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="grid gap-2 flex-1">
-              <Label htmlFor="name-input">Name</Label>
-              <Input
-                id="name-input"
-                placeholder="e.g., New Metric"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-              />
+    <div>
+      <Script src="/assets/domo.js" />
+      <div className="flex flex-col gap-8">
+        <PageHeader
+          title="FTE Prototype Data"
+          description="This page displays raw data from the AppDB collection."
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Add New Data</CardTitle>
+            <CardDescription>
+              Use the form below to add a new key-value pair to the AppDB.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+              <div className="grid gap-2 flex-1">
+                <Label htmlFor="name-input">Name</Label>
+                <Input
+                  id="name-input"
+                  placeholder="e.g., New Metric"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2 flex-1">
+                <Label htmlFor="value-input">Value</Label>
+                <Input
+                  id="value-input"
+                  placeholder="e.g., 42"
+                  value={newValue}
+                  onChange={(e) => setNewValue(e.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={handleAddData} className="w-full sm:w-auto">
+                  Add Data
+                </Button>
+              </div>
             </div>
-            <div className="grid gap-2 flex-1">
-              <Label htmlFor="value-input">Value</Label>
-              <Input
-                id="value-input"
-                placeholder="e.g., 42"
-                value={newValue}
-                onChange={(e) => setNewValue(e.target.value)}
-              />
-            </div>
-            <div className="flex items-end">
-              <Button onClick={handleAddData} className="w-full sm:w-auto">
-                Add Data
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Live Data</CardTitle>
-          <CardDescription>
-            This is the live data being returned from the AppDB.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p>Loading data...</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Value</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.content.name}</TableCell>
-                    <TableCell>{item.content.value}</TableCell>
+        <Card>
+          <CardHeader>
+            <CardTitle>Live Data</CardTitle>
+            <CardDescription>
+              This is the live data being returned from the AppDB.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <p>Loading data...</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Value</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {data.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.content.name}</TableCell>
+                      <TableCell>{item.content.value}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

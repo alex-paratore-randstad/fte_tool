@@ -1,45 +1,96 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-export default function WelcomePage() {
+// This is the AppDB API wrapper
+declare var domo: any;
+
+type StoreData = {
+  date_ymd: string;
+  revenue: number;
+  sales_rep: string;
+  department: string;
+  state: string;
+};
+
+export default function GetDataPage() {
+  const [data, setData] = useState<StoreData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const isDomo = typeof domo !== 'undefined';
+    if (!isDomo) {
+      console.log('Not in a Domo environment, skipping data fetch.');
+      setLoading(false);
+      return;
+    }
+
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const result = await domo.get(`/data/v1/store_example_data`);
+        setData(result);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="Welcome to Randstad FTE Vision"
-        description="Your central hub for managing and analyzing Full-Time Equivalent resources."
+        title="Get Data Example"
+        description="This page fetches live data from an endpoint and displays it."
       />
-      
       <Card>
         <CardHeader>
-          <CardTitle>Getting Started</CardTitle>
+          <CardTitle>Store Sales Data</CardTitle>
           <CardDescription>
-            This application provides the tools you need to effectively track allocations, manage team data, and generate insightful reports.
+            Live data from the /data/v1/store_example_data endpoint.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <p>
-            Navigate through the application using the sidebar to access different modules. Here’s a quick overview of what you can do:
-          </p>
-          <ul className="list-disc list-inside space-y-2 pl-4">
-            <li><strong>Dashboard:</strong> Get a high-level overview of FTE allocation and key metrics.</li>
-            <li><strong>Weekly Allocation:</strong> Enter and update FTE allocations for your team members.</li>
-            <li><strong>Reporting:</strong> Analyze FTE data across various dimensions like cost center, leader, and region.</li>
-            <li><strong>Team Management:</strong> View and manage your team roster.</li>
-          </ul>
-          <div className="mt-4">
-            <Button asChild>
-              <Link href="/dashboard/index.html">
-                Go to Dashboard
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
+        <CardContent>
+          {loading ? (
+            <p>Loading data...</p>
+          ) : data.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Sales Rep</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>State</TableHead>
+                  <TableHead className="text-right">Revenue</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{item.date_ymd}</TableCell>
+                    <TableCell className="font-medium">{item.sales_rep}</TableCell>
+                    <TableCell>{item.department}</TableCell>
+                    <TableCell>{item.state}</TableCell>
+                    <TableCell className="text-right">
+                      {item.revenue.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                      })}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+             <p>No data was returned from the endpoint. This is expected in local development.</p>
+          )}
         </CardContent>
       </Card>
     </div>
