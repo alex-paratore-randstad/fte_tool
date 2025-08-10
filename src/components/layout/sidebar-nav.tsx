@@ -12,6 +12,7 @@ import {
   Building,
   Shield,
   FlaskConical,
+  Database,
 } from 'lucide-react';
 
 import {
@@ -23,6 +24,7 @@ import {
 import { useCurrentUser } from '@/hooks/use-current-user';
 
 const navItems = [
+  { href: '/', label: 'Get Data', icon: Database, roles: ['admin', 'manager', 'vp'] },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'vp'] },
   { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock, roles: ['admin', 'manager', 'vp'] },
   { href: '/reporting', label: 'Reporting', icon: BarChart3, roles: ['admin', 'manager', 'vp'] },
@@ -37,13 +39,22 @@ export function SidebarNav() {
   const pathname = usePathname();
   const { currentUser } = useCurrentUser();
 
-  const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser.role));
+  const filteredNavItems = navItems.filter(item => {
+    // Show 'Get Data' to everyone regardless of role, if it's the root page
+    if (item.href === '/') return true;
+    return item.roles.includes(currentUser.role)
+  });
 
   const getHref = (href: string) => {
     // This logic ensures that links point directly to the index.html file,
     // bypassing the problematic server-side script.
     if (href === '/') return '/index.html';
     return `${href}/index.html`;
+  }
+
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === href;
+    return pathname.startsWith(href);
   }
 
   return (
@@ -54,7 +65,7 @@ export function SidebarNav() {
             <SidebarMenuButton
               asChild
               className="w-full"
-              isActive={pathname.startsWith(item.href)}
+              isActive={isActive(item.href)}
               tooltip={item.label}
             >
               <Link href={getHref(item.href)}>
