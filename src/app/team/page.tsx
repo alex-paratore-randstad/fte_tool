@@ -42,6 +42,11 @@ export default function TeamPage() {
 
   useEffect(() => {
     const fetchData = async () => {
+       if (typeof domo === 'undefined') {
+        console.log('[AppDB] Not in DOMO environment. Skipping list for employees.');
+        setLoading(false);
+        return;
+      }
       try {
         const result = await domo.get(`/domo/datastores/v1/collections/employees/documents/`);
         const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));
@@ -50,9 +55,7 @@ export default function TeamPage() {
         console.error("Failed to fetch employees:", error);
       }
     };
-    if (typeof domo !== 'undefined') {
-        fetchData();
-    }
+    fetchData();
   }, []);
 
   useEffect(() => {

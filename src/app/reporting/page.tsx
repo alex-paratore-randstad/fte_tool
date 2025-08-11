@@ -81,6 +81,11 @@ export default function ReportingPage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      if (typeof domo === 'undefined') {
+        console.log('[AppDB] Not in DOMO environment. Skipping data fetch for reporting.');
+        setLoading(false);
+        return;
+      }
       try {
         const [ccResult, empResult, allocResult] = await Promise.all([
           domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`),
@@ -175,11 +180,7 @@ export default function ReportingPage() {
         setLoading(false);
       }
     };
-    if (typeof domo !== 'undefined') {
-        fetchData();
-    } else {
-        setLoading(false);
-    }
+    fetchData();
   }, []);
 
   if (loading) {
