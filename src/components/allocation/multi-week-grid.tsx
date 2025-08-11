@@ -57,6 +57,11 @@ export function MultiWeekGrid() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (typeof domo === 'undefined') {
+        console.warn('[AppDB] Not in DOMO environment. Skipping allocation data fetch.');
+        setLoading(false);
+        return;
+    }
     const fetchData = async () => {
       setLoading(true);
       try {

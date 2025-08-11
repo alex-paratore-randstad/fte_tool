@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { FtePrototypeData } from '@/types';
 
-// This is the AppDB API wrapper
 declare var domo: any;
 
 export default function FtePrototypePage() {
@@ -15,6 +14,11 @@ export default function FtePrototypePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (typeof domo === 'undefined') {
+        console.warn("[AppDB] Not in DOMO environment. Skipping list for fte_prototype.");
+        setLoading(false);
+        return;
+    }
     const fetchData = async () => {
       setLoading(true);
       try {

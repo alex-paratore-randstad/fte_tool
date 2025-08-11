@@ -19,6 +19,11 @@ export default function CostCenterPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (typeof domo === 'undefined') {
+      console.warn('[AppDB] Not in DOMO environment. Skipping list for cost centers.');
+      setLoading(false);
+      return;
+    }
     const fetchData = async () => {
       setLoading(true);
       try {

@@ -57,6 +57,7 @@ export function SidebarNav() {
   }
 
   const filteredNavItems = navItems.filter(item => {
+    if (!currentUser || !currentUser.role) return false;
     return item.roles.includes(currentUser.role)
   });
 
