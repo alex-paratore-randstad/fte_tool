@@ -2,10 +2,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { CostCenter } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 declare var domo: any;
 
@@ -32,6 +33,27 @@ export function CostCenterContent() {
     fetchData();
   }, []);
 
+  if (loading) {
+      return (
+        <Card>
+            <CardHeader>
+                <CardTitle>All Cost Centers</CardTitle>
+                <CardDescription>
+                    View and add new cost centers via CSV upload.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                </div>
+            </CardContent>
+        </Card>
+      )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -39,11 +61,8 @@ export function CostCenterContent() {
         <CardDescription>
             View and add new cost centers via CSV upload.
         </CardDescription>
-      </Header>
+      </CardHeader>
       <CardContent>
-        {loading ? (
-          <p>Loading cost centers...</p>
-        ) : (
           <ScrollArea className="h-96">
             <Table>
               <TableHeader>
@@ -62,7 +81,6 @@ export function CostCenterContent() {
               </TableBody>
             </Table>
           </ScrollArea>
-        )}
       </CardContent>
     </Card>
   );

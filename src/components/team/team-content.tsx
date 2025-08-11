@@ -86,85 +86,81 @@ export function TeamContent() {
     return 'View and manage all GBS personnel.'
   }
 
-  const renderContent = () => {
-    if (loading || userLoading) {
-      return (
-         <Card>
-           <CardHeader>
-             <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-             <CardDescription>
-                <Skeleton className="h-4 w-1/2" />
-             </CardDescription>
-           </CardHeader>
-           <CardContent>
-            <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-            </div>
-           </CardContent>
-         </Card>
-      )
-    }
-
+  if (loading || userLoading) {
     return (
-        <Card>
-          <CardHeader>
-            <CardTitle>{getPageTitle()}</CardTitle>
-            <CardDescription>
-              This page reflects the current organizational structure. Manager changes made here will apply to the current and future weeks.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Region</TableHead>
-                  <TableHead>Manager</TableHead>
-                  <TableHead>Team</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayedEmployees.map((employee) => (
-                  <TableRow key={employee.id}>
-                    <TableCell className="font-medium">{employee.name}</TableCell>
-                    <TableCell>{employee.title}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{employee.region}</Badge>
-                    </TableCell>
-                    <TableCell>{employee.manager}</TableCell>
-                    <TableCell>{employee.team}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button aria-haspopup="true" size="icon" variant="ghost">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Toggle menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem>View Allocations</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-    );
-  };
+       <Card>
+         <CardHeader>
+           <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
+           <CardDescription>
+              <Skeleton className="h-4 w-1/2" />
+           </CardDescription>
+         </CardHeader>
+         <CardContent>
+          <div className="space-y-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+          </div>
+         </CardContent>
+       </Card>
+    )
+  }
 
-  return renderContent();
+  return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{getPageTitle()}</CardTitle>
+          <CardDescription>
+            This page reflects the current organizational structure. Manager changes made here will apply to the current and future weeks.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Region</TableHead>
+                <TableHead>Manager</TableHead>
+                <TableHead>Team</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {displayedEmployees.map((employee) => (
+                <TableRow key={employee.id}>
+                  <TableCell className="font-medium">{employee.name}</TableCell>
+                  <TableCell>{employee.title}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{employee.region}</Badge>
+                  </TableCell>
+                  <TableCell>{employee.manager}</TableCell>
+                  <TableCell>{employee.team}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem>View Allocations</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive">
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+  );
 }

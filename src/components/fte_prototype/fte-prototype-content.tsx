@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { FtePrototypeData } from '@/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 declare var domo: any;
 
@@ -30,6 +31,27 @@ export function FtePrototypeContent() {
     fetchData();
   }, []);
 
+  if (loading) {
+    return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Live Data</CardTitle>
+            <CardDescription>
+              This is the live data being returned from the AppDB.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -37,11 +59,9 @@ export function FtePrototypeContent() {
         <CardDescription>
           This is the live data being returned from the AppDB.
         </CardDescription>
-      </Header>
+      </CardHeader>
       <CardContent>
-        {loading ? (
-          <p>Loading data...</p>
-        ) : data.length > 0 ? (
+        {data.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>

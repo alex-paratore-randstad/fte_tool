@@ -25,6 +25,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, Respon
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
 import type { Employee, CostCenter, Allocation } from '@/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 declare var domo: any;
 
@@ -182,9 +183,13 @@ export function ReportingContent() {
         <Card>
             <CardHeader>
                 <CardTitle>Loading Reports</CardTitle>
+                <CardDescription>Please wait while we fetch the latest data...</CardDescription>
             </CardHeader>
             <CardContent>
-                <p>Please wait while we fetch the latest data...</p>
+                <div className="space-y-4">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                </div>
             </CardContent>
         </Card>
     );
@@ -405,7 +410,7 @@ export function ReportingContent() {
               <CardHeader>
                 <CardTitle>FTE Trends by Cost Center</CardTitle>
                 <CardDescription>Monthly FTE allocation trends for top cost centers.</CardDescription>
-              </Header>
+              </CardHeader>
               <CardContent>
                 <ChartContainer config={trendChartConfig} className="h-[400px] w-full">
                   <ResponsiveContainer>
