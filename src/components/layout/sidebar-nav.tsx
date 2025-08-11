@@ -63,7 +63,7 @@ export function SidebarNav() {
 
   const getHref = (href: string) => {
     if (href === '/') return '/index.html';
-    return `${href}/index.html`;
+    return `${href.endsWith('/') ? href : `${href}/`}index.html`;
   }
 
   const isActive = (href: string) => {

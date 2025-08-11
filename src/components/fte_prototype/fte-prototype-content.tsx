@@ -16,8 +16,10 @@ export function FtePrototypeContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const result = await domo.get(`/domo/datastores/v1/collections/fte_prototype/documents/`);
-        setData(result);
+        if (typeof domo !== 'undefined') {
+            const result = await domo.get(`/domo/datastores/v1/collections/fte_prototype/documents/`);
+            setData(result);
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -35,7 +37,7 @@ export function FtePrototypeContent() {
         <CardDescription>
           This is the live data being returned from the AppDB.
         </CardDescription>
-      </CardHeader>
+      </Header>
       <CardContent>
         {loading ? (
           <p>Loading data...</p>

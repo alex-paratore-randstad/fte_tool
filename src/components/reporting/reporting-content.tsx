@@ -80,93 +80,94 @@ export function ReportingContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [ccResult, empResult, allocResult] = await Promise.all([
-          domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`),
-          domo.get(`/domo/datastores/v1/collections/employees/documents/`),
-          domo.get(`/domo/datastores/v1/collections/allocations/documents/`),
-        ]);
+        if (typeof domo !== 'undefined') {
+            const [ccResult, empResult, allocResult] = await Promise.all([
+              domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`),
+              domo.get(`/domo/datastores/v1/collections/employees/documents/`),
+              domo.get(`/domo/datastores/v1/collections/allocations/documents/`),
+            ]);
 
-        const ccData: CostCenter[] = ccResult.map((r: any) => ({ ...r.content, id: r.id }));
-        const empData: Employee[] = empResult.map((r: any) => ({ ...r.content, id: r.id }));
-        const allocData: Allocation[] = allocResult.map((r: any) => ({ ...r.content, id: r.id }));
+            const ccData: CostCenter[] = ccResult.map((r: any) => ({ ...r.content, id: r.id }));
+            const empData: Employee[] = empResult.map((r: any) => ({ ...r.content, id: r.id }));
+            const allocData: Allocation[] = allocResult.map((r: any) => ({ ...r.content, id: r.id }));
 
 
-        // Process cost center data
-        const processedCostCenters = ccData.map((costCenter) => {
-          const ccAllocations = allocData.flatMap((a) =>
-            a.allocations.filter((alloc) => alloc.costCenterId === costCenter.id)
-          );
-          const totalFte = ccAllocations.reduce((sum, alloc) => sum + alloc.fte, 0);
-          const employeeIds = new Set(
-            allocData
-              .filter((a) => a.allocations.some((alloc) => alloc.costCenterId === costCenter.id))
-              .map((a) => a.employeeId)
-          );
-          const variance = (Math.random() * 2 - 1); 
-          return {
-            ...costCenter,
-            totalFte: totalFte,
-            employeeCount: employeeIds.size,
-            variance: variance,
-          };
-        });
-        setCostCenterData(processedCostCenters);
+            // Process cost center data
+            const processedCostCenters = ccData.map((costCenter) => {
+              const ccAllocations = allocData.flatMap((a) =>
+                a.allocations.filter((alloc) => alloc.costCenterId === costCenter.id)
+              );
+              const totalFte = ccAllocations.reduce((sum, alloc) => sum + alloc.fte, 0);
+              const employeeIds = new Set(
+                allocData
+                  .filter((a) => a.allocations.some((alloc) => alloc.costCenterId === costCenter.id))
+                  .map((a) => a.employeeId)
+              );
+              const variance = (Math.random() * 2 - 1); 
+              return {
+                ...costCenter,
+                totalFte: totalFte,
+                employeeCount: employeeIds.size,
+                variance: variance,
+              };
+            });
+            setCostCenterData(processedCostCenters);
 
-        // Process leader data
-        const managers = [...new Set(empData.map((e) => e.manager))].filter(m => m !== 'N/A' && m);
-        const processedLeaders = managers.map((manager) => {
-          const reports = empData.filter((e) => e.manager === manager);
-          const reportIds = new Set(reports.map((r) => r.id));
-          let totalFte = 0;
-          allocData.forEach((alloc) => {
-            if (reportIds.has(alloc.employeeId)) {
-              totalFte += alloc.allocations.reduce((sum, item) => sum + item.fte, 0);
-            }
-          });
-          return {
-            name: manager,
-            team: reports[0]?.team || 'N/A',
-            teamSize: reports.length,
-            totalFte: totalFte,
-            avgFte: reports.length > 0 ? totalFte / reports.length : 0,
-          };
-        });
-        setLeaderData(processedLeaders);
+            // Process leader data
+            const managers = [...new Set(empData.map((e) => e.manager))].filter(m => m !== 'N/A' && m);
+            const processedLeaders = managers.map((manager) => {
+              const reports = empData.filter((e) => e.manager === manager);
+              const reportIds = new Set(reports.map((r) => r.id));
+              let totalFte = 0;
+              allocData.forEach((alloc) => {
+                if (reportIds.has(alloc.employeeId)) {
+                  totalFte += alloc.allocations.reduce((sum, item) => sum + item.fte, 0);
+                }
+              });
+              return {
+                name: manager,
+                team: reports[0]?.team || 'N/A',
+                teamSize: reports.length,
+                totalFte: totalFte,
+                avgFte: reports.length > 0 ? totalFte / reports.length : 0,
+              };
+            });
+            setLeaderData(processedLeaders);
 
-        // Process region data
-        const regionNames = [...new Set(empData.map(e => e.region))];
-        const processedRegions = regionNames.map((region) => {
-          const employeesInRegion = empData.filter((e) => e.region === region);
-          const employeeIdsInRegion = new Set(employeesInRegion.map((e) => e.id));
-          let allocatedFte = 0;
-          allocData.forEach((alloc) => {
-            if (employeeIdsInRegion.has(alloc.employeeId)) {
-              allocatedFte += alloc.allocations.reduce((sum, item) => sum + item.fte, 0);
-            }
-          });
-          const totalPossibleFte = employeesInRegion.length;
-          return {
-            name: region,
-            totalEmployees: employeesInRegion.length,
-            allocatedFte: allocatedFte,
-            unallocatedFte: totalPossibleFte - allocatedFte,
-          };
-        });
-        setRegionData(processedRegions);
+            // Process region data
+            const regionNames = [...new Set(empData.map(e => e.region))];
+            const processedRegions = regionNames.map((region) => {
+              const employeesInRegion = empData.filter((e) => e.region === region);
+              const employeeIdsInRegion = new Set(employeesInRegion.map((e) => e.id));
+              let allocatedFte = 0;
+              allocData.forEach((alloc) => {
+                if (employeeIdsInRegion.has(alloc.employeeId)) {
+                  allocatedFte += alloc.allocations.reduce((sum, item) => sum + item.fte, 0);
+                }
+              });
+              const totalPossibleFte = employeesInRegion.length;
+              return {
+                name: region,
+                totalEmployees: employeesInRegion.length,
+                allocatedFte: allocatedFte,
+                unallocatedFte: totalPossibleFte - allocatedFte,
+              };
+            });
+            setRegionData(processedRegions);
 
-        // Process individual data
-        const processedIndividuals = empData.map((employee) => {
-          const allocation = allocData.find((a) => a.employeeId === employee.id);
-          const totalFte = allocation
-            ? allocation.allocations.reduce((sum, alloc) => sum + alloc.fte, 0)
-            : 0;
-          return {
-            ...employee,
-            totalFte: totalFte,
-          };
-        });
-        setIndividualData(processedIndividuals);
-
+            // Process individual data
+            const processedIndividuals = empData.map((employee) => {
+              const allocation = allocData.find((a) => a.employeeId === employee.id);
+              const totalFte = allocation
+                ? allocation.allocations.reduce((sum, alloc) => sum + alloc.fte, 0)
+                : 0;
+              return {
+                ...employee,
+                totalFte: totalFte,
+              };
+            });
+            setIndividualData(processedIndividuals);
+        }
       } catch (error) {
         console.error("Failed to fetch reporting data:", error);
       } finally {
@@ -404,7 +405,7 @@ export function ReportingContent() {
               <CardHeader>
                 <CardTitle>FTE Trends by Cost Center</CardTitle>
                 <CardDescription>Monthly FTE allocation trends for top cost centers.</CardDescription>
-              </CardHeader>
+              </Header>
               <CardContent>
                 <ChartContainer config={trendChartConfig} className="h-[400px] w-full">
                   <ResponsiveContainer>

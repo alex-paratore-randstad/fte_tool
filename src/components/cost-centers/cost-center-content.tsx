@@ -17,15 +17,18 @@ export function CostCenterContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const result = await domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`);
-        const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));
-        setCostCenters(mappedData);
+        if (typeof domo !== 'undefined') {
+            const result = await domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`);
+            const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));
+            setCostCenters(mappedData);
+        }
       } catch (error) {
         console.error("Failed to fetch cost centers:", error);
       } finally {
         setLoading(false);
       }
     };
+
     fetchData();
   }, []);
 

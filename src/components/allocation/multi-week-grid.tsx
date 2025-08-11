@@ -60,38 +60,40 @@ export function MultiWeekGrid() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [empResult, ccResult, allocResult] = await Promise.all([
-          domo.get(`/domo/datastores/v1/collections/employees/documents/`),
-          domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`),
-          domo.get(`/domo/datastores/v1/collections/allocations/documents/`),
-        ]);
-        
-        const empData: Employee[] = empResult.map((r: any) => ({ ...r.content, id: r.id }));
-        const ccData: CostCenter[] = ccResult.map((r: any) => ({ ...r.content, id: r.id }));
-        const initialAllocations: Allocation[] = allocResult.map((r: any) => ({ ...r.content, id: r.id }));
+        if (typeof domo !== 'undefined') {
+            const [empResult, ccResult, allocResult] = await Promise.all([
+              domo.get(`/domo/datastores/v1/collections/employees/documents/`),
+              domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`),
+              domo.get(`/domo/datastores/v1/collections/allocations/documents/`),
+            ]);
+            
+            const empData: Employee[] = empResult.map((r: any) => ({ ...r.content, id: r.id }));
+            const ccData: CostCenter[] = ccResult.map((r: any) => ({ ...r.content, id: r.id }));
+            const initialAllocations: Allocation[] = allocResult.map((r: any) => ({ ...r.content, id: r.id }));
 
-        setEmployees(empData);
-        setCostCenters(ccData);
+            setEmployees(empData);
+            setCostCenters(ccData);
 
-        const transformed: MultiWeekAllocationState = {};
-        empData.forEach(emp => {
-          transformed[emp.id] = { allocations: [] };
-        });
+            const transformed: MultiWeekAllocationState = {};
+            empData.forEach(emp => {
+              transformed[emp.id] = { allocations: [] };
+            });
 
-        initialAllocations.forEach(empAlloc => {
-          const weekKey = formatDateKey(new Date());
-          if (transformed[empAlloc.employeeId]) {
-            const employeeGridAllocs = empAlloc.allocations.map((ccAlloc, index) => ({
-              id: `${empAlloc.employeeId}-${ccAlloc.costCenterId}-${Date.now()}-${index}`, // More unique id
-              costCenterId: ccAlloc.costCenterId,
-              weeklyFtes: {
-                [weekKey]: ccAlloc.fte,
-              },
-            }));
-            transformed[empAlloc.employeeId].allocations.push(...employeeGridAllocs);
-          }
-        });
-        setAllocations(transformed);
+            initialAllocations.forEach(empAlloc => {
+              const weekKey = formatDateKey(new Date());
+              if (transformed[empAlloc.employeeId]) {
+                const employeeGridAllocs = empAlloc.allocations.map((ccAlloc, index) => ({
+                  id: `${empAlloc.employeeId}-${ccAlloc.costCenterId}-${Date.now()}-${index}`, // More unique id
+                  costCenterId: ccAlloc.costCenterId,
+                  weeklyFtes: {
+                    [weekKey]: ccAlloc.fte,
+                  },
+                }));
+                transformed[empAlloc.employeeId].allocations.push(...employeeGridAllocs);
+              }
+            });
+            setAllocations(transformed);
+        }
 
       } catch (error) {
         console.error("Failed to fetch allocation data:", error)

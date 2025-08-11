@@ -41,9 +41,11 @@ export function TeamContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const result = await domo.get(`/domo/datastores/v1/collections/employees/documents/`);
-        const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));
-        setEmployees(mappedData);
+        if (typeof domo !== 'undefined') {
+            const result = await domo.get(`/domo/datastores/v1/collections/employees/documents/`);
+            const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));
+            setEmployees(mappedData);
+        }
       } catch (error) {
         console.error("Failed to fetch employees:", error);
       }
