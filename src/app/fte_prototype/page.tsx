@@ -1,161 +1,92 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Script from 'next/script';
+import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { FtePrototypeData } from '@/types';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
 
+// This is the AppDB API wrapper
 declare var domo: any;
-const COLLECTION_ID = '8e8726da-3db9-4a6c-846f-cf24d957d714';
+
+type FtePrototypeData = {
+  id: string;
+  content: {
+    name: string;
+    value: string;
+  };
+};
 
 export default function FtePrototypePage() {
   const [data, setData] = useState<FtePrototypeData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newName, setNewName] = useState('');
-  const [newValue, setNewValue] = useState('');
-  const { toast } = useToast();
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await domo.get(`/domo/datastores/v1/collections/${COLLECTION_ID}/documents/`);
-      const mappedData = result.map((item: any) => ({
-        id: item.id,
-        content: item.content
-      }));
-      setData(mappedData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not fetch data from the database.',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
 
   useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // This is a direct call to the AppDB collection using its GUID
+        const result = await domo.get(`/domo/datastores/v1/collections/8e8726da-3db9-4a6c-846f-cf24d957d714/documents/`);
+        // The response is already an array of documents, so we can set it directly
+        setData(result);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (typeof domo !== 'undefined') {
       fetchData();
     } else {
-        setLoading(false);
+      // In local dev, if domo is not available, stop loading.
+      setLoading(false);
     }
-  }, [fetchData]);
-
-  const handleAddData = async () => {
-    if (newName.trim() === '' || newValue.trim() === '') {
-      toast({
-        variant: 'destructive',
-        title: 'Validation Error',
-        description: 'Name and Value fields cannot be empty.',
-      });
-      return;
-    }
-
-    try {
-      await domo.post(`/domo/datastores/v1/collections/${COLLECTION_ID}/documents/`, { content: { name: newName, value: newValue } });
-      toast({
-        title: 'Success',
-        description: 'New data has been saved.',
-      });
-      setNewName('');
-      setNewValue('');
-      // Refresh the data to show the new entry
-      fetchData();
-    } catch (error) {
-      console.error('Error saving data:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not save the new data.',
-      });
-    }
-  };
+  }, []);
 
   return (
-    <div>
-      <Script src="/assets/domo.js" />
-      <div className="flex flex-col gap-8">
-        <PageHeader
-          title="FTE Prototype Data"
-          description="This page displays raw data from the AppDB collection."
-        />
-        <Card>
-          <CardHeader>
-            <CardTitle>Add New Data</CardTitle>
-            <CardDescription>
-              Use the form below to add a new key-value pair to the AppDB.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="grid gap-2 flex-1">
-                <Label htmlFor="name-input">Name</Label>
-                <Input
-                  id="name-input"
-                  placeholder="e.g., New Metric"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2 flex-1">
-                <Label htmlFor="value-input">Value</Label>
-                <Input
-                  id="value-input"
-                  placeholder="e.g., 42"
-                  value={newValue}
-                  onChange={(e) => setNewValue(e.target.value)}
-                />
-              </div>
-              <div className="flex items-end">
-                <Button onClick={handleAddData} className="w-full sm:w-auto">
-                  Add Data
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Live Data</CardTitle>
-            <CardDescription>
-              This is the live data being returned from the AppDB.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p>Loading data...</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Value</TableHead>
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        title="FTE Prototype Data"
+        description="This page fetches live data from the fte_prototype AppDB collection."
+      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Live Data</CardTitle>
+          <CardDescription>
+            This is the live data being returned from the AppDB.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p>Loading data...</p>
+          ) : data.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>Document ID</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.content.name}</TableCell>
+                    <TableCell>{item.content.value}</TableCell>
+                    <TableCell className="font-mono text-xs">{item.id}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.content.name}</TableCell>
-                      <TableCell>{item.content.value}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p>
+              No data was returned from the endpoint. This may be expected if the
+              data source is empty or if you are in a local development environment.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -12,7 +12,6 @@ import {
   Building,
   Shield,
   FlaskConical,
-  Database,
 } from 'lucide-react';
 
 import {
@@ -24,8 +23,7 @@ import {
 import { useCurrentUser } from '@/hooks/use-current-user';
 
 const navItems = [
-  { href: '/get-data', label: 'Get Data', icon: Database, roles: ['admin', 'manager', 'vp'] },
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'vp'] },
+  { href: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'vp'] },
   { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock, roles: ['admin', 'manager', 'vp'] },
   { href: '/reporting', label: 'Reporting', icon: BarChart3, roles: ['admin', 'manager', 'vp'] },
   { href: '/team', label: 'Team Management', icon: Users, roles: ['admin', 'manager', 'vp'] },
@@ -40,8 +38,6 @@ export function SidebarNav() {
   const { currentUser } = useCurrentUser();
 
   const filteredNavItems = navItems.filter(item => {
-    // Show 'Get Data' to everyone regardless of role, if it's the root page
-    if (item.href === '/') return true;
     return item.roles.includes(currentUser.role)
   });
 
@@ -53,7 +49,10 @@ export function SidebarNav() {
   }
 
   const isActive = (href: string) => {
-    if (href === '/') return pathname === href;
+    // Special handling for dashboard at the root
+    if (href === '/') {
+        return pathname === '/index.html' || pathname === '/';
+    }
     const cleanedPathname = pathname.endsWith('/index.html') ? pathname.slice(0, -11) : pathname;
     return cleanedPathname === href;
   }

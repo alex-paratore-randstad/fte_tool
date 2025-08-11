@@ -1,98 +1,104 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Users, Briefcase, AlertTriangle } from 'lucide-react';
+import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
+import SummaryCard from '@/components/dashboard/summary-card';
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-// This is the AppDB API wrapper
-declare var domo: any;
-
-type StoreData = {
-  date_ymd: string;
-  revenue: number;
-  sales_rep: string;
-  department: string;
-  state: string;
-};
-
-export default function GetDataPage() {
-  const [data, setData] = useState<StoreData[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function DashboardPage() {
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    const isDomo = typeof domo !== 'undefined';
-    if (!isDomo) {
-      console.log('Not in a Domo environment, skipping data fetch.');
-      setLoading(false);
-      return;
-    }
-
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const result = await domo.get(`/data/v1/store_example_data`);
-        setData(result);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    setIsClient(true);
   }, []);
+
+  if (!isClient) {
+    return (
+      <div className="flex flex-col gap-8">
+        <PageHeader title="Dashboard" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total FTEs</CardTitle>
+                </CardHeader>
+                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Allocated FTEs</CardTitle>
+                </CardHeader>
+                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Unallocated FTEs</CardTitle>
+                </CardHeader>
+                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Missing Allocations</CardTitle>
+                </CardHeader>
+                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+            </Card>
+        </div>
+         <Card>
+            <CardHeader>
+                <CardTitle>FTE Allocation by Account</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="h-[300px] w-full rounded-md bg-muted animate-pulse" />
+            </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader
-        title="Get Data Example"
-        description="This page fetches live data from an endpoint and displays it."
-      />
-      <Card>
-        <CardHeader>
-          <CardTitle>Store Sales Data</CardTitle>
-          <CardDescription>
-            Live data from the /data/v1/store_example_data endpoint.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p>Loading data...</p>
-          ) : data.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Sales Rep</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>State</TableHead>
-                  <TableHead className="text-right">Revenue</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.date_ymd}</TableCell>
-                    <TableCell className="font-medium">{item.sales_rep}</TableCell>
-                    <TableCell>{item.department}</TableCell>
-                    <TableCell>{item.state}</TableCell>
-                    <TableCell className="text-right">
-                      {item.revenue.toLocaleString('en-US', {
-                        style: 'currency',
-                        currency: 'USD',
-                      })}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-             <p>No data was returned from the endpoint. This is expected in local development.</p>
-          )}
-        </CardContent>
-      </Card>
+      <PageHeader title="Dashboard" />
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          title="Total FTEs"
+          value="1,254"
+          icon={Users}
+          change="+2.5% this month"
+        />
+        <SummaryCard
+          title="Allocated FTEs"
+          value="1,120"
+          icon={Briefcase}
+          change="+3.1% this month"
+        />
+        <SummaryCard
+          title="Unallocated FTEs"
+          value="134"
+          icon={Users}
+          variant="destructive"
+          change="-5.2% this month"
+        />
+        <SummaryCard
+          title="Missing Allocations"
+          value="12"
+          icon={AlertTriangle}
+          variant="destructive"
+          change="Due this week"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>FTE Allocation by Account</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FteAllocationChart />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
