@@ -59,6 +59,11 @@ export function MultiWeekGrid() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      if (typeof domo === 'undefined') {
+        console.log('[AppDB] Not in DOMO environment. Skipping data fetch for allocation grid.');
+        setLoading(false);
+        return;
+      }
       try {
         const [empResult, ccResult, allocResult] = await Promise.all([
           domo.get(`/domo/datastores/v1/collections/employees/documents/`),
@@ -99,12 +104,7 @@ export function MultiWeekGrid() {
         setLoading(false);
       }
     }
-    if (typeof domo !== 'undefined') {
-        fetchData();
-    } else {
-        console.log('[AppDB] Not in DOMO environment. Skipping data fetch for allocation grid.');
-        setLoading(false);
-    }
+    fetchData();
   }, []);
 
   const displayedEmployees = useMemo(() => {

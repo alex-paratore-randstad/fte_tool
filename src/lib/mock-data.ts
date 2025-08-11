@@ -1,3 +1,4 @@
+
 import type { Employee, CostCenter, Allocation } from '@/types';
 
 export const employees: Employee[] = [
