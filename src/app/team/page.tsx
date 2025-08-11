@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { BulkUploadDialog } from '@/components/team/bulk-upload-dialog';
+import { appDb } from '@/services/data';
 
 export default function TeamPage() {
   const { currentUser, isManager, isVp } = useCurrentUser();
@@ -39,15 +40,8 @@ export default function TeamPage() {
   const [displayedEmployees, setDisplayedEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
-    const isDomo = typeof domo !== 'undefined';
-    const getEmployees = async (): Promise<Employee[]> => {
-      if (!isDomo) return Promise.resolve([]);
-      // Assuming appDb is defined elsewhere or you have access to domo directly
-      return domo.get(`/domo/datastores/v1/collections/employees/documents/`);
-    };
-
-    getEmployees().then((data) => {
-      setEmployees(data.map((d: any) => ({id: d.id, ...d.content})));
+    appDb.list<Employee>('employees').then((data) => {
+      setEmployees(data);
     });
   }, []);
 

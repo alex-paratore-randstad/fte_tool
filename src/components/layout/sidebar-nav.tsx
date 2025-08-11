@@ -24,7 +24,7 @@ import {
 import { useCurrentUser } from '@/hooks/use-current-user';
 
 const navItems = [
-  { href: '/', label: 'Get Data', icon: Database, roles: ['admin', 'manager', 'vp'] },
+  { href: '/get-data', label: 'Get Data', icon: Database, roles: ['admin', 'manager', 'vp'] },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'vp'] },
   { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock, roles: ['admin', 'manager', 'vp'] },
   { href: '/reporting', label: 'Reporting', icon: BarChart3, roles: ['admin', 'manager', 'vp'] },
@@ -54,7 +54,8 @@ export function SidebarNav() {
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === href;
-    return pathname.startsWith(href);
+    const cleanedPathname = pathname.endsWith('/index.html') ? pathname.slice(0, -11) : pathname;
+    return cleanedPathname === href;
   }
 
   return (

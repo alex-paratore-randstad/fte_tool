@@ -27,7 +27,7 @@ import type { Employee, CostCenter, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { getEmployees, getCostCenters, getAllocations } from '@/services/data';
+import { appDb } from '@/services/data';
 
 // Helper to format date as a consistent key
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -59,9 +59,9 @@ export function MultiWeekGrid() {
     const fetchData = async () => {
       setLoading(true);
       const [empData, ccData, initialAllocations] = await Promise.all([
-        getEmployees(),
-        getCostCenters(),
-        getAllocations(),
+        appDb.list<Employee>('employees'),
+        appDb.list<CostCenter>('cost-centers'),
+        appDb.list<Allocation>('allocations'),
       ]);
       setEmployees(empData);
       setCostCenters(ccData);

@@ -27,7 +27,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, Respon
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
 import type { Employee, CostCenter, Allocation } from '@/types';
-import { getEmployees, getCostCenters, getAllocations } from '@/services/data';
+import { appDb } from '@/services/data';
 
 type ProcessedCostCenter = CostCenter & {
     totalFte: number;
@@ -81,9 +81,9 @@ export default function ReportingPage() {
     const fetchData = async () => {
       setLoading(true);
       const [ccData, empData, allocData] = await Promise.all([
-        getCostCenters(),
-        getEmployees(),
-        getAllocations(),
+        appDb.list<CostCenter>('cost-centers'),
+        appDb.list<Employee>('employees'),
+        appDb.list<Allocation>('allocations'),
       ]);
 
       // Process cost center data
