@@ -102,6 +102,7 @@ export function MultiWeekGrid() {
     if (typeof domo !== 'undefined') {
         fetchData();
     } else {
+        console.log('[AppDB] Not in DOMO environment. Skipping data fetch for allocation grid.');
         setLoading(false);
     }
   }, []);

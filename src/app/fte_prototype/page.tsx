@@ -30,9 +30,7 @@ export default function FtePrototypePage() {
         return;
       }
       try {
-        // This is a direct call to the AppDB collection using its GUID
-        const result = await domo.get(`/domo/datastores/v1/collections/8e8726da-3db9-4a6c-846f-cf24d957d714/documents/`);
-        // The response is already an array of documents, so we can set it directly
+        const result = await domo.get(`/domo/datastores/v1/collections/fte_prototype/documents/`);
         setData(result);
       } catch (error) {
         console.error('Error fetching data:', error);
