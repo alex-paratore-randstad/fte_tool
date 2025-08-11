@@ -1,38 +1,15 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
-import type { CostCenter } from '@/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState } from 'react';
+import { CostCenterContent } from '@/components/cost-centers/cost-center-content';
 import { BulkCostCenterUploadDialog } from '@/components/cost-centers/bulk-cost-center-upload-dialog';
 
-declare var domo: any;
-
 export default function CostCenterPage() {
-  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const result = await domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`);
-        const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));
-        setCostCenters(mappedData);
-      } catch (error) {
-        console.error("Failed to fetch cost centers:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
 
   return (
     <>
@@ -47,38 +24,7 @@ export default function CostCenterPage() {
             </Button>
           }
         />
-        <Card>
-          <CardHeader>
-            <CardTitle>All Cost Centers</CardTitle>
-            <CardDescription>
-                View and add new cost centers via CSV upload.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p>Loading cost centers...</p>
-            ) : (
-              <ScrollArea className="h-96">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Name</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {costCenters.map(cc => (
-                      <TableRow key={cc.id}>
-                        <TableCell className="font-mono">{cc.code}</TableCell>
-                        <TableCell className="font-medium">{cc.name}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
+        <CostCenterContent />
       </div>
       <BulkCostCenterUploadDialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen} />
     </>
