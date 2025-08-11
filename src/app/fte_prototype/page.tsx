@@ -31,7 +31,7 @@ export default function FtePrototypePage() {
       }
       try {
         const result = await domo.get(`/domo/datastores/v1/collections/fte_prototype/documents/`);
-        // The result is already in the format { id: string, content: { ... } }[]
+        // The result is already in the format we need: { id: string, content: { ... } }[]
         setData(result);
       } catch (error) {
         console.error('Error fetching data:', error);
