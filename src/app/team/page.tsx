@@ -30,7 +30,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { BulkUploadDialog } from '@/components/team/bulk-upload-dialog';
-import { appDb } from '@/services/data';
+
+declare var domo: any;
 
 export default function TeamPage() {
   const { currentUser, isManager, isVp } = useCurrentUser();
@@ -40,9 +41,18 @@ export default function TeamPage() {
   const [displayedEmployees, setDisplayedEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
-    appDb.list<Employee>('employees').then((data) => {
-      setEmployees(data);
-    });
+    const fetchData = async () => {
+      try {
+        const result = await domo.get(`/domo/datastores/v1/collections/employees/documents/`);
+        const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));
+        setEmployees(mappedData);
+      } catch (error) {
+        console.error("Failed to fetch employees:", error);
+      }
+    };
+    if (typeof domo !== 'undefined') {
+        fetchData();
+    }
   }, []);
 
   useEffect(() => {

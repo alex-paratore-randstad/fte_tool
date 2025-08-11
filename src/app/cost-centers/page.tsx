@@ -10,7 +10,8 @@ import type { CostCenter } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { BulkCostCenterUploadDialog } from '@/components/cost-centers/bulk-cost-center-upload-dialog';
-import { appDb } from '@/services/data';
+
+declare var domo: any;
 
 export default function CostCenterPage() {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
@@ -18,10 +19,22 @@ export default function CostCenterPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    appDb.list<CostCenter>('cost-centers').then(data => {
-        setCostCenters(data);
+    const fetchData = async () => {
+      try {
+        const result = await domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`);
+        const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));
+        setCostCenters(mappedData);
+      } catch (error) {
+        console.error("Failed to fetch cost centers:", error);
+      } finally {
         setLoading(false);
-    });
+      }
+    };
+    if (typeof domo !== 'undefined') {
+        fetchData();
+    } else {
+        setLoading(false);
+    }
   }, []);
 
   return (

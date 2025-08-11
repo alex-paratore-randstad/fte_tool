@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback } from 'react';
 import Script from 'next/script';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { appDb } from '@/services/data';
 import type { FtePrototypeData } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 
-const COLLECTION_NAME = 'fte_prototype';
+declare var domo: any;
+const COLLECTION_ID = '8e8726da-3db9-4a6c-846f-cf24d957d714';
 
 export default function FtePrototypePage() {
   const [data, setData] = useState<FtePrototypeData[]>([]);
@@ -25,8 +25,12 @@ export default function FtePrototypePage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await appDb.list<FtePrototypeData>(COLLECTION_NAME);
-      setData(result);
+      const result = await domo.get(`/domo/datastores/v1/collections/${COLLECTION_ID}/documents/`);
+      const mappedData = result.map((item: any) => ({
+        id: item.id,
+        content: item.content
+      }));
+      setData(mappedData);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -40,7 +44,11 @@ export default function FtePrototypePage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchData();
+    if (typeof domo !== 'undefined') {
+      fetchData();
+    } else {
+        setLoading(false);
+    }
   }, [fetchData]);
 
   const handleAddData = async () => {
@@ -54,7 +62,7 @@ export default function FtePrototypePage() {
     }
 
     try {
-      await appDb.create(COLLECTION_NAME, { name: newName, value: newValue });
+      await domo.post(`/domo/datastores/v1/collections/${COLLECTION_ID}/documents/`, { content: { name: newName, value: newValue } });
       toast({
         title: 'Success',
         description: 'New data has been saved.',

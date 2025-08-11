@@ -27,7 +27,8 @@ import type { Employee, CostCenter, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { appDb } from '@/services/data';
+
+declare var domo: any;
 
 // Helper to format date as a consistent key
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -58,36 +59,51 @@ export function MultiWeekGrid() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const [empData, ccData, initialAllocations] = await Promise.all([
-        appDb.list<Employee>('employees'),
-        appDb.list<CostCenter>('cost-centers'),
-        appDb.list<Allocation>('allocations'),
-      ]);
-      setEmployees(empData);
-      setCostCenters(ccData);
+      try {
+        const [empResult, ccResult, allocResult] = await Promise.all([
+          domo.get(`/domo/datastores/v1/collections/employees/documents/`),
+          domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`),
+          domo.get(`/domo/datastores/v1/collections/allocations/documents/`),
+        ]);
+        
+        const empData: Employee[] = empResult.map((r: any) => ({ ...r.content, id: r.id }));
+        const ccData: CostCenter[] = ccResult.map((r: any) => ({ ...r.content, id: r.id }));
+        const initialAllocations: Allocation[] = allocResult.map((r: any) => ({ ...r.content, id: r.id }));
 
-      const transformed: MultiWeekAllocationState = {};
-      empData.forEach(emp => {
-        transformed[emp.id] = { allocations: [] };
-      });
+        setEmployees(empData);
+        setCostCenters(ccData);
 
-      initialAllocations.forEach(empAlloc => {
-        const weekKey = formatDateKey(new Date());
-        if (transformed[empAlloc.employeeId]) {
-          const employeeGridAllocs = empAlloc.allocations.map((ccAlloc, index) => ({
-            id: `${empAlloc.employeeId}-${ccAlloc.costCenterId}-${Date.now()}-${index}`, // More unique id
-            costCenterId: ccAlloc.costCenterId,
-            weeklyFtes: {
-              [weekKey]: ccAlloc.fte,
-            },
-          }));
-          transformed[empAlloc.employeeId].allocations.push(...employeeGridAllocs);
-        }
-      });
-      setAllocations(transformed);
-      setLoading(false);
+        const transformed: MultiWeekAllocationState = {};
+        empData.forEach(emp => {
+          transformed[emp.id] = { allocations: [] };
+        });
+
+        initialAllocations.forEach(empAlloc => {
+          const weekKey = formatDateKey(new Date());
+          if (transformed[empAlloc.employeeId]) {
+            const employeeGridAllocs = empAlloc.allocations.map((ccAlloc, index) => ({
+              id: `${empAlloc.employeeId}-${ccAlloc.costCenterId}-${Date.now()}-${index}`, // More unique id
+              costCenterId: ccAlloc.costCenterId,
+              weeklyFtes: {
+                [weekKey]: ccAlloc.fte,
+              },
+            }));
+            transformed[empAlloc.employeeId].allocations.push(...employeeGridAllocs);
+          }
+        });
+        setAllocations(transformed);
+
+      } catch (error) {
+        console.error("Failed to fetch allocation data:", error)
+      } finally {
+        setLoading(false);
+      }
     }
-    fetchData();
+    if (typeof domo !== 'undefined') {
+        fetchData();
+    } else {
+        setLoading(false);
+    }
   }, []);
 
   const displayedEmployees = useMemo(() => {
