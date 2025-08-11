@@ -24,6 +24,11 @@ export default function FtePrototypePage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      if (typeof domo === 'undefined') {
+        console.log('[AppDB] Not in DOMO environment. Skipping list for fte_prototype.');
+        setLoading(false);
+        return;
+      }
       try {
         // This is a direct call to the AppDB collection using its GUID
         const result = await domo.get(`/domo/datastores/v1/collections/8e8726da-3db9-4a6c-846f-cf24d957d714/documents/`);
@@ -36,12 +41,7 @@ export default function FtePrototypePage() {
       }
     };
 
-    if (typeof domo !== 'undefined') {
-      fetchData();
-    } else {
-      // In local dev, if domo is not available, stop loading.
-      setLoading(false);
-    }
+    fetchData();
   }, []);
 
   return (

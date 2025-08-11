@@ -25,7 +25,7 @@ import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-reac
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { Employee, CostCenter, Allocation } from '@/types';
 import { cn } from '@/lib/utils';
-import { Badge } from '../ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
 declare var domo: any;
@@ -45,7 +45,7 @@ type MultiWeekAllocationState = {
   };
 };
 
-export function MultiWeekGrid() {
+export default function AllocationPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const [allocations, setAllocations] = useState<MultiWeekAllocationState>({});
