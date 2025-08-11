@@ -42,11 +42,6 @@ export default function TeamPage() {
   const [displayedEmployees, setDisplayedEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
-    if (typeof domo === 'undefined') {
-        console.warn("[AppDB] Not in DOMO environment. Skipping list for employees.");
-        setLoading(false);
-        return;
-    }
     const fetchData = async () => {
       setLoading(true);
       try {

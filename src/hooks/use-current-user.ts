@@ -24,7 +24,7 @@ export function useCurrentUser() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This effect runs only on the client
+    // This effect runs only on the client, ensuring no server-side execution of this logic.
     // To demonstrate different roles, change this name:
     // 'Sawyer Ames' (Manager)
     // 'Caroline Reynolds' (Vice President)
@@ -43,8 +43,9 @@ export function useCurrentUser() {
       }
       setCurrentUser({ ...loggedInEmployee, role });
     } else {
-        // Handle case where user isn't found, though it shouldn't happen with mock data
-        const defaultUser = employees[0];
+        // Handle case where user isn't found, which is unlikely with mock data.
+        // Fallback to a default user to prevent crashes.
+        const defaultUser = employees[0] || placeholderUser;
         setCurrentUser({ ...defaultUser, role: 'manager' });
     }
     

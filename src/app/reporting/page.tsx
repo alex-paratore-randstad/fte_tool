@@ -79,11 +79,6 @@ export default function ReportingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof domo === 'undefined') {
-      console.warn('[AppDB] Not in DOMO environment. Skipping reporting data fetch.');
-      setLoading(false);
-      return;
-    }
     const fetchData = async () => {
       setLoading(true);
       try {

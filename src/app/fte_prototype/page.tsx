@@ -14,11 +14,6 @@ export default function FtePrototypePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof domo === 'undefined') {
-        console.warn("[AppDB] Not in DOMO environment. Skipping list for fte_prototype.");
-        setLoading(false);
-        return;
-    }
     const fetchData = async () => {
       setLoading(true);
       try {
