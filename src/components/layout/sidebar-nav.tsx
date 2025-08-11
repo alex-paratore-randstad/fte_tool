@@ -35,21 +35,37 @@ const navItems = [
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const { currentUser } = useCurrentUser();
+  const { currentUser, loading } = useCurrentUser();
+
+  if (loading) {
+    return (
+      <SidebarGroup>
+          <SidebarMenu>
+            {Array.from({ length: 5 }).map((_, index) => (
+                <SidebarMenuItem key={index}>
+                    <SidebarMenuButton tooltip="Loading..." asChild>
+                        <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+                            <span className="bg-muted h-4 w-24 rounded animate-pulse" />
+                        </div>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+      </SidebarGroup>
+    )
+  }
 
   const filteredNavItems = navItems.filter(item => {
     return item.roles.includes(currentUser.role)
   });
 
   const getHref = (href: string) => {
-    // This logic ensures that links point directly to the index.html file,
-    // bypassing the problematic server-side script.
     if (href === '/') return '/index.html';
     return `${href}/index.html`;
   }
 
   const isActive = (href: string) => {
-    // Special handling for dashboard at the root
     if (href === '/') {
         return pathname === '/index.html' || pathname === '/';
     }

@@ -20,11 +20,7 @@ export default function CostCenterPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (typeof domo === 'undefined') {
-        console.log('[AppDB] Not in DOMO environment. Skipping list for cost-centers.');
-        setLoading(false);
-        return;
-      }
+      setLoading(true);
       try {
         const result = await domo.get(`/domo/datastores/v1/collections/cost-centers/documents/`);
         const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));

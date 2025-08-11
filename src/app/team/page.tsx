@@ -30,23 +30,25 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { BulkUploadDialog } from '@/components/team/bulk-upload-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 
 declare var domo: any;
 
 export default function TeamPage() {
-  const { currentUser, isManager, isVp } = useCurrentUser();
+  const { currentUser, isManager, isVp, loading: userLoading } = useCurrentUser();
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [displayedEmployees, setDisplayedEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
-    const fetchData = async () => {
-       if (typeof domo === 'undefined') {
-        console.log('[AppDB] Not in DOMO environment. Skipping list for employees.');
+    if (typeof domo === 'undefined') {
+        console.warn("[AppDB] Not in DOMO environment. Skipping list for employees.");
         setLoading(false);
         return;
-      }
+    }
+    const fetchData = async () => {
+      setLoading(true);
       try {
         const result = await domo.get(`/domo/datastores/v1/collections/employees/documents/`);
         const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));
@@ -59,7 +61,7 @@ export default function TeamPage() {
   }, []);
 
   useEffect(() => {
-    if (employees.length > 0 && currentUser.id !== 'placeholder-user') {
+    if (employees.length > 0 && !userLoading) {
       const getDisplayedEmployees = () => {
           if (isManager) {
               return employees.filter((employee) => employee.manager === currentUser.name);
@@ -77,7 +79,7 @@ export default function TeamPage() {
       setDisplayedEmployees(getDisplayedEmployees());
       setLoading(false);
     }
-  }, [employees, currentUser, isManager, isVp]);
+  }, [employees, currentUser, userLoading, isManager, isVp]);
     
   const getPageTitle = () => {
     if (isManager) return 'My Team';
@@ -92,17 +94,22 @@ export default function TeamPage() {
   }
 
   const renderContent = () => {
-    if (loading) {
+    if (loading || userLoading) {
       return (
          <Card>
            <CardHeader>
-             <CardTitle>{getPageTitle()}</CardTitle>
+             <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
              <CardDescription>
-               Loading employee data...
+                <Skeleton className="h-4 w-1/2" />
              </CardDescription>
            </CardHeader>
            <CardContent>
-             <p>Please wait...</p>
+            <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </div>
            </CardContent>
          </Card>
       )

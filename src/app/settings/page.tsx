@@ -7,16 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { useState, useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function SettingsPage() {
-  const { currentUser } = useCurrentUser();
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    // This effect runs only on the client, after hydration
-    setIsClient(true);
-  }, []);
+  const { currentUser, loading } = useCurrentUser();
 
   return (
     <>
@@ -34,7 +28,22 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4">
-                {isClient ? (
+                {loading ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="name">Name</Label>
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                     <div className="grid gap-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                     <div className="grid gap-2">
+                        <Label htmlFor="title">Title</Label>
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                  </div>
+                ) : (
                   <>
                     <div className="grid gap-2">
                       <Label htmlFor="name">Name</Label>
@@ -49,12 +58,10 @@ export default function SettingsPage() {
                       <Input id="title" defaultValue={currentUser.title} readOnly />
                     </div>
                   </>
-                ) : (
-                  <p>Loading profile...</p>
                 )}
               </CardContent>
               <CardFooter className="border-t pt-6">
-                  <Button>Save Profile</Button>
+                  <Button disabled={loading}>Save Profile</Button>
               </CardFooter>
             </Card>
         </div>

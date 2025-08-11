@@ -13,19 +13,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function UserNav() {
-  const { currentUser } = useCurrentUser();
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const { currentUser, loading } = useCurrentUser();
 
   const getInitials = (name: string) => {
-    if (!name || name === 'Loading...') return '';
+    if (!name) return '';
     const parts = name.split(' ');
     if (parts.length > 1) {
       return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
@@ -34,11 +28,11 @@ export function UserNav() {
   };
 
   const getEmail = (name: string) => {
-     if (!name || name === 'Loading...') return '';
+     if (!name) return '';
      return `${name.toLowerCase().replace(' ', '.')}@example.com`;
   }
 
-  if (!isClient) {
+  if (loading) {
     return (
        <div className="flex items-center space-x-2">
             <Skeleton className="h-9 w-9 rounded-full" />

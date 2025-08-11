@@ -7,16 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminPage() {
-  const { isAdmin } = useCurrentUser();
-  const [isClient, setIsClient] = useState(false);
+  const { isAdmin, loading } = useCurrentUser();
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
+  if (loading) {
     return (
         <div className="flex flex-col gap-8">
             <PageHeader
@@ -25,10 +21,10 @@ export default function AdminPage() {
             />
             <Card>
                 <CardHeader>
-                    <CardTitle>Loading...</CardTitle>
+                    <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p>Verifying permissions...</p>
+                    <Skeleton className="h-4 w-1/2" />
                 </CardContent>
             </Card>
         </div>

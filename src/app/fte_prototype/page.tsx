@@ -5,17 +5,10 @@ import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import type { FtePrototypeData } from '@/types';
 
 // This is the AppDB API wrapper
 declare var domo: any;
-
-type FtePrototypeData = {
-  id: string;
-  content: {
-    name: string;
-    value: string;
-  };
-};
 
 export default function FtePrototypePage() {
   const [data, setData] = useState<FtePrototypeData[]>([]);
@@ -24,14 +17,8 @@ export default function FtePrototypePage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      if (typeof domo === 'undefined') {
-        console.log('[AppDB] Not in DOMO environment. Skipping list for fte_prototype.');
-        setLoading(false);
-        return;
-      }
       try {
         const result = await domo.get(`/domo/datastores/v1/collections/fte_prototype/documents/`);
-        // The result is already in the format we need: { id: string, content: { ... } }[]
         setData(result);
       } catch (error) {
         console.error('Error fetching data:', error);
