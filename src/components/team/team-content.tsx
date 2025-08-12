@@ -22,7 +22,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
-declare var domo: any;
+// Initialize a local domo object to handle data fetching.
+const domo = {
+  get: async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  }
+};
 
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -33,17 +42,8 @@ export function TeamContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        if (typeof domo !== 'undefined') {
-          const data = await domo.get(`/domo/data/v1/7228fd02-b6c5-4896-81d2-9753bab5fde0`);
-          setTeamMembers(data);
-        } else {
-          // Fallback for local development if needed
-           toast({
-            variant: 'destructive',
-            title: 'Domo SDK not available',
-            description: 'Cannot fetch live data. Displaying empty table.',
-          });
-        }
+        const data = await domo.get(`/domo/data/v1/7228fd02-b6c5-4896-81d2-9753bab5fde0`);
+        setTeamMembers(data);
       } catch (error) {
         console.error("Failed to fetch team members:", error);
         toast({
