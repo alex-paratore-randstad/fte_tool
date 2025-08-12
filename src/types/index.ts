@@ -29,3 +29,39 @@ export type FtePrototypeData = {
     value: string;
   };
 };
+
+export type TeamMember = {
+  'Person Number': string;
+  'Full Name': string;
+  'Employment Status': string;
+  'Employment Mode': string;
+  'HO/FO': string;
+  'Legal Employer': string;
+  LOB: string;
+  'Team Name': string;
+  'Vertical Name': string;
+  'Sub Vertical Name': string;
+  'Delivery Mode': string;
+  Client: string;
+  Band: string;
+  'Level Description': string;
+  'Incentive Role': string;
+  'Market Facing Title': string;
+  Location: string;
+  'Core Center': string;
+  Region: string;
+  'Team Code': string;
+  'Cost Center': string;
+  'First Reviewer Code': string;
+  'First Reviewer Name': string;
+  'Vertical Head Code': string;
+  'Vertical Head Name': string;
+  'Official Email': string;
+  'Personal Email': string;
+  'Date Of Joining': string; // Stays as string for simplicity
+  Gender: string;
+  'Associate Ecode': string;
+  'Group DOJ': string; // Stays as string for simplicity
+  'Notified Date': string; // Stays as string for simplicity
+  'Last Working Day': string; // Stays as string for simplicity
+};

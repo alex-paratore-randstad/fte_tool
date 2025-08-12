@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCurrentUser } from '@/hooks/use-current-user';
 import {
   Card,
   CardContent,
@@ -18,75 +17,49 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { Employee } from '@/types';
-import { MoreHorizontal } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import type { TeamMember } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 declare var domo: any;
 
 export function TeamContent() {
-  const { currentUser, isManager, isVp, loading: userLoading } = useCurrentUser();
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const [displayedEmployees, setDisplayedEmployees] = useState<Employee[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         if (typeof domo !== 'undefined') {
-            const result = await domo.get(`/domo/datastores/v1/collections/employees/documents/`);
-            const mappedData = result.map((r: any) => ({ ...r.content, id: r.id }));
-            setEmployees(mappedData);
+          const data = await domo.get(`/domo/data/v1/7228fd02-b6c5-4896-81d2-9753bab5fde0`);
+          setTeamMembers(data);
+        } else {
+          // Fallback for local development if needed
+           toast({
+            variant: 'destructive',
+            title: 'Domo SDK not available',
+            description: 'Cannot fetch live data. Displaying empty table.',
+          });
         }
       } catch (error) {
-        console.error("Failed to fetch employees:", error);
+        console.error("Failed to fetch team members:", error);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to fetch team data',
+          description: 'Could not retrieve data from the server.'
+        });
+      } finally {
+        setLoading(false);
       }
     };
+
     fetchData();
-  }, []);
+  }, [toast]);
 
-  useEffect(() => {
-    if (employees.length > 0 && !userLoading) {
-      const getDisplayedEmployees = () => {
-          if (isManager) {
-              return employees.filter((employee) => employee.manager === currentUser.name);
-          }
-          if (isVp) {
-              const managersUnderVp = employees
-                  .filter((e) => e.manager === currentUser.name)
-                  .map((m) => m.name);
-              return employees.filter(
-                  (e) => e.manager === currentUser.name || managersUnderVp.includes(e.manager)
-              );
-          }
-          return employees;
-      };
-      setDisplayedEmployees(getDisplayedEmployees());
-      setLoading(false);
-    }
-  }, [employees, currentUser, userLoading, isManager, isVp]);
-    
-  const getPageTitle = () => {
-    if (isManager) return 'My Team';
-    if (isVp) return 'My Organization';
-    return 'All Personnel'
-  }
-
-  const getPageDescription = () => {
-    if (isManager) return 'View and manage your direct reports.';
-    if (isVp) return "View your direct reports and their teams.";
-    return 'View and manage all GBS personnel.'
-  }
-
-  if (loading || userLoading) {
+  if (loading) {
     return (
        <Card>
          <CardHeader>
@@ -110,52 +83,32 @@ export function TeamContent() {
   return (
       <Card>
         <CardHeader>
-          <CardTitle>{getPageTitle()}</CardTitle>
+          <CardTitle>Team Roster</CardTitle>
           <CardDescription>
-            This page reflects the current organizational structure. Manager changes made here will apply to the current and future weeks.
+            This page displays the current team roster from the live dataset.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Title</TableHead>
+                <TableHead>Full Name</TableHead>
+                <TableHead>Market Facing Title</TableHead>
+                <TableHead>Team Name</TableHead>
                 <TableHead>Region</TableHead>
-                <TableHead>Manager</TableHead>
-                <TableHead>Team</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
+                <TableHead>Employment Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {displayedEmployees.map((employee) => (
-                <TableRow key={employee.id}>
-                  <TableCell className="font-medium">{employee.name}</TableCell>
-                  <TableCell>{employee.title}</TableCell>
+              {teamMembers.map((member) => (
+                <TableRow key={member['Person Number']}>
+                  <TableCell className="font-medium">{member['Full Name']}</TableCell>
+                  <TableCell>{member['Market Facing Title']}</TableCell>
+                  <TableCell>{member['Team Name']}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{employee.region}</Badge>
+                    <Badge variant="outline">{member.Region}</Badge>
                   </TableCell>
-                  <TableCell>{employee.manager}</TableCell>
-                  <TableCell>{employee.team}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>View Allocations</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                  <TableCell>{member['Employment Status']}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

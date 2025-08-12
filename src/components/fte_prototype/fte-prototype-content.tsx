@@ -18,6 +18,7 @@ const domo = {
   get: async (url: string) => {
     var rUrl = `${baseUrl}${url}`.replace('[your-domo-instance-subdomain]','c5899a60-de1d-42af-b19b-99f8dff54fad');
     console.log(`GET: ${rUrl}`);
+    console.log(`${URL.toString}`);
     const response = await fetch(rUrl);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
