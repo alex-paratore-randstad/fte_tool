@@ -7,7 +7,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { FtePrototypeData } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
-declare var domo: any;
+// Initialize a local domo object to handle data fetching.
+// Replace '[your-domo-instance-subdomain]' with your actual Domo subdomain.
+const baseUrl = 'https://[your-domo-instance-subdomain].domoapps.prod10.domo.com';
+const domo = {
+  get: async (url: string) => {
+    const response = await fetch(`${baseUrl}${url}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  }
+};
 
 export function FtePrototypeContent() {
   const [data, setData] = useState<FtePrototypeData[]>([]);
@@ -17,12 +28,12 @@ export function FtePrototypeContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        if (typeof domo !== 'undefined') {
-            const result = await domo.get(`/domo/datastores/v1/collections/fte_prototype/documents/`);
-            setData(result);
-        }
+        const result = await domo.get(`/domo/datastores/v1/collections/fte_prototype/documents/`);
+        setData(result);
       } catch (error) {
         console.error('Error fetching data:', error);
+        // Set data to empty array on error to prevent crashes
+        setData([]);
       } finally {
         setLoading(false);
       }
