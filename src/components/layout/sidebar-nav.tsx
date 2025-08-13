@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   CalendarClock,
-  BarChart3,
   Users,
   Settings,
   Building,
@@ -25,7 +24,6 @@ import { useCurrentUser } from '@/hooks/use-current-user';
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'vp'] },
   { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock, roles: ['admin', 'manager', 'vp'] },
-  { href: '/reporting', label: 'Reporting', icon: BarChart3, roles: ['admin', 'manager', 'vp'] },
   { href: '/team', label: 'Team Management', icon: Users, roles: ['admin', 'manager', 'vp'] },
   { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'vp'] },
