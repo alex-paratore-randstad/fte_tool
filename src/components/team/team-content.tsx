@@ -22,55 +22,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Initialize a local domo object to handle data fetching.
-const domo = {
-  get: async (url: string) => {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  }
-};
-
-const columns: (keyof TeamMember)[] = [
-    "Person Number",
-    "Full Name",
-    "Employment Status",
-    "Employment Mode",
-    "HO/FO",
-    "Legal Employer",
-    "LOB",
-    "Team Name",
-    "Vertical Name",
-    "Sub Vertical Name",
-    "Delivery Mode",
-    "Client",
-    "Band",
-    "Level Description",
-    "Incentive Role",
-    "Market Facing Title",
-    "Location",
-    "Core Center",
-    "Region",
-    "Team Code",
-    "Cost Center",
-    "First Reviewer Code",
-    "First Reviewer Name",
-    "Vertical Head Code",
-    "Vertical Head Name",
-    "Official Email",
-    "Personal Email",
-    "Date Of Joining",
-    "Gender",
-    "Associate Ecode",
-    "Group DOJ",
-    "Notified Date",
-    "Last Working Day"
-];
+declare var domo: any;
 
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [columns, setColumns] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -78,8 +34,15 @@ export function TeamContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const data = await domo.get(`/domo/data/v1/7228fd02-b6c5-4896-81d2-9753bab5fde0`);
-        setTeamMembers(data);
+        if (typeof domo !== 'undefined') {
+          const data = await domo.get(`/domo/data/v1/7228fd02-b6c5-4896-81d2-9753bab5fde0`);
+          setTeamMembers(data);
+          if (data.length > 0) {
+            setColumns(Object.keys(data[0]));
+          }
+        } else {
+            console.warn('Domo object not found. Skipping data fetch for local development.');
+        }
       } catch (error) {
         console.error("Failed to fetch team members:", error);
         toast({
@@ -135,10 +98,10 @@ export function TeamContent() {
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {teamMembers.map((member) => (
-                        <TableRow key={member['Person Number']}>
+                    {teamMembers.map((member, rowIndex) => (
+                        <TableRow key={member['Person Number'] || rowIndex}>
                             {columns.map((column) => (
-                                <TableCell key={column}>{member[column]}</TableCell>
+                                <TableCell key={column}>{member[column as keyof TeamMember]}</TableCell>
                             ))}
                         </TableRow>
                     ))}

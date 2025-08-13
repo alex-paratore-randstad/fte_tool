@@ -6,7 +6,7 @@
         "width": 5,
         "height": 5
     },
-    "datasetsMapping": [
+    "mapping": [
         {
             "dataSetId": "7228fd02-b6c5-4896-81d2-9753bab5fde0",
             "alias": "gbs_ind_hr_fte_report",
