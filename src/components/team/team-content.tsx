@@ -22,7 +22,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-declare var domo: any;
+const baseUrl = 'https://[your-domo-instance-subdomain].domoapps.prod10.domo.com';
+const domo = {
+  get: async (url: string) => {
+    const rUrl = `${baseUrl}${url}`.replace('[your-domo-instance-subdomain]','c5899a60-de1d-42af-b19b-99f8dff54fad');
+    const response = await fetch(rUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+};
 
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -34,15 +44,12 @@ export function TeamContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        if (typeof domo !== 'undefined') {
-          const data = await domo.get(`/domo/data/v1/7228fd02-b6c5-4896-81d2-9753bab5fde0`);
+          // Use the correct dataset alias from apphosting.yaml
+          const data = await domo.get(`/domo/data/v1/employees`);
           setTeamMembers(data);
           if (data.length > 0) {
             setColumns(Object.keys(data[0]));
           }
-        } else {
-            console.warn('Domo object not found. Skipping data fetch for local development.');
-        }
       } catch (error) {
         console.error("Failed to fetch team members:", error);
         toast({

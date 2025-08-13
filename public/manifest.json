@@ -1,12 +1,12 @@
 {
     "name": "Randstad FTE Prototype",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "fullpage": true,
     "size": {
         "width": 5,
         "height": 5
     },
-    "mapping": [
+    "datasetsMapping": [
         {
             "dataSetId": "7228fd02-b6c5-4896-81d2-9753bab5fde0",
             "alias": "gbs_ind_hr_fte_report",
