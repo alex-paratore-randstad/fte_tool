@@ -39,7 +39,7 @@ export function CostCenterContent() {
             <CardHeader>
                 <CardTitle>All Cost Centers</CardTitle>
                 <CardDescription>
-                    View and add new cost centers via CSV upload.
+                    View all available cost centers.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -59,7 +59,7 @@ export function CostCenterContent() {
       <CardHeader>
         <CardTitle>All Cost Centers</CardTitle>
         <CardDescription>
-            View and add new cost centers via CSV upload.
+            View all available cost centers.
         </CardDescription>
       </CardHeader>
       <CardContent>
