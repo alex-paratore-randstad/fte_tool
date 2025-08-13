@@ -19,8 +19,8 @@ import {
 } from '@/components/ui/table';
 import type { TeamMember } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Initialize a local domo object to handle data fetching.
 const domo = {
@@ -32,6 +32,42 @@ const domo = {
     return response.json();
   }
 };
+
+const columns: (keyof TeamMember)[] = [
+    "Person Number",
+    "Full Name",
+    "Employment Status",
+    "Employment Mode",
+    "HO/FO",
+    "Legal Employer",
+    "LOB",
+    "Team Name",
+    "Vertical Name",
+    "Sub Vertical Name",
+    "Delivery Mode",
+    "Client",
+    "Band",
+    "Level Description",
+    "Incentive Role",
+    "Market Facing Title",
+    "Location",
+    "Core Center",
+    "Region",
+    "Team Code",
+    "Cost Center",
+    "First Reviewer Code",
+    "First Reviewer Name",
+    "Vertical Head Code",
+    "Vertical Head Name",
+    "Official Email",
+    "Personal Email",
+    "Date Of Joining",
+    "Gender",
+    "Associate Ecode",
+    "Group DOJ",
+    "Notified Date",
+    "Last Working Day"
+];
 
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -89,30 +125,26 @@ export function TeamContent() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Full Name</TableHead>
-                <TableHead>Market Facing Title</TableHead>
-                <TableHead>Team Name</TableHead>
-                <TableHead>Region</TableHead>
-                <TableHead>Employment Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {teamMembers.map((member) => (
-                <TableRow key={member['Person Number']}>
-                  <TableCell className="font-medium">{member['Full Name']}</TableCell>
-                  <TableCell>{member['Market Facing Title']}</TableCell>
-                  <TableCell>{member['Team Name']}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{member.Region}</Badge>
-                  </TableCell>
-                  <TableCell>{member['Employment Status']}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+            <ScrollArea className="w-full h-[60vh] whitespace-nowrap">
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        {columns.map((column) => (
+                            <TableHead key={column}>{column}</TableHead>
+                        ))}
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {teamMembers.map((member) => (
+                        <TableRow key={member['Person Number']}>
+                            {columns.map((column) => (
+                                <TableCell key={column}>{member[column]}</TableCell>
+                            ))}
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+            </ScrollArea>
         </CardContent>
       </Card>
   );

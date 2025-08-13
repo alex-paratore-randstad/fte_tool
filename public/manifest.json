@@ -8,28 +8,148 @@
     },
     "datasetsMapping": [
         {
-            "dataSetId": "e80daa3e-5a5f-4b72-9fb6-4f96e13bb4c0",
-            "alias": "store_example_data",
+            "dataSetId": "7228fd02-b6c5-4896-81d2-9753bab5fde0",
+            "alias": "gbs_ind_hr_fte_report",
             "fields": [
                 {
-                    "alias": "date_ymd",
-                    "columnName": "date_ymd"
+                    "alias": "Person_Number",
+                    "columnName": "Person Number"
                 },
                 {
-                    "alias": "revenue",
-                    "columnName": "revenue"
+                    "alias": "Full_Name",
+                    "columnName": "Full Name"
                 },
                 {
-                    "alias": "sales_rep",
-                    "columnName": "sales_rep"
+                    "alias": "Employment_Status",
+                    "columnName": "Employment Status"
                 },
                 {
-                    "alias": "department",
-                    "columnName": "department"
+                    "alias": "Employment_Mode",
+                    "columnName": "Employment Mode"
                 },
                 {
-                    "alias": "state",
-                    "columnName": "state"
+                    "alias": "HO/FO",
+                    "columnName": "HO/FO"
+                },
+                {
+                    "alias": "Legal_Employer",
+                    "columnName": "Legal Employer"
+                },
+                {
+                    "alias": "LOB",
+                    "columnName": "LOB"
+                },
+                {
+                    "alias": "Team_Name",
+                    "columnName": "Team Name"
+                },
+                {
+                    "alias": "Vertical_Name",
+                    "columnName": "Vertical Name"
+                },
+                {
+                    "alias": "Sub_Vertical_Name",
+                    "columnName": "Sub Vertical Name"
+                },
+                {
+                    "alias": "Delivery_Mode",
+                    "columnName": "Delivery Mode"
+                },
+                {
+                    "alias": "Client",
+                    "columnName": "Client"
+                },
+                {
+                    "alias": "Band",
+                    "columnName": "Band"
+                },
+                {
+                    "alias": "Level_Description",
+                    "columnName": "Level Description"
+                },
+                {
+                    "alias": "Incentive_Role",
+                    "columnName": "Incentive Role"
+                },
+                {
+                    "alias": "Market_Facing_Title",
+                    "columnName": "Market Facing Title"
+                },
+                {
+                    "alias": "Location",
+                    "columnName": "Location"
+                },
+                {
+                    "alias": "Core_Center",
+                    "columnName": "Core Center"
+                },
+                {
+                    "alias": "Region",
+                    "columnName": "Region"
+                },
+                {
+                    "alias": "Team_Code",
+                    "columnName": "Team Code"
+                },
+                {
+                    "alias": "Cost_Center",
+                    "columnName": "Cost Center"
+                },
+                {
+                    "alias": "First_Reviewer_Code",
+                    "columnName": "First Reviewer Code"
+                },
+                {
+                    "alias": "First_Reviewer_Name",
+                    "columnName": "First Reviewer Name"
+                },
+                {
+                    "alias": "Vertical_Head_Code",
+                    "columnName": "Vertical Head Code"
+                },
+                {
+                    "alias": "Vertical_Head_Name",
+                    "columnName": "Vertical Head Name"
+                },
+                {
+                    "alias": "Official_Email",
+                    "columnName": "Official Email"
+                },
+                {
+                    "alias": "Personal_Email",
+                    "columnName": "Personal Email"
+                },
+                {
+                    "alias": "Date_Of_Joining",
+                    "columnName": "Date Of Joining"
+                },
+                {
+                    "alias": "Gender",
+                    "columnName": "Gender"
+                },
+                {
+                    "alias": "Associate_Ecode",
+                    "columnName": "Associate Ecode"
+                },
+                {
+                    "alias": "Group_DOJ",
+                    "columnName": "Group DOJ"
+                },
+                {
+                    "alias": "Notified_Date",
+                    "columnName": "Notified Date"
+                },
+                {
+                    "alias": "Last_Working_Day",
+                    "columnName": "Last Working Day"
+                },
+                {
+                    "alias": "_BATCH_ID_",
+                    "columnName": "_BATCH_ID_"
+                },
+                {
+                    "alias": "_BATCH_LAST_RUN_",
+                    "columnName": "_BATCH_LAST_RUN_"
                 }
             ]
         }
@@ -53,5 +173,5 @@
         }
     ],
     "fileName": "manifest.json",
-  "id": "0e3cfa98-87a8-4c08-a07d-5c6870c76ca6"
+    "id": "0e3cfa98-87a8-4c08-a07d-5c6870c76ca6"
 }
