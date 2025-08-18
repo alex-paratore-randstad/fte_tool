@@ -45,7 +45,7 @@ export function TeamContent() {
       setLoading(true);
       try {
           // Use the correct dataset alias from apphosting.yaml
-          const data = await domo.get(`/domo/data/v1/employees`);
+          const data = await domo.get(`/data/v1/gbs_ind_hr_fte_report`);
           setTeamMembers(data);
           if (data.length > 0) {
             setColumns(Object.keys(data[0]));
