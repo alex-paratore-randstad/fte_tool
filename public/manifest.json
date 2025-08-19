@@ -152,6 +152,36 @@
                     "columnName": "_BATCH_LAST_RUN_"
                 }
             ]
+        },
+        {
+            "dataSetId": "b45b89c8-da80-4165-a3d6-c2ce4e818543",
+            "alias": "gbs_ind_finance_cc_report",
+            "fields": [
+                {
+                    "alias": "region",
+                    "columnName": "Region"
+                },
+                {
+                    "alias": "country",
+                    "columnName": "Country"
+                },
+                {
+                    "alias": "invoiced_entity",
+                    "columnName": "Invoiced Entity"
+                },
+                {
+                    "alias": "tagetik_entity",
+                    "columnName": "Tagetik Entity"
+                },
+                {
+                    "alias": "cost_center_number",
+                    "columnName": "Cost Center #"
+                },
+                {
+                    "alias": "cost_center_name",
+                    "columnName": "Cost Center Name/Description"
+                }
+            ]
         }
     ],
     "collectionsMapping": [
