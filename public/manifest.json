@@ -200,6 +200,34 @@
                 ]
             },
             "syncEnabled": false
+        },
+        {
+            "name": "weekly_allocation",
+            "schema": {
+                "columns": [
+                    {
+                        "name": "allocation_date",
+                        "type": "DATE"
+                    },
+                    {
+                        "name": "allocation_name",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "allocation_amount",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "cost_center_name",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "cost_center_number",
+                        "type": "STRING"
+                    }
+                ]
+            },
+            "syncEnabled": false
         }
     ],
     "fileName": "manifest.json",

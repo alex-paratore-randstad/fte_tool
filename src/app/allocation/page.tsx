@@ -2,16 +2,16 @@
 'use client';
 
 import { PageHeader } from '@/components/page-header';
-import { MultiWeekGrid } from '@/components/allocation/multi-week-grid';
+import { WeeklyAllocation } from '@/components/allocation/weekly-allocation';
 
 export default function AllocationPage() {
   return (
     <div className="flex flex-col gap-8">
        <PageHeader
         title="Weekly Allocation"
-        description="Allocate FTEs across multiple weeks. Past weeks are locked for non-admins."
+        description="Allocate FTEs for the current week."
       />
-      <MultiWeekGrid />
+      <WeeklyAllocation />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 
+
 export type Employee = {
   id: string;
   name: string;
@@ -64,4 +65,15 @@ export type TeamMember = {
   'Group DOJ': string; // Stays as string for simplicity
   'Notified Date': string; // Stays as string for simplicity
   'Last Working Day': string; // Stays as string for simplicity
+};
+
+export type WeeklyAllocation = {
+  id: string;
+  content: {
+    allocation_date: string; // e.g., '2024-08-25'
+    allocation_name: string; // Employee full name
+    cost_center_number: string;
+    cost_center_name: string;
+    allocation_amount: number; // 0.0 to 1.0
+  }
 };
