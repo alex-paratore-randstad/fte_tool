@@ -36,32 +36,6 @@ type AllocationRow = {
   allocation_amount: number;
 };
 
-// This mirrors the working pattern from fte-prototype-content.tsx
-const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-const domo = {
-  get: async (url: string) => {
-    const rUrl = `${baseUrl}${url}`;
-    const response = await fetch(rUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  },
-  post: async (url: string, body: any) => {
-    const rUrl = `${baseUrl}${url}`;
-    const response = await fetch(rUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  }
-};
-
-
 export function WeeklyAllocation() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
@@ -74,15 +48,24 @@ export function WeeklyAllocation() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
     try {
-      const [empData, ccData, existingAllocData] = await Promise.all([
-        domo.get(`/data/v1/gbs_ind_hr_fte_report`),
-        domo.get(`/data/v1/gbs_ind_finance_cc_report`),
-        domo.get(`/domo/datastores/v1/collections/weekly_allocation/documents/`)
+      const [empResponse, ccResponse, existingAllocResponse] = await Promise.all([
+        fetch(`${baseUrl}/data/v1/gbs_ind_hr_fte_report`),
+        fetch(`${baseUrl}/data/v1/gbs_ind_finance_cc_report`),
+        fetch(`${baseUrl}/domo/datastores/v1/collections/weekly_allocation/documents/`)
       ]);
+
+      if (!empResponse.ok) throw new Error(`Failed to fetch employees: ${empResponse.statusText}`);
+      if (!ccResponse.ok) throw new Error(`Failed to fetch cost centers: ${ccResponse.statusText}`);
+      if (!existingAllocResponse.ok) throw new Error(`Failed to fetch existing allocations: ${existingAllocResponse.statusText}`);
+
+      const empData = await empResponse.json();
+      const ccData = await ccResponse.json();
+      const existingAllocData = await existingAllocResponse.json();
       
-      setEmployees(empData);
-      setCostCenters(ccData);
+      setEmployees(empData.filter((e: Employee) => e['Full Name']));
+      setCostCenters(ccData.filter((c: CostCenter) => c.cost_center_number && c.cost_center_name));
       setExistingAllocations(existingAllocData.filter((a: any) => a.content.allocation_date === weekEndingDate));
 
     } catch (error: any) {
@@ -151,8 +134,18 @@ export function WeeklyAllocation() {
     }));
 
     try {
+        const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
+        const url = `${baseUrl}/domo/datastores/v1/collections/weekly_allocation/documents/`;
+        
         const responses = await Promise.all(newAllocations.map(entry => 
-            domo.post('/domo/datastores/v1/collections/weekly_allocation/documents/', entry)
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(entry),
+            }).then(res => {
+                if (!res.ok) throw new Error(`Save failed: ${res.statusText}`);
+                return res.json();
+            })
         ));
 
         toast({ title: 'Success!', description: 'All new allocations have been saved.' });
@@ -273,3 +266,5 @@ export function WeeklyAllocation() {
     </div>
   );
 }
+
+    
