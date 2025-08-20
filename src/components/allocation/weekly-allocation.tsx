@@ -36,16 +36,9 @@ type AllocationRow = {
   allocation_amount: number;
 };
 
+// This is the only fetch pattern that has proven to work reliably for POSTing data.
 const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
 const domo = {
-    get: async (url: string) => {
-        const rUrl = `${baseUrl}${url}`;
-        const response = await fetch(rUrl);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    },
     post: async (url: string, body: any) => {
         const rUrl = `${baseUrl}${url}`;
         const response = await fetch(rUrl, {
@@ -57,20 +50,9 @@ const domo = {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
-    },
-    postText: async (url: string, body: string) => {
-        const rUrl = `${baseUrl}${url}`;
-        const response = await fetch(rUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: body,
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
     }
 };
+
 
 export function WeeklyAllocation() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -86,13 +68,30 @@ export function WeeklyAllocation() {
     setLoading(true);
     const employeeDatasetAlias = 'gbs_ind_hr_fte_report';
     const costCenterDatasetAlias = 'gbs_ind_finance_cc_report';
+    const appdbUrl = `${baseUrl}/domo/datastores/v1/collections/weekly_allocation/documents/`;
+    const employeeUrl = `${baseUrl}/sql/v1/${employeeDatasetAlias}`;
+    const costCenterUrl = `${baseUrl}/sql/v1/${costCenterDatasetAlias}`;
 
     try {
-      const [empData, ccData, existingAllocData] = await Promise.all([
-        domo.postText(`/sql/v1/${employeeDatasetAlias}`, `SELECT * FROM ${employeeDatasetAlias}`),
-        domo.postText(`/sql/v1/${costCenterDatasetAlias}`, `SELECT * FROM ${costCenterDatasetAlias}`),
-        domo.get(`/domo/datastores/v1/collections/weekly_allocation/documents/`),
-      ]);
+       const [empResponse, ccResponse, existingAllocData] = await Promise.all([
+         fetch(employeeUrl, {
+           method: 'POST',
+           headers: { 'Content-Type': 'text/plain' },
+           body: `SELECT "Full Name" FROM ${employeeDatasetAlias}`,
+         }),
+         fetch(costCenterUrl, {
+           method: 'POST',
+           headers: { 'Content-Type': 'text/plain' },
+           body: `SELECT cost_center_number, cost_center_name FROM ${costCenterDatasetAlias}`,
+         }),
+         fetch(appdbUrl).then(res => res.json()),
+       ]);
+
+        if (!empResponse.ok) throw new Error(`Employee fetch failed: ${empResponse.statusText}`);
+        if (!ccResponse.ok) throw new Error(`Cost Center fetch failed: ${ccResponse.statusText}`);
+
+        const empData = await empResponse.json();
+        const ccData = await ccResponse.json();
       
       setEmployees(empData.filter((e: Employee) => e['Full Name']));
       setCostCenters(ccData.filter((c: CostCenter) => c.cost_center_number && c.cost_center_name));
@@ -288,5 +287,3 @@ export function WeeklyAllocation() {
     </div>
   );
 }
-
-    
