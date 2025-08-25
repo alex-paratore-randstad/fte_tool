@@ -36,24 +36,6 @@ type AllocationRow = {
   allocation_amount: number;
 };
 
-// This is the only fetch pattern that has proven to work reliably for POSTing data.
-const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-const domo = {
-    post: async (url: string, body: any) => {
-        const rUrl = `${baseUrl}${url}`;
-        const response = await fetch(rUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    }
-};
-
-
 export function WeeklyAllocation() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
@@ -66,6 +48,8 @@ export function WeeklyAllocation() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    // This is the only fetch pattern that has proven to work reliably.
+    const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
     const employeeDatasetAlias = 'gbs_ind_hr_fte_report';
     const costCenterDatasetAlias = 'gbs_ind_finance_cc_report';
     const appdbUrl = `${baseUrl}/domo/datastores/v1/collections/weekly_allocation/documents/`;
@@ -77,12 +61,12 @@ export function WeeklyAllocation() {
          fetch(employeeUrl, {
            method: 'POST',
            headers: { 'Content-Type': 'text/plain' },
-           body: `SELECT "Full Name" FROM ${employeeDatasetAlias}`,
+           body: 'SELECT "Full Name" FROM gbs_ind_hr_fte_report',
          }),
          fetch(costCenterUrl, {
            method: 'POST',
            headers: { 'Content-Type': 'text/plain' },
-           body: `SELECT cost_center_number, cost_center_name FROM ${costCenterDatasetAlias}`,
+           body: 'SELECT cost_center_number, cost_center_name FROM gbs_ind_finance_cc_report',
          }),
          fetch(appdbUrl).then(res => res.json()),
        ]);
@@ -163,11 +147,20 @@ export function WeeklyAllocation() {
     }));
 
     try {
-        const url = `/domo/datastores/v1/collections/weekly_allocation/documents/`;
+        const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
+        const url = `${baseUrl}/domo/datastores/v1/collections/weekly_allocation/documents/`;
         
-        const responses = await Promise.all(newAllocations.map(entry => 
-            domo.post(url, entry)
-        ));
+        const responses = await Promise.all(newAllocations.map(async (entry) => {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(entry),
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        }));
 
         toast({ title: 'Success!', description: 'All new allocations have been saved.' });
         setAllocations([]); // Clear the new rows
@@ -287,3 +280,5 @@ export function WeeklyAllocation() {
     </div>
   );
 }
+
+    
