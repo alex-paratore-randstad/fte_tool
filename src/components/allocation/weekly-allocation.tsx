@@ -29,6 +29,7 @@ import type { WeeklyAllocation, TeamMember } from '@/types';
 type CostCenter = { ['cost_center_number']: string; ['cost_center_name']: string };
 type AllocationRow = {
   id: string;
+  allocation_date: string;
   allocation_name: string;
   cost_center_number: string;
   cost_center_name: string;
@@ -82,7 +83,7 @@ export function WeeklyAllocation() {
          domo.get(`/domo/datastores/v1/collections/weekly_allocation/documents/`),
        ]);
       
-      setEmployees(empData.filter((e: TeamMember) => e['Full_Name']));
+      setEmployees(empData.filter((e: TeamMember) => e.Full_Name));
       setCostCenters(ccData.filter((c: CostCenter) => c.cost_center_number && c.cost_center_name));
       setExistingAllocations(existingAllocData.filter((a: any) => a.content.allocation_date === weekEndingDate));
 
@@ -102,10 +103,11 @@ export function WeeklyAllocation() {
     setAllocations(prev => [
       ...prev,
       { 
-        id: `new-${Date.now()}`, 
+        id: `new-${Date.now()}`,
+        allocation_date: weekEndingDate,
         allocation_name: '', 
-        cost_center_number: '', 
         cost_center_name: '',
+        cost_center_number: '', 
         allocation_amount: 0 
       },
     ]);
@@ -120,10 +122,10 @@ export function WeeklyAllocation() {
       prev.map(row => {
         if (row.id === id) {
           const updatedRow = { ...row, [field]: value };
-          if (field === 'cost_center_number') {
-            const selectedCc = costCenters.find(cc => cc.cost_center_number === value);
+          if (field === 'cost_center_name') {
+            const selectedCc = costCenters.find(cc => cc.cost_center_name === value);
             if (selectedCc) {
-              updatedRow.cost_center_name = selectedCc.cost_center_name;
+              updatedRow.cost_center_number = selectedCc.cost_center_number;
             }
           }
           return updatedRow;
@@ -143,11 +145,11 @@ export function WeeklyAllocation() {
 
     const newAllocations = allocations.map(alloc => ({
       content: {
-        allocation_date: weekEndingDate,
+        allocation_date: alloc.allocation_date,
         allocation_name: alloc.allocation_name,
-        cost_center_number: alloc.cost_center_number,
         cost_center_name: alloc.cost_center_name,
-        allocation_amount: alloc.allocation_amount,
+        cost_center_number: alloc.cost_center_number,
+        allocation_amount: alloc.allocation_amount.toString(), // Ensure amount is a string per schema
       }
     }));
 
@@ -190,10 +192,12 @@ export function WeeklyAllocation() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[30%]">Full Name</TableHead>
-                <TableHead className="w-[40%]">Cost Center</TableHead>
-                <TableHead className="w-[20%]">Allocation Amount</TableHead>
-                <TableHead className="w-[10%]"></TableHead>
+                <TableHead>Employee Name</TableHead>
+                <TableHead>Cost Center Name</TableHead>
+                <TableHead>Cost Center Number</TableHead>
+                <TableHead>Allocation Amount</TableHead>
+                <TableHead>Allocation Date</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -203,17 +207,25 @@ export function WeeklyAllocation() {
                     <Select value={row.allocation_name} onValueChange={(val) => handleRowChange(row.id, 'allocation_name', val)}>
                         <SelectTrigger><SelectValue placeholder="Select Employee..." /></SelectTrigger>
                         <SelectContent>
-                            {employees.map(emp => <SelectItem key={emp['Full_Name']} value={emp['Full_Name']}>{emp['Full_Name']}</SelectItem>)}
+                            {employees.map(emp => <SelectItem key={emp.Full_Name} value={emp.Full_Name}>{emp.Full_Name}</SelectItem>)}
                         </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Select value={row.cost_center_number} onValueChange={(val) => handleRowChange(row.id, 'cost_center_number', val)}>
+                    <Select value={row.cost_center_name} onValueChange={(val) => handleRowChange(row.id, 'cost_center_name', val)}>
                         <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectTrigger>
                         <SelectContent>
-                            {costCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_number}>{cc.cost_center_number} - {cc.cost_center_name}</SelectItem>)}
+                            {costCenters.map(cc => <SelectItem key={cc.cost_center_name} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
                         </SelectContent>
                     </Select>
+                  </TableCell>
+                   <TableCell>
+                    <Input 
+                      type="text"
+                      value={row.cost_center_number}
+                      readOnly
+                      className="bg-muted"
+                    />
                   </TableCell>
                   <TableCell>
                     <Input 
@@ -222,6 +234,14 @@ export function WeeklyAllocation() {
                       placeholder="e.g. 0.5" 
                       value={row.allocation_amount}
                       onChange={(e) => handleRowChange(row.id, 'allocation_amount', parseFloat(e.target.value) || 0)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input 
+                      type="text"
+                      value={row.allocation_date}
+                      readOnly
+                      className="bg-muted"
                     />
                   </TableCell>
                   <TableCell>
@@ -274,3 +294,4 @@ export function WeeklyAllocation() {
     </div>
   );
 }
+
