@@ -24,9 +24,8 @@ import {
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import type { WeeklyAllocation } from '@/types';
+import type { WeeklyAllocation, TeamMember } from '@/types';
 
-type Employee = { ['Full Name']: string };
 type CostCenter = { ['cost_center_number']: string; ['cost_center_name']: string };
 type AllocationRow = {
   id: string;
@@ -37,7 +36,7 @@ type AllocationRow = {
 };
 
 export function WeeklyAllocation() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<TeamMember[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [allocations, setAllocations] = useState<AllocationRow[]>([]);
   const [existingAllocations, setExistingAllocations] = useState<any[]>([]);
@@ -48,26 +47,15 @@ export function WeeklyAllocation() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    // This is the only fetch pattern that has proven to work reliably.
     const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-    const employeeDatasetAlias = 'gbs_ind_hr_fte_report';
-    const costCenterDatasetAlias = 'gbs_ind_finance_cc_report';
+    const employeeUrl = `${baseUrl}/data/v1/gbs_ind_hr_fte_report`;
+    const costCenterUrl = `${baseUrl}/data/v1/gbs_ind_finance_cc_report`;
     const appdbUrl = `${baseUrl}/domo/datastores/v1/collections/weekly_allocation/documents/`;
-    const employeeUrl = `${baseUrl}/sql/v1/${employeeDatasetAlias}`;
-    const costCenterUrl = `${baseUrl}/sql/v1/${costCenterDatasetAlias}`;
 
     try {
        const [empResponse, ccResponse, existingAllocData] = await Promise.all([
-         fetch(employeeUrl, {
-           method: 'POST',
-           headers: { 'Content-Type': 'text/plain' },
-           body: 'SELECT "Full Name" FROM gbs_ind_hr_fte_report',
-         }),
-         fetch(costCenterUrl, {
-           method: 'POST',
-           headers: { 'Content-Type': 'text/plain' },
-           body: 'SELECT cost_center_number, cost_center_name FROM gbs_ind_finance_cc_report',
-         }),
+         fetch(employeeUrl),
+         fetch(costCenterUrl),
          fetch(appdbUrl).then(res => res.json()),
        ]);
 
@@ -77,7 +65,7 @@ export function WeeklyAllocation() {
         const empData = await empResponse.json();
         const ccData = await ccResponse.json();
       
-      setEmployees(empData.filter((e: Employee) => e['Full Name']));
+      setEmployees(empData.filter((e: TeamMember) => e['Full Name']));
       setCostCenters(ccData.filter((c: CostCenter) => c.cost_center_number && c.cost_center_name));
       setExistingAllocations(existingAllocData.filter((a: any) => a.content.allocation_date === weekEndingDate));
 
@@ -206,7 +194,7 @@ export function WeeklyAllocation() {
               {allocations.map(row => (
                 <TableRow key={row.id}>
                   <TableCell>
-                    <Select value={row.allocation_name} onValueChange={(val) => handleRowChange(row.id, 'allocation_name', val)}>
+                    <Select value={row.allocation_name} onValueChange={(val) => handleRowchange(row.id, 'allocation_name', val)}>
                         <SelectTrigger><SelectValue placeholder="Select Employee..." /></SelectTrigger>
                         <SelectContent>
                             {employees.map(emp => <SelectItem key={emp['Full Name']} value={emp['Full Name']}>{emp['Full Name']}</SelectItem>)}
@@ -280,5 +268,3 @@ export function WeeklyAllocation() {
     </div>
   );
 }
-
-    
