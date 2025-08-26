@@ -22,7 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Re-implementing the stable domo object pattern
+// Initialize a local domo object to handle data fetching, replicating the working pattern.
 const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
 const domo = {
   get: async (url: string) => {
@@ -32,7 +32,7 @@ const domo = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     return response.json();
-  },
+  }
 };
 
 export function TeamContent() {
@@ -45,6 +45,7 @@ export function TeamContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
+          // Use the stable domo object for fetching
           const data = await domo.get(`/data/v1/gbs_ind_hr_fte_report`);
           setTeamMembers(data);
           if (data.length > 0) {
