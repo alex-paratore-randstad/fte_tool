@@ -35,6 +35,34 @@ type AllocationRow = {
   allocation_amount: number;
 };
 
+// Initialize a local domo object to handle data fetching.
+const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
+const domo = {
+  get: async (url: string) => {
+    const rUrl = `${baseUrl}${url}`;
+    const response = await fetch(rUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+  post: async (url: string, body: any) => {
+    const rUrl = `${baseUrl}${url}`;
+    const response = await fetch(rUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  }
+};
+
+
 export function WeeklyAllocation() {
   const [employees, setEmployees] = useState<TeamMember[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
@@ -47,25 +75,14 @@ export function WeeklyAllocation() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-    const employeeUrl = `${baseUrl}/data/v1/gbs_ind_hr_fte_report`;
-    const costCenterUrl = `${baseUrl}/data/v1/gbs_ind_finance_cc_report`;
-    const appdbUrl = `${baseUrl}/domo/datastores/v1/collections/weekly_allocation/documents/`;
-
     try {
-       const [empResponse, ccResponse, existingAllocData] = await Promise.all([
-         fetch(employeeUrl),
-         fetch(costCenterUrl),
-         fetch(appdbUrl).then(res => res.json()),
+       const [empData, ccData, existingAllocData] = await Promise.all([
+         domo.get(`/data/v1/gbs_ind_hr_fte_report`),
+         domo.get(`/data/v1/gbs_ind_finance_cc_report`),
+         domo.get(`/domo/datastores/v1/collections/weekly_allocation/documents/`),
        ]);
-
-        if (!empResponse.ok) throw new Error(`Employee fetch failed: ${empResponse.statusText}`);
-        if (!ccResponse.ok) throw new Error(`Cost Center fetch failed: ${ccResponse.statusText}`);
-
-        const empData = await empResponse.json();
-        const ccData = await ccResponse.json();
       
-      setEmployees(empData.filter((e: TeamMember) => e['Full Name']));
+      setEmployees(empData.filter((e: TeamMember) => e['Full_Name']));
       setCostCenters(ccData.filter((c: CostCenter) => c.cost_center_number && c.cost_center_name));
       setExistingAllocations(existingAllocData.filter((a: any) => a.content.allocation_date === weekEndingDate));
 
@@ -135,19 +152,8 @@ export function WeeklyAllocation() {
     }));
 
     try {
-        const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-        const url = `${baseUrl}/domo/datastores/v1/collections/weekly_allocation/documents/`;
-        
         const responses = await Promise.all(newAllocations.map(async (entry) => {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(entry),
-            });
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
+           return domo.post('/domo/datastores/v1/collections/weekly_allocation/documents/', entry);
         }));
 
         toast({ title: 'Success!', description: 'All new allocations have been saved.' });
@@ -197,7 +203,7 @@ export function WeeklyAllocation() {
                     <Select value={row.allocation_name} onValueChange={(val) => handleRowChange(row.id, 'allocation_name', val)}>
                         <SelectTrigger><SelectValue placeholder="Select Employee..." /></SelectTrigger>
                         <SelectContent>
-                            {employees.map(emp => <SelectItem key={emp['Full Name']} value={emp['Full Name']}>{emp['Full Name']}</SelectItem>)}
+                            {employees.map(emp => <SelectItem key={emp['Full_Name']} value={emp['Full_Name']}>{emp['Full_Name']}</SelectItem>)}
                         </SelectContent>
                     </Select>
                   </TableCell>

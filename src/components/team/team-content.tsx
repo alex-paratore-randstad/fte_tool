@@ -45,12 +45,12 @@ export function TeamContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-          // Use the stable domo object for fetching
-          const data = await domo.get(`/data/v1/gbs_ind_hr_fte_report`);
-          setTeamMembers(data);
-          if (data.length > 0) {
-            setColumns(Object.keys(data[0]));
-          }
+        // Use the stable domo object for fetching
+        const data = await domo.get(`/data/v1/gbs_ind_hr_fte_report`);
+        setTeamMembers(data);
+        if (data.length > 0) {
+          setColumns(Object.keys(data[0]));
+        }
       } catch (error) {
         console.error("Failed to fetch team members:", error);
         toast({
@@ -68,55 +68,55 @@ export function TeamContent() {
 
   if (loading) {
     return (
-       <Card>
-         <CardHeader>
-           <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-           <CardDescription>
-              <Skeleton className="h-4 w-1/2" />
-           </CardDescription>
-         </CardHeader>
-         <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
+          <CardDescription>
+            <Skeleton className="h-4 w-1/2" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
           <div className="space-y-2">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
           </div>
-         </CardContent>
-       </Card>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Team Roster</CardTitle>
-          <CardDescription>
-            This page displays the current team roster from the live dataset.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <ScrollArea className="w-full h-[60vh] whitespace-nowrap">
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        {columns.map((column) => (
-                            <TableHead key={column}>{column}</TableHead>
-                        ))}
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {teamMembers.map((member, rowIndex) => (
-                        <TableRow key={member['Person Number'] || rowIndex}>
-                            {columns.map((column) => (
-                                <TableCell key={column}>{member[column as keyof TeamMember]}</TableCell>
-                            ))}
-                        </TableRow>
-                    ))}
-                    </TableBody>
-                </Table>
-            </ScrollArea>
-        </CardContent>
-      </Card>
+    <Card>
+      <CardHeader>
+        <CardTitle>Team Roster</CardTitle>
+        <CardDescription>
+          This page displays the current team roster from the live dataset.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="w-full h-[60vh] whitespace-nowrap">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {columns.map((column) => (
+                  <TableHead key={column}>{column}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {teamMembers.map((member, rowIndex) => (
+                <TableRow key={member['Person Number'] || rowIndex}>
+                  {columns.map((column) => (
+                    <TableCell key={column}>{member[column as keyof TeamMember]}</TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      </CardContent>
+    </Card>
   );
 }

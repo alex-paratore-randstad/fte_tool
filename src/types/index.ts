@@ -32,39 +32,39 @@ export type FtePrototypeData = {
 };
 
 export type TeamMember = {
-  'Person Number': string;
-  'Full Name': string;
-  'Employment Status': string;
-  'Employment Mode': string;
+  'Person_Number': string;
+  'Full_Name': string;
+  'Employment_Status': string;
+  'Employment_Mode': string;
   'HO/FO': string;
-  'Legal Employer': string;
+  'Legal_Employer': string;
   LOB: string;
-  'Team Name': string;
-  'Vertical Name': string;
-  'Sub Vertical Name': string;
-  'Delivery Mode': string;
+  'Team_Name': string;
+  'Vertical_Name': string;
+  'Sub_Vertical_Name': string;
+  'Delivery_Mode': string;
   Client: string;
   Band: string;
-  'Level Description': string;
-  'Incentive Role': string;
-  'Market Facing Title': string;
+  'Level_Description': string;
+  'Incentive_Role': string;
+  'Market_Facing_Title': string;
   Location: string;
-  'Core Center': string;
+  'Core_Center': string;
   Region: string;
-  'Team Code': string;
-  'Cost Center': string;
-  'First Reviewer Code': string;
-  'First Reviewer Name': string;
-  'Vertical Head Code': string;
-  'Vertical Head Name': string;
-  'Official Email': string;
-  'Personal Email': string;
-  'Date Of Joining': string; // Stays as string for simplicity
+  'Team_Code': string;
+  'Cost_Center': string;
+  'First_Reviewer_Code': string;
+  'First_Reviewer_Name': string;
+  'Vertical_Head_Code': string;
+  'Vertical_Head_Name': string;
+  'Official_Email': string;
+  'Personal_Email': string;
+  'Date_Of_Joining': string; // Stays as string for simplicity
   Gender: string;
-  'Associate Ecode': string;
-  'Group DOJ': string; // Stays as string for simplicity
-  'Notified Date': string; // Stays as string for simplicity
-  'Last Working Day': string; // Stays as string for simplicity
+  'Associate_Ecode': string;
+  'Group_DOJ': string; // Stays as string for simplicity
+  'Notified_Date': string; // Stays as string for simplicity
+  'Last_Working_Day': string; // Stays as string for simplicity
 };
 
 export type WeeklyAllocation = {
