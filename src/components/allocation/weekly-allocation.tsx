@@ -268,5 +268,3 @@ export function WeeklyAllocation() {
     </div>
   );
 }
-
-  

@@ -22,10 +22,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const baseUrl = 'https://[your-domo-instance-subdomain].domoapps.prod10.domo.com';
+// Re-implementing the stable domo object pattern
+const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
 const domo = {
   get: async (url: string) => {
-    const rUrl = `${baseUrl}${url}`.replace('[your-domo-instance-subdomain]','c5899a60-de1d-42af-b19b-99f8dff54fad');
+    const rUrl = `${baseUrl}${url}`;
     const response = await fetch(rUrl);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -44,7 +45,6 @@ export function TeamContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-          // Use the correct dataset alias from apphosting.yaml
           const data = await domo.get(`/data/v1/gbs_ind_hr_fte_report`);
           setTeamMembers(data);
           if (data.length > 0) {
