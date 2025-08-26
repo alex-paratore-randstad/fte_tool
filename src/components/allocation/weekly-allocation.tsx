@@ -194,7 +194,7 @@ export function WeeklyAllocation() {
               {allocations.map(row => (
                 <TableRow key={row.id}>
                   <TableCell>
-                    <Select value={row.allocation_name} onValueChange={(val) => handleRowchange(row.id, 'allocation_name', val)}>
+                    <Select value={row.allocation_name} onValueChange={(val) => handleRowChange(row.id, 'allocation_name', val)}>
                         <SelectTrigger><SelectValue placeholder="Select Employee..." /></SelectTrigger>
                         <SelectContent>
                             {employees.map(emp => <SelectItem key={emp['Full Name']} value={emp['Full Name']}>{emp['Full Name']}</SelectItem>)}
@@ -268,3 +268,5 @@ export function WeeklyAllocation() {
     </div>
   );
 }
+
+  
