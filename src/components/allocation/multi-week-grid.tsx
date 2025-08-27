@@ -130,7 +130,16 @@ export function MultiWeekGrid() {
   const handleAddEmployee = (employeeId: string) => {
     const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
     if (employeeToAdd) {
-        setActiveAllocations(prev => [...prev, { employee: employeeToAdd, allocations: [] }]);
+      const newAllocationRow: AllocationRow = {
+        id: `${employeeId}-new-${Date.now()}`,
+        costCenterId: '',
+        costCenterName: '',
+        weeklyFtes: {},
+      };
+      setActiveAllocations(prev => [{
+        employee: employeeToAdd,
+        allocations: [newAllocationRow]
+      }, ...prev]);
     }
   };
 
@@ -408,5 +417,3 @@ export function MultiWeekGrid() {
     </Card>
   );
 }
-
-    
