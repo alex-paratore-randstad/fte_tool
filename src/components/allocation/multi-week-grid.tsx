@@ -162,6 +162,31 @@ export function MultiWeekGrid() {
         return empAlloc;
     }));
   };
+
+  const handleMonthlyFteChange = (employeeId: string, allocId: string, monthlyFteValue: string) => {
+    const monthlyFte = parseFloat(monthlyFteValue) || 0;
+    setActiveAllocations(prev => prev.map(empAlloc => {
+      if (empAlloc.employee.Person_Number === employeeId) {
+        const newAllocations = empAlloc.allocations.map(alloc => {
+          if (alloc.id === allocId) {
+            const updatedWeeklyFtes = { ...alloc.weeklyFtes };
+            weeks.forEach(week => {
+              const weekKey = formatDateKey(week);
+              const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+              const isLockedForUser = isPast && !isAdmin;
+              if (!isLockedForUser) {
+                updatedWeeklyFtes[weekKey] = monthlyFte;
+              }
+            });
+            return { ...alloc, weeklyFtes: updatedWeeklyFtes };
+          }
+          return alloc;
+        });
+        return { ...empAlloc, allocations: newAllocations };
+      }
+      return empAlloc;
+    }));
+  };
   
   const handleCostCenterChange = (employeeId: string, allocId: string, newCostCenterName: string) => {
      setActiveAllocations(prev => prev.map(empAlloc => {
@@ -309,6 +334,7 @@ export function MultiWeekGrid() {
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Cost Center</TableHead>
+                <TableHead className="text-center min-w-[150px]">Monthly FTE</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                   const isCurrent = isSameWeek(week, today, { weekStartsOn: 1 });
@@ -329,7 +355,7 @@ export function MultiWeekGrid() {
             <TableBody>
              {activeAllocations.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={weeks.length + 2} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={weeks.length + 3} className="text-center h-24 text-muted-foreground">
                         No employees added. Select an employee from the dropdown above to begin.
                     </TableCell>
                 </TableRow>
@@ -347,6 +373,7 @@ export function MultiWeekGrid() {
                         {employee.Full_Name}
                         <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
                       </TableCell>
+                      <TableCell></TableCell>
                       {weeklyTotals.map((total, index) => (
                         <TableCell key={index} className={cn("text-right font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
                           {total > 0 ? total.toFixed(2) : '-'}
@@ -373,6 +400,14 @@ export function MultiWeekGrid() {
                             </Select>
                           </div>
                         </TableCell>
+                        <TableCell className="text-center">
+                           <Input
+                                type="number" step="0.05" min="0" placeholder="0.00"
+                                className="w-24 text-center mx-auto"
+                                onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
+                                disabled={isRowLocked}
+                              />
+                        </TableCell>
                         {weeks.map(week => {
                           const weekKey = formatDateKey(week);
                           const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
@@ -390,7 +425,7 @@ export function MultiWeekGrid() {
                           )
                         })}
                          <TableCell className='text-right'>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(employee.Person_Number, alloc.id)} disabled={isRowLocked}>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(employee.Person_Number, alloc.id)} disabled={allocations.length === 1 || isRowLocked}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
@@ -405,7 +440,7 @@ export function MultiWeekGrid() {
                           </Button>
                         </div>
                       </TableCell>
-                      <TableCell colSpan={weeks.length + 1}></TableCell>
+                      <TableCell colSpan={weeks.length + 2}></TableCell>
                     </TableRow>
                   </Fragment>
                 );
