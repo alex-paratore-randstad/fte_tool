@@ -21,15 +21,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, UserPlus } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import type { Employee, CostCenter, Allocation, TeamMember } from '@/types';
+import type { TeamMember } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 
-// Initialize a local domo object to handle data fetching.
 const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
 const domo = {
   get: async (url: string) => {
@@ -57,28 +56,24 @@ const domo = {
 };
 
 type CostCenterData = { ['cost_center_number']: string; ['cost_center_name']: string };
-
-// Helper to format date as a consistent key
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
 type AllocationRow = {
   id: string;
-  costCenterId: string; // Using name as ID for simplicity with current data structure
+  costCenterId: string;
   costCenterName: string;
   weeklyFtes: { [weekKey: string]: number };
 };
 
-type MultiWeekAllocationState = {
-  [employeeName: string]: {
-    allocations: AllocationRow[];
-  };
+type EmployeeAllocation = {
+  employee: TeamMember;
+  allocations: AllocationRow[];
 };
 
 export function MultiWeekGrid() {
   const [currentDate, setCurrentDate] = useState(new Date());
-
-  const [allocations, setAllocations] = useState<MultiWeekAllocationState>({});
-  const [employees, setEmployees] = useState<TeamMember[]>([]);
+  const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
+  const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -89,46 +84,40 @@ export function MultiWeekGrid() {
     const fetchData = async () => {
       setLoading(true);
       try {
-          const [empResult, ccResult] = await Promise.all([
-            domo.get(`/data/v1/gbs_ind_hr_fte_report`),
-            domo.get(`/data/v1/gbs_ind_finance_cc_report`),
-          ]);
-          
-          const empData: TeamMember[] = empResult.filter((e: TeamMember) => e.Full_Name);
-          const ccData: CostCenterData[] = ccResult.filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name);
-          
-          setEmployees(empData);
-          setCostCenters(ccData);
-
-          // Initialize allocation state for each employee
-          const initialAllocations: MultiWeekAllocationState = {};
-          empData.forEach(emp => {
-            initialAllocations[emp.Full_Name] = { allocations: [] };
-          });
-          setAllocations(initialAllocations);
-
+        const [empResult, ccResult] = await Promise.all([
+          domo.get(`/data/v1/gbs_ind_hr_fte_report`),
+          domo.get(`/data/v1/gbs_ind_finance_cc_report`),
+        ]);
+        const empData: TeamMember[] = empResult.filter((e: TeamMember) => e.Full_Name);
+        const ccData: CostCenterData[] = ccResult.filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name);
+        setAllEmployees(empData);
+        setCostCenters(ccData);
       } catch (error) {
-        console.error("Failed to fetch initial data:", error)
+        console.error("Failed to fetch initial data:", error);
         toast({ variant: 'destructive', title: 'Failed to fetch data' });
       } finally {
         setLoading(false);
       }
-    }
+    };
     fetchData();
   }, [toast]);
 
-  const displayedEmployees = useMemo(() => {
-     if (isManager && currentUser) {
-        return employees.filter((employee) => employee.First_Reviewer_Name === currentUser.name);
+  const availableEmployees = useMemo(() => {
+    let filtered = allEmployees;
+    if (isManager && currentUser) {
+      filtered = allEmployees.filter(e => e.First_Reviewer_Name === currentUser.name);
     }
     if (isVp && currentUser) {
-        const managersUnderVp = employees
-          .filter(e => e.Vertical_Head_Name === currentUser.name)
-          .map(m => m.First_Reviewer_Name);
-        return employees.filter(e => managersUnderVp.includes(e.First_Reviewer_Name));
+      const managersUnderVp = allEmployees
+        .filter(e => e.Vertical_Head_Name === currentUser.name)
+        .map(m => m.First_Reviewer_Name);
+      const directReports = allEmployees.filter(e => e.First_Reviewer_Name === currentUser.name)
+      filtered = allEmployees.filter(e => managersUnderVp.includes(e.First_Reviewer_Name) || directReports.some(dr => dr.Person_Number === e.Person_Number));
     }
-    return employees; // Admins and default
-  }, [isManager, isVp, currentUser?.name, employees]);
+    // Exclude employees already in the active allocations list
+    const activeEmployeeIds = activeAllocations.map(a => a.employee.Person_Number);
+    return filtered.filter(e => !activeEmployeeIds.includes(e.Person_Number));
+  }, [allEmployees, activeAllocations, isManager, isVp, currentUser]);
 
   const weeks = useMemo(() => {
     const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -137,66 +126,92 @@ export function MultiWeekGrid() {
 
   const handlePrevWeeks = () => setCurrentDate(subWeeks(currentDate, 4));
   const handleNextWeeks = () => setCurrentDate(addWeeks(currentDate, 4));
+  
+  const handleAddEmployee = (employeeId: string) => {
+    const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
+    if (employeeToAdd) {
+        setActiveAllocations(prev => [...prev, { employee: employeeToAdd, allocations: [] }]);
+    }
+  };
 
-  const handleFteChange = (employeeName: string, allocId: string, weekKey: string, newFteValue: string) => {
-    const newFte = parseFloat(newFteValue) || 0;
-    setAllocations(prev => {
-      const newState = JSON.parse(JSON.stringify(prev));
-      const empAllocs = newState[employeeName].allocations;
-      const allocIndex = empAllocs.findIndex((a: AllocationRow) => a.id === allocId);
-      if (allocIndex > -1) {
-        empAllocs[allocIndex].weeklyFtes[weekKey] = newFte;
-      }
-      return newState;
-    });
+  const handleRemoveEmployee = (employeeId: string) => {
+    setActiveAllocations(prev => prev.filter(a => a.employee.Person_Number !== employeeId));
   };
   
-  const handleCostCenterChange = (employeeName: string, allocId: string, newCostCenterName: string) => {
-     setAllocations(prev => {
-      const newState = JSON.parse(JSON.stringify(prev));
-      const empAllocs = newState[employeeName].allocations;
-      const allocIndex = empAllocs.findIndex((a: AllocationRow) => a.id === allocId);
-      if (allocIndex > -1) {
-        const selectedCc = costCenters.find(cc => cc.cost_center_name === newCostCenterName);
-        empAllocs[allocIndex].costCenterName = newCostCenterName;
-        empAllocs[allocIndex].costCenterId = selectedCc?.cost_center_number || '';
-      }
-      return newState;
-    });
+  const handleFteChange = (employeeId: string, allocId: string, weekKey: string, newFteValue: string) => {
+    const newFte = parseFloat(newFteValue) || 0;
+    setActiveAllocations(prev => prev.map(empAlloc => {
+        if (empAlloc.employee.Person_Number === employeeId) {
+            const newAllocations = empAlloc.allocations.map(alloc => {
+                if (alloc.id === allocId) {
+                    return { ...alloc, weeklyFtes: { ...alloc.weeklyFtes, [weekKey]: newFte } };
+                }
+                return alloc;
+            });
+            return { ...empAlloc, allocations: newAllocations };
+        }
+        return empAlloc;
+    }));
+  };
+  
+  const handleCostCenterChange = (employeeId: string, allocId: string, newCostCenterName: string) => {
+     setActiveAllocations(prev => prev.map(empAlloc => {
+        if (empAlloc.employee.Person_Number === employeeId) {
+            const newAllocations = empAlloc.allocations.map(alloc => {
+                if (alloc.id === allocId) {
+                    const selectedCc = costCenters.find(cc => cc.cost_center_name === newCostCenterName);
+                    return { ...alloc, costCenterName: newCostCenterName, costCenterId: selectedCc?.cost_center_number || '' };
+                }
+                return alloc;
+            });
+            return { ...empAlloc, allocations: newAllocations };
+        }
+        return empAlloc;
+    }));
   };
 
-  const handleAddAllocation = (employeeName: string) => {
-    setAllocations(prev => {
-      const newState = JSON.parse(JSON.stringify(prev));
-      const newAlloc: AllocationRow = {
-        id: `${employeeName}-new-${Date.now()}`,
-        costCenterId: '',
-        costCenterName: '',
-        weeklyFtes: {},
-      };
-      newState[employeeName].allocations.push(newAlloc);
-      return newState;
-    });
+  const handleAddAllocationRow = (employeeId: string) => {
+    setActiveAllocations(prev => prev.map(empAlloc => {
+        if (empAlloc.employee.Person_Number === employeeId) {
+            const newAlloc: AllocationRow = {
+                id: `${employeeId}-new-${Date.now()}`,
+                costCenterId: '',
+                costCenterName: '',
+                weeklyFtes: {},
+            };
+            return { ...empAlloc, allocations: [...empAlloc.allocations, newAlloc] };
+        }
+        return empAlloc;
+    }));
   };
 
-  const handleRemoveAllocation = (employeeName: string, allocId: string) => {
-    setAllocations(prev => {
-      const newState = JSON.parse(JSON.stringify(prev));
-      newState[employeeName].allocations = newState[employeeName].allocations.filter((a: AllocationRow) => a.id !== allocId);
-      return newState;
-    });
+  const handleRemoveAllocationRow = (employeeId: string, allocId: string) => {
+    setActiveAllocations(prev => prev.map(empAlloc => {
+        if (empAlloc.employee.Person_Number === employeeId) {
+            const newAllocations = empAlloc.allocations.filter(a => a.id !== allocId);
+            return { ...empAlloc, allocations: newAllocations };
+        }
+        return empAlloc;
+    }));
   };
 
   const handleSave = () => {
     const submissions: any[] = [];
-    Object.entries(allocations).forEach(([employeeName, empData]) => {
-      empData.allocations.forEach(alloc => {
+    let hasInvalidAllocation = false;
+    
+    activeAllocations.forEach(empAlloc => {
+      empAlloc.allocations.forEach(alloc => {
         Object.entries(alloc.weeklyFtes).forEach(([weekKey, fte]) => {
           if (fte > 0) {
+             if (!alloc.costCenterId || !alloc.costCenterName) {
+                hasInvalidAllocation = true;
+                toast({ variant: 'destructive', title: 'Missing Cost Center', description: `Please select a cost center for ${empAlloc.employee.Full_Name}.` });
+                return;
+            }
             submissions.push({
               content: {
                 allocation_date: weekKey,
-                allocation_name: employeeName,
+                allocation_name: empAlloc.employee.Full_Name,
                 cost_center_name: alloc.costCenterName,
                 cost_center_number: alloc.costCenterId,
                 allocation_amount: fte.toString(),
@@ -206,6 +221,8 @@ export function MultiWeekGrid() {
         });
       });
     });
+
+    if (hasInvalidAllocation) return;
 
     if (submissions.length === 0) {
       toast({ variant: 'destructive', title: 'No new allocations to save.' });
@@ -220,6 +237,7 @@ export function MultiWeekGrid() {
         title: 'Allocations Saved',
         description: `${submissions.length} allocation entries have been saved successfully.`,
       });
+      setActiveAllocations([]); // Clear the grid
     })
     .catch(error => {
       console.error("Save error:", error);
@@ -254,15 +272,25 @@ export function MultiWeekGrid() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <CardTitle>Monthly Allocation Grid</CardTitle>
-            <CardDescription>Allocate FTEs across multiple weeks. Past weeks are locked for non-admins.</CardDescription>
+            <CardDescription>Add employees to build your allocation plan. Past weeks are locked for non-admins.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+             <Select onValueChange={handleAddEmployee} value="">
+                <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder={<div className='flex items-center gap-2'><UserPlus className="h-4 w-4" /> Add Employee...</div>} />
+                </SelectTrigger>
+                <SelectContent>
+                    {availableEmployees.map(emp => (
+                        <SelectItem key={emp.Person_Number} value={emp.Person_Number}>{emp.Full_Name}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
             <Button variant="outline" size="icon" onClick={handlePrevWeeks}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium w-48 text-center">
               {format(weeks[0], 'MMM d')} - {format(endOfWeek(weeks[3], { weekStartsOn: 1 }), 'MMM d, yyyy')}
             </span>
             <Button variant="outline" size="icon" onClick={handleNextWeeks}><ChevronRight className="h-4 w-4" /></Button>
-            <Button onClick={handleSave}>Save All</Button>
+            <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
           </div>
         </div>
       </CardHeader>
@@ -277,10 +305,7 @@ export function MultiWeekGrid() {
                   const isCurrent = isSameWeek(week, today, { weekStartsOn: 1 });
                   const isLockedForUser = isPast && !isAdmin;
                   return (
-                    <TableHead key={week.toISOString()} className={cn("text-center min-w-[150px] transition-colors", {
-                      "bg-muted/40": isPast,
-                      "bg-primary/10": isCurrent,
-                    })}>
+                    <TableHead key={week.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
                       <div className='flex items-center justify-center gap-2'>
                         {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
                         <span>W/E {format(endOfWeek(week, { weekStartsOn: 1 }), 'MMM d')}</span>
@@ -289,47 +314,50 @@ export function MultiWeekGrid() {
                     </TableHead>
                   )
                 })}
-                <TableHead className="w-[50px]"> </TableHead>
+                <TableHead className="w-[100px]"> </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {displayedEmployees.map(emp => {
-                const empAllocations = allocations[emp.Full_Name]?.allocations || [];
-
+             {activeAllocations.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={weeks.length + 2} className="text-center h-24 text-muted-foreground">
+                        No employees added. Select an employee from the dropdown above to begin.
+                    </TableCell>
+                </TableRow>
+             )}
+              {activeAllocations.map(({ employee, allocations }) => {
                 const weeklyTotals = weeks.map(week => {
                   const weekKey = formatDateKey(week);
-                  return empAllocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
+                  return allocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
                 });
 
                 return (
-                  <Fragment key={emp.Person_Number}>
+                  <Fragment key={employee.Person_Number}>
                     <TableRow className="bg-muted/50 hover:bg-muted">
                        <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">
-                        {emp.Full_Name}
-                        <div className="text-xs text-muted-foreground font-normal">{emp.Market_Facing_Title}</div>
+                        {employee.Full_Name}
+                        <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
                       </TableCell>
                       {weeklyTotals.map((total, index) => (
-                        <TableCell key={index} className="text-right font-semibold text-muted-foreground">
+                        <TableCell key={index} className={cn("text-right font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
                           {total > 0 ? total.toFixed(2) : '-'}
                         </TableCell>
                       ))}
-                      <TableCell></TableCell>
+                      <TableCell className='text-right'>
+                        <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.Person_Number)}>
+                           <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
 
-                    {empAllocations.map((alloc) => {
-                      const isRowLocked = weeks.some(week => {
-                        const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                        return isPast && !isAdmin;
-                      });
-
+                    {allocations.map((alloc) => {
+                      const isRowLocked = weeks.some(week => isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek) && !isAdmin);
                       return (
                       <TableRow key={alloc.id}>
                         <TableCell className="sticky left-0 bg-card z-10">
                           <div className="pl-6">
-                            <Select value={alloc.costCenterName} onValueChange={(newCcName) => handleCostCenterChange(emp.Full_Name, alloc.id, newCcName)} disabled={isRowLocked}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Cost Center..." />
-                              </SelectTrigger>
+                            <Select value={alloc.costCenterName} onValueChange={(newCcName) => handleCostCenterChange(employee.Person_Number, alloc.id, newCcName)} disabled={isRowLocked}>
+                              <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectTrigger>
                               <SelectContent>
                                 {costCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
                               </SelectContent>
@@ -343,23 +371,17 @@ export function MultiWeekGrid() {
                           return (
                             <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast})}>
                               <Input
-                                type="number"
-                                step="0.05"
-                                min="0"
-                                placeholder="0.00"
-                                className={cn("w-24 text-center mx-auto", {
-                                  "bg-muted/50 cursor-not-allowed": isLockedForUser
-                                })}
+                                type="number" step="0.05" min="0" placeholder="0.00"
+                                className={cn("w-24 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
                                 value={alloc.weeklyFtes[weekKey] || ''}
-                                onChange={(e) => handleFteChange(emp.Full_Name, alloc.id, weekKey, e.target.value)}
-                                disabled={isLockedForUser}
-                                readOnly={isLockedForUser}
+                                onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
+                                disabled={isLockedForUser} readOnly={isLockedForUser}
                               />
                             </TableCell>
                           )
                         })}
-                         <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocation(emp.Full_Name, alloc.id)} disabled={isRowLocked}>
+                         <TableCell className='text-right'>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(employee.Person_Number, alloc.id)} disabled={isRowLocked}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
@@ -369,9 +391,8 @@ export function MultiWeekGrid() {
                     <TableRow>
                       <TableCell className="sticky left-0 bg-card z-10 py-2">
                         <div className="pl-6">
-                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocation(emp.Full_Name)}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Add Allocation
+                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
                           </Button>
                         </div>
                       </TableCell>
