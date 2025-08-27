@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useState, useMemo, Fragment, useEffect } from 'react';
-import { addWeeks, subWeeks, startOfWeek, endOfWeek, format, isBefore, isSameWeek } from 'date-fns';
+import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
+import { addWeeks, subWeeks, startOfWeek, endOfWeek, format, isBefore, isSameWeek, eachWeekOfInterval } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
+import { Combobox } from '../ui/combobox';
 
 const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
 const domo = {
@@ -56,6 +57,17 @@ const domo = {
 };
 
 type CostCenterData = { ['cost_center_number']: string; ['cost_center_name']: string };
+type AllocationDoc = {
+    id: string;
+    content: {
+        allocation_date: string;
+        allocation_name: string;
+        cost_center_name: string;
+        cost_center_number: string;
+        allocation_amount: string;
+    }
+};
+
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
 type AllocationRow = {
@@ -70,59 +82,121 @@ type EmployeeAllocation = {
   allocations: AllocationRow[];
 };
 
-export function MultiWeekGrid() {
-  const [currentDate, setCurrentDate] = useState(new Date());
+type MultiWeekGridProps = {
+  currentDate: Date;
+  setCurrentDate: (date: Date) => void;
+};
+
+
+export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { currentUser, isManager, isAdmin, isVp } = useCurrentUser();
+  const { currentUser, isManager, isAdmin, isVp, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [empResult, ccResult] = await Promise.all([
-          domo.get(`/data/v1/gbs_ind_hr_fte_report`),
-          domo.get(`/data/v1/gbs_ind_finance_cc_report`),
-        ]);
-        const empData: TeamMember[] = empResult.filter((e: TeamMember) => e.Full_Name);
-        const ccData: CostCenterData[] = ccResult.filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name);
-        setAllEmployees(empData);
-        setCostCenters(ccData);
-      } catch (error) {
-        console.error("Failed to fetch initial data:", error);
-        toast({ variant: 'destructive', title: 'Failed to fetch data' });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [toast]);
-
-  const availableEmployees = useMemo(() => {
-    let filtered = allEmployees;
-    if (isManager && currentUser) {
-      filtered = allEmployees.filter(e => e.First_Reviewer_Name === currentUser.name);
-    }
-    if (isVp && currentUser) {
-      const managersUnderVp = allEmployees
-        .filter(e => e.Vertical_Head_Name === currentUser.name)
-        .map(m => m.First_Reviewer_Name);
-      const directReports = allEmployees.filter(e => e.First_Reviewer_Name === currentUser.name)
-      filtered = allEmployees.filter(e => managersUnderVp.includes(e.First_Reviewer_Name) || directReports.some(dr => dr.Person_Number === e.Person_Number));
-    }
-    // Exclude employees already in the active allocations list
-    const activeEmployeeIds = activeAllocations.map(a => a.employee.Person_Number);
-    return filtered.filter(e => !activeEmployeeIds.includes(e.Person_Number));
-  }, [allEmployees, activeAllocations, isManager, isVp, currentUser]);
 
   const weeks = useMemo(() => {
     const start = startOfWeek(currentDate, { weekStartsOn: 1 });
     return Array.from({ length: 4 }, (_, i) => addWeeks(start, i));
   }, [currentDate]);
+
+  const fetchAllocationsForWeeks = useCallback(async (employeesToFetch: TeamMember[]) => {
+    setLoading(true);
+    try {
+      const weekKeys = weeks.map(formatDateKey);
+      const allocationRequests = weekKeys.map(weekKey => 
+        domo.get(`/domo/datastores/v1/collections/weekly_allocation/documents?filter=content.allocation_date='${weekKey}'`)
+      );
+      const results = await Promise.all(allocationRequests);
+      const allFetchedAllocations = results.flat();
+
+      const employeeAllocations: EmployeeAllocation[] = employeesToFetch.map(employee => {
+        const empAllocations = allFetchedAllocations.filter((a: AllocationDoc) => a.content.allocation_name === employee.Full_Name);
+        
+        const groupedByCostCenter = empAllocations.reduce((acc, current: AllocationDoc) => {
+          const { cost_center_number, cost_center_name, allocation_date, allocation_amount } = current.content;
+          if (!acc[cost_center_number]) {
+            acc[cost_center_number] = {
+              id: `${employee.Person_Number}-${cost_center_number}`,
+              costCenterId: cost_center_number,
+              costCenterName: cost_center_name,
+              weeklyFtes: {},
+            };
+          }
+          acc[cost_center_number].weeklyFtes[allocation_date] = parseFloat(allocation_amount);
+          return acc;
+        }, {} as { [key: string]: AllocationRow });
+
+        let allocationRows = Object.values(groupedByCostCenter);
+        if (allocationRows.length === 0) {
+          allocationRows.push({
+            id: `${employee.Person_Number}-new-${Date.now()}`,
+            costCenterId: '',
+            costCenterName: '',
+            weeklyFtes: {},
+          });
+        }
+        
+        return {
+          employee,
+          allocations: allocationRows,
+        };
+      });
+
+      setActiveAllocations(employeeAllocations);
+    } catch (error) {
+      console.error("Failed to fetch allocations:", error);
+      toast({ variant: 'destructive', title: 'Failed to fetch allocations' });
+    } finally {
+      setLoading(false);
+    }
+  }, [weeks, toast]);
+
+
+  const fetchData = useCallback(async () => {
+    if (userLoading || !currentUser) return;
+    setLoading(true);
+    try {
+      const [empResult, ccResult] = await Promise.all([
+        domo.get(`/data/v1/gbs_ind_hr_fte_report`),
+        domo.get(`/data/v1/gbs_ind_finance_cc_report`),
+      ]);
+      const empData: TeamMember[] = empResult.filter((e: TeamMember) => e.Full_Name);
+      const ccData: CostCenterData[] = ccResult.filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name);
+      
+      setAllEmployees(empData);
+      setCostCenters(ccData);
+
+      let employeesToFetch: TeamMember[] = [];
+      if (isAdmin) {
+          employeesToFetch = empData;
+      } else if (isVp) {
+          const managersUnderVp = empData.filter(e => e.Vertical_Head_Name === currentUser.name).map(m => m.First_Reviewer_Name);
+          const directReports = empData.filter(e => e.First_Reviewer_Name === currentUser.name)
+          employeesToFetch = empData.filter(e => managersUnderVp.includes(e.First_Reviewer_Name) || directReports.some(dr => dr.Person_Number === e.Person_Number));
+      } else if (isManager) {
+          employeesToFetch = empData.filter(e => e.First_Reviewer_Name === currentUser.name);
+      }
+      
+      await fetchAllocationsForWeeks(employeesToFetch);
+    } catch (error) {
+      console.error("Failed to fetch initial data:", error);
+      toast({ variant: 'destructive', title: 'Failed to fetch data' });
+      setLoading(false);
+    }
+  }, [userLoading, currentUser, isAdmin, isVp, isManager, fetchAllocationsForWeeks, toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+
+  const availableEmployees = useMemo(() => {
+    const activeEmployeeIds = activeAllocations.map(a => a.employee.Person_Number);
+    return allEmployees.filter(e => !activeEmployeeIds.includes(e.Person_Number));
+  }, [allEmployees, activeAllocations]);
 
   const handlePrevWeeks = () => setCurrentDate(subWeeks(currentDate, 4));
   const handleNextWeeks = () => setCurrentDate(addWeeks(currentDate, 4));
@@ -130,12 +204,19 @@ export function MultiWeekGrid() {
   const handleAddEmployee = (employeeId: string) => {
     const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
     if (employeeToAdd) {
+      const isAlreadyActive = activeAllocations.some(a => a.employee.Person_Number === employeeId);
+      if (isAlreadyActive) {
+          toast({ variant: 'destructive', title: 'Employee already in grid' });
+          return;
+      }
+
       const newAllocationRow: AllocationRow = {
         id: `${employeeId}-new-${Date.now()}`,
         costCenterId: '',
         costCenterName: '',
         weeklyFtes: {},
       };
+      
       setActiveAllocations(prev => [{
         employee: employeeToAdd,
         allocations: [newAllocationRow]
@@ -165,6 +246,7 @@ export function MultiWeekGrid() {
 
   const handleMonthlyFteChange = (employeeId: string, allocId: string, monthlyFteValue: string) => {
     const monthlyFte = parseFloat(monthlyFteValue) || 0;
+    const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
     setActiveAllocations(prev => prev.map(empAlloc => {
       if (empAlloc.employee.Person_Number === employeeId) {
         const newAllocations = empAlloc.allocations.map(alloc => {
@@ -229,7 +311,7 @@ export function MultiWeekGrid() {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const submissions: any[] = [];
     let hasInvalidAllocation = false;
     
@@ -259,30 +341,29 @@ export function MultiWeekGrid() {
     if (hasInvalidAllocation) return;
 
     if (submissions.length === 0) {
-      toast({ variant: 'destructive', title: 'No new allocations to save.' });
+      toast({ title: 'No changes to save.' });
       return;
     }
 
-    Promise.all(submissions.map(entry => 
-      domo.post('/domo/datastores/v1/collections/weekly_allocation/documents/', entry)
-    ))
-    .then(() => {
-      toast({
-        title: 'Allocations Saved',
-        description: `${submissions.length} allocation entries have been saved successfully.`,
-      });
-      setActiveAllocations([]); // Clear the grid
-    })
-    .catch(error => {
-      console.error("Save error:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
-    });
+    try {
+        await Promise.all(submissions.map(entry => 
+            domo.post('/domo/datastores/v1/collections/weekly_allocation/documents/', entry)
+        ));
+        toast({
+            title: 'Allocations Saved',
+            description: `${submissions.length} allocation entries have been saved successfully.`,
+        });
+        await fetchData(); // Re-fetch data to show saved and locked state
+    } catch (error: any) {
+        console.error("Save error:", error);
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+    }
   };
 
   const today = new Date();
   const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
 
-  if (loading) {
+  if (loading || userLoading) {
     return (
       <Card>
         <CardHeader>
@@ -309,16 +390,12 @@ export function MultiWeekGrid() {
             <CardDescription>Add employees to build your allocation plan. Past weeks are locked for non-admins.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-             <Select onValueChange={handleAddEmployee} value="">
-                <SelectTrigger className="w-[220px]">
-                    <SelectValue placeholder={<div className='flex items-center gap-2'><UserPlus className="h-4 w-4" /> Add Employee...</div>} />
-                </SelectTrigger>
-                <SelectContent>
-                    {availableEmployees.map(emp => (
-                        <SelectItem key={emp.Person_Number} value={emp.Person_Number}>{emp.Full_Name}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+             <Combobox
+                placeholder="Add Employee..."
+                searchPlaceholder='Search employees...'
+                options={availableEmployees.map(e => ({ value: e.Person_Number, label: e.Full_Name }))}
+                onSelect={handleAddEmployee}
+              />
             <Button variant="outline" size="icon" onClick={handlePrevWeeks}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium w-48 text-center">
               {format(weeks[0], 'MMM d')} - {format(endOfWeek(weeks[3], { weekStartsOn: 1 }), 'MMM d, yyyy')}
@@ -356,7 +433,7 @@ export function MultiWeekGrid() {
              {activeAllocations.length === 0 && (
                 <TableRow>
                     <TableCell colSpan={weeks.length + 3} className="text-center h-24 text-muted-foreground">
-                        No employees added. Select an employee from the dropdown above to begin.
+                        No employees found for your role. Select an employee from the dropdown above to begin.
                     </TableCell>
                 </TableRow>
              )}
@@ -387,7 +464,10 @@ export function MultiWeekGrid() {
                     </TableRow>
 
                     {allocations.map((alloc) => {
-                      const isRowLocked = weeks.some(week => isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek) && !isAdmin);
+                       const isRowLocked = weeks.some(week => {
+                            const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                            return isPast && !isAdmin;
+                       });
                       return (
                       <TableRow key={alloc.id}>
                         <TableCell className="sticky left-0 bg-card z-10">
@@ -452,3 +532,5 @@ export function MultiWeekGrid() {
     </Card>
   );
 }
+
+    
