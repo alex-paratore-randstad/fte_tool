@@ -318,7 +318,6 @@ export function MultiWeekGrid() {
 
                     {empAllocations.map((alloc) => {
                       const isRowLocked = weeks.some(week => {
-                        const weekKey = formatDateKey(week);
                         const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                         return isPast && !isAdmin;
                       });
@@ -388,3 +387,5 @@ export function MultiWeekGrid() {
     </Card>
   );
 }
+
+    
