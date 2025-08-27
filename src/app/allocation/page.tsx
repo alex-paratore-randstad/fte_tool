@@ -3,6 +3,7 @@
 
 import { PageHeader } from '@/components/page-header';
 import { MultiWeekGrid } from '@/components/allocation/multi-week-grid';
+import { WeeklyAllocationTable } from '@/components/allocation/weekly-allocation-table';
 
 export default function AllocationPage() {
   return (
@@ -12,6 +13,7 @@ export default function AllocationPage() {
         description="Allocate FTEs for the current month."
       />
       <MultiWeekGrid />
+      <WeeklyAllocationTable />
     </div>
   );
 }
