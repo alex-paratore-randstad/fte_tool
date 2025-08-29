@@ -61,6 +61,32 @@ type MultiWeekGridProps = {
   setCurrentDate: (date: Date) => void;
 };
 
+const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
+const domo = {
+  get: async (url: string) => {
+    const rUrl = `${baseUrl}${url}`;
+    const response = await fetch(rUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+  post: async (url: string, body: any) => {
+    const rUrl = `${baseUrl}${url}`;
+    const response = await fetch(rUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  }
+};
+
 
 export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
@@ -77,17 +103,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   }, [currentDate]);
 
   const fetchData = useCallback(async () => {
-    const domo = {
-      get: async (url: string) => {
-        const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-        const rUrl = `${baseUrl}${url}`;
-        const response = await fetch(rUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      }
-    };
     setLoading(true);
     try {
       const [empResult, ccResult] = await Promise.all([
@@ -232,23 +247,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   };
 
   const handleSave = async () => {
-    const domo = {
-      post: async (url: string, body: any) => {
-        const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-        const rUrl = `${baseUrl}${url}`;
-        const response = await fetch(rUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      }
-    };
     const submissions: any[] = [];
     let hasInvalidAllocation = false;
     
@@ -332,7 +330,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                 placeholder="Add Employee..."
                 searchPlaceholder='Search employees...'
                 options={availableEmployees.map(e => ({ value: e.Person_Number, label: e.Full_Name }))}
-                onSelect={handleAddEmployee}
+                onSelect={(value) => handleAddEmployee(value)}
               />
             <Button variant="outline" size="icon" onClick={handlePrevWeeks}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium w-48 text-center">
