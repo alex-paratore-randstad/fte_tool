@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SelectSearch } from '@/components/ui/select-search';
 import {
   Table,
   TableBody,
@@ -57,6 +58,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
@@ -110,27 +112,26 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
 
   const availableEmployees = useMemo(() => {
     const activeEmployeeIds = new Set(activeAllocations.map(a => a.employee.Person_Number));
-    return allEmployees.filter(e => !activeEmployeeIds.has(e.Person_Number));
-  }, [allEmployees, activeAllocations]);
+    const unallocatedEmployees = allEmployees.filter(e => !activeEmployeeIds.has(e.Person_Number));
+    if (!searchTerm) {
+        return unallocatedEmployees;
+    }
+    return unallocatedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [allEmployees, activeAllocations, searchTerm]);
 
   const handlePrevWeeks = () => setCurrentDate(subWeeks(currentDate, 4));
   const handleNextWeeks = () => setCurrentDate(addWeeks(currentDate, 4));
   
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
-
-    // First, find the employee from the master list of all employees.
     const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
     
     if (employeeToAdd) {
-      // Then, check if they are already active to prevent duplicates.
       const isAlreadyActive = activeAllocations.some(a => a.employee.Person_Number === employeeId);
       if (isAlreadyActive) {
           toast({ variant: 'destructive', title: 'Employee already in grid' });
           return;
       }
-
-      // If they are not active, create the new allocation row and add them to the state.
       const newAllocationRow: AllocationRow = {
         id: `${employeeId}-new-${Date.now()}`,
         costCenterId: '',
@@ -336,11 +337,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                     <SelectValue placeholder="Add Employee..." />
                 </SelectTrigger>
                 <SelectContent>
+                    <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
                     {availableEmployees.map(e => (
                         <SelectItem key={e.Person_Number} value={e.Person_Number}>
                             {e.Full_Name}
                         </SelectItem>
                     ))}
+                    {availableEmployees.length === 0 && (
+                        <div className="p-4 text-sm text-center text-muted-foreground">
+                            No employees found.
+                        </div>
+                    )}
                 </SelectContent>
             </Select>
             <Button variant="outline" size="icon" onClick={handlePrevWeeks}><ChevronLeft className="h-4 w-4" /></Button>
