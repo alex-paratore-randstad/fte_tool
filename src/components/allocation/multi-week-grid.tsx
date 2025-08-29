@@ -117,15 +117,18 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
 
+    // First, find the employee from the master list of all employees.
     const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
     
     if (employeeToAdd) {
+      // Then, check if they are already active to prevent duplicates.
       const isAlreadyActive = activeAllocations.some(a => a.employee.Person_Number === employeeId);
       if (isAlreadyActive) {
           toast({ variant: 'destructive', title: 'Employee already in grid' });
           return;
       }
 
+      // If they are not active, create the new allocation row and add them to the state.
       const newAllocationRow: AllocationRow = {
         id: `${employeeId}-new-${Date.now()}`,
         costCenterId: '',
