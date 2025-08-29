@@ -102,61 +102,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     return Array.from({ length: 4 }, (_, i) => addWeeks(start, i));
   }, [currentDate]);
 
-  const fetchAllocationsForWeeks = useCallback(async (employeesToFetch: TeamMember[]) => {
-    setLoading(true);
-    try {
-      const weekKeys = weeks.map(formatDateKey);
-      const allocationRequests = weekKeys.map(weekKey => 
-        domo.get(`/domo/datastores/v1/collections/weekly_allocation/documents?filter=content.allocation_date='${weekKey}'`)
-      );
-      const results = await Promise.all(allocationRequests);
-      const allFetchedAllocations = results.flat();
-
-      const employeeAllocations: EmployeeAllocation[] = employeesToFetch.map(employee => {
-        const empAllocations = allFetchedAllocations.filter((a: AllocationDoc) => a.content.allocation_name === employee.Full_Name);
-        
-        const groupedByCostCenter = empAllocations.reduce((acc, current: AllocationDoc) => {
-          const { cost_center_number, cost_center_name, allocation_date, allocation_amount } = current.content;
-          if (!acc[cost_center_number]) {
-            acc[cost_center_number] = {
-              id: `${employee.Person_Number}-${cost_center_number}`,
-              costCenterId: cost_center_number,
-              costCenterName: cost_center_name,
-              weeklyFtes: {},
-            };
-          }
-          acc[cost_center_number].weeklyFtes[allocation_date] = parseFloat(allocation_amount);
-          return acc;
-        }, {} as { [key: string]: AllocationRow });
-
-        let allocationRows = Object.values(groupedByCostCenter);
-        if (allocationRows.length === 0) {
-          allocationRows.push({
-            id: `${employee.Person_Number}-new-${Date.now()}`,
-            costCenterId: '',
-            costCenterName: '',
-            weeklyFtes: {},
-          });
-        }
-        
-        return {
-          employee,
-          allocations: allocationRows,
-        };
-      });
-
-      setActiveAllocations(employeeAllocations);
-    } catch (error) {
-      console.error("Failed to fetch allocations:", error);
-      toast({ variant: 'destructive', title: 'Failed to fetch allocations' });
-    } finally {
-      setLoading(false);
-    }
-  }, [weeks, toast]);
-
-
   const fetchData = useCallback(async () => {
-    if (userLoading || !currentUser) return;
     setLoading(true);
     try {
       const [empResult, ccResult] = await Promise.all([
@@ -169,24 +115,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
       setAllEmployees(empData);
       setCostCenters(ccData);
 
-      let employeesToFetch: TeamMember[] = [];
-      if (isAdmin) {
-          employeesToFetch = empData;
-      } else if (isVp) {
-          const managersUnderVp = empData.filter(e => e.Vertical_Head_Name === currentUser.name).map(m => m.First_Reviewer_Name);
-          const directReports = empData.filter(e => e.First_Reviewer_Name === currentUser.name)
-          employeesToFetch = empData.filter(e => managersUnderVp.includes(e.First_Reviewer_Name) || directReports.some(dr => dr.Person_Number === e.Person_Number));
-      } else if (isManager) {
-          employeesToFetch = empData.filter(e => e.First_Reviewer_Name === currentUser.name);
-      }
-      
-      await fetchAllocationsForWeeks(employeesToFetch);
     } catch (error) {
       console.error("Failed to fetch initial data:", error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
+    } finally {
       setLoading(false);
     }
-  }, [userLoading, currentUser, isAdmin, isVp, isManager, fetchAllocationsForWeeks, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchData();
@@ -353,7 +288,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
             title: 'Allocations Saved',
             description: `${submissions.length} allocation entries have been saved successfully.`,
         });
-        await fetchData(); // Re-fetch data to show saved and locked state
+        // We no longer clear or re-fetch here to persist the view.
+        // The locking mechanism will prevent edits.
     } catch (error: any) {
         console.error("Save error:", error);
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
@@ -433,7 +369,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
              {activeAllocations.length === 0 && (
                 <TableRow>
                     <TableCell colSpan={weeks.length + 3} className="text-center h-24 text-muted-foreground">
-                        No employees found for your role. Select an employee from the dropdown above to begin.
+                        Select an employee from the dropdown above to begin building your allocation plan.
                     </TableCell>
                 </TableRow>
              )}
@@ -532,3 +468,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
+
+    
