@@ -409,7 +409,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                         <TableCell className="sticky left-0 bg-card z-10">
                           <div className="pl-6">
                             <Select value={alloc.costCenterName} onValueChange={(newCcName) => handleCostCenterChange(employee.Person_Number, alloc.id, newCcName)} disabled={isRowLocked}>
-                              <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectValue>
+                              <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectTrigger>
                               <SelectContent>
                                 {costCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
                               </SelectContent>
@@ -468,3 +468,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
+
+    
