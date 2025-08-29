@@ -58,9 +58,8 @@ export function Combobox({ options, onSelect, placeholder = "Select an option...
                   key={option.value}
                   value={option.value}
                   onSelect={(currentValue) => {
-                    const selectedValue = currentValue === value ? "" : currentValue
-                    setValue(selectedValue)
-                    onSelect(selectedValue)
+                    onSelect(currentValue)
+                    setValue("") // Reset combobox text after selection
                     setOpen(false)
                   }}
                 >

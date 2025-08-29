@@ -329,7 +329,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                 placeholder="Add Employee..."
                 searchPlaceholder='Search employees...'
                 options={availableEmployees.map(e => ({ value: e.Person_Number, label: e.Full_Name }))}
-                onSelect={(value) => handleAddEmployee(value)}
+                onSelect={(value) => {
+                  if (value) {
+                    handleAddEmployee(value);
+                  }
+                }}
               />
             <Button variant="outline" size="icon" onClick={handlePrevWeeks}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium w-48 text-center">
