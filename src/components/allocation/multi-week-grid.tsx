@@ -314,7 +314,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
