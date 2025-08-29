@@ -180,7 +180,7 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
                                 <TableRow className="bg-muted/50 hover:bg-muted">
                                     <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{employeeName}</TableCell>
                                     {weeklyTotals.map((total, index) => (
-                                        <TableCell key={index} className={cn("text-right font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
+                                        <TableCell key={index} className={cn("text-center font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
                                         {total > 0 ? total.toFixed(2) : '-'}
                                         </TableCell>
                                     ))}
@@ -211,5 +211,3 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
     </Card>
   );
 }
-
-    
