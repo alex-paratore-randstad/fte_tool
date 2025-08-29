@@ -61,32 +61,6 @@ type MultiWeekGridProps = {
   setCurrentDate: (date: Date) => void;
 };
 
-const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-const domo = {
-  get: async (url: string) => {
-    const rUrl = `${baseUrl}${url}`;
-    const response = await fetch(rUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  },
-  post: async (url: string, body: any) => {
-    const rUrl = `${baseUrl}${url}`;
-    const response = await fetch(rUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  }
-};
-
 
 export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
@@ -103,6 +77,33 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   }, [currentDate]);
 
   const fetchData = useCallback(async () => {
+    // Initialize a local domo object to handle data fetching.
+    const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
+    const domo = {
+      get: async (url: string) => {
+        const rUrl = `${baseUrl}${url}`;
+        const response = await fetch(rUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      },
+      post: async (url: string, body: any) => {
+        const rUrl = `${baseUrl}${url}`;
+        const response = await fetch(rUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      }
+    };
+    
     setLoading(true);
     try {
       const [empResult, ccResult] = await Promise.all([
@@ -137,7 +138,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   const handleNextWeeks = () => setCurrentDate(addWeeks(currentDate, 4));
   
   const handleAddEmployee = (employeeId: string) => {
+    if (!employeeId) return;
+
     const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
+    
     if (employeeToAdd) {
       const isAlreadyActive = activeAllocations.some(a => a.employee.Person_Number === employeeId);
       if (isAlreadyActive) {
@@ -247,6 +251,33 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   };
 
   const handleSave = async () => {
+     // Initialize a local domo object to handle data fetching.
+    const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
+    const domo = {
+      get: async (url: string) => {
+        const rUrl = `${baseUrl}${url}`;
+        const response = await fetch(rUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      },
+      post: async (url: string, body: any) => {
+        const rUrl = `${baseUrl}${url}`;
+        const response = await fetch(rUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      }
+    };
+
     const submissions: any[] = [];
     let hasInvalidAllocation = false;
     
@@ -288,8 +319,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
             title: 'Allocations Saved',
             description: `${submissions.length} allocation entries have been saved successfully.`,
         });
-        // We no longer clear or re-fetch here to persist the view.
-        // The locking mechanism will prevent edits.
     } catch (error: any) {
         console.error("Save error:", error);
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
