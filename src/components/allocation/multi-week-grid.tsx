@@ -53,6 +53,7 @@ type MultiWeekGridProps = {
 
 
 export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProps) {
+  const [isMounted, setIsMounted] = useState(false);
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
@@ -103,6 +104,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
 
   useEffect(() => {
     fetchData();
+    setIsMounted(true);
   }, [fetchData]);
 
 
@@ -298,10 +300,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     }
   };
 
-  const today = new Date();
-  const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
-
-  if (loading || userLoading) {
+  if (loading || userLoading || !isMounted) {
     return (
       <Card>
         <CardHeader>
@@ -318,6 +317,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
       </Card>
     );
   }
+
+  // Define date-dependent constants only after mount to avoid hydration errors
+  const today = new Date();
+  const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
 
   return (
     <Card>
