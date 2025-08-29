@@ -28,7 +28,6 @@ import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { Combobox } from '@/components/ui/combobox';
 
 type CostCenterData = { ['cost_center_number']: string; ['cost_center_name']: string };
 
@@ -332,16 +331,18 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
             <CardDescription>Add employees to build your allocation plan. Past weeks are locked for non-admins.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-             <Combobox
-                placeholder="Add Employee..."
-                searchPlaceholder='Search employees...'
-                options={availableEmployees.map(e => ({ value: e.Person_Number, label: e.Full_Name }))}
-                onSelect={(value) => {
-                  if (value) {
-                    handleAddEmployee(value);
-                  }
-                }}
-              />
+             <Select onValueChange={handleAddEmployee}>
+                <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Add Employee..." />
+                </SelectTrigger>
+                <SelectContent>
+                    {availableEmployees.map(e => (
+                        <SelectItem key={e.Person_Number} value={e.Person_Number}>
+                            {e.Full_Name}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
             <Button variant="outline" size="icon" onClick={handlePrevWeeks}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium w-48 text-center">
               {format(weeks[0], 'MMM d')} - {format(endOfWeek(weeks[3], { weekStartsOn: 1 }), 'MMM d, yyyy')}
@@ -478,5 +479,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
-
-    

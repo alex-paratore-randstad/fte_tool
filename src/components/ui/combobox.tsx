@@ -26,11 +26,16 @@ type ComboboxProps = {
     onSelect: (value: string) => void;
     placeholder?: string;
     searchPlaceholder?: string;
+    value?: string;
 }
 
-export function Combobox({ options, onSelect, placeholder = "Select an option...", searchPlaceholder = "Search..." }: ComboboxProps) {
+export function Combobox({ options, onSelect, placeholder = "Select an option...", searchPlaceholder = "Search...", value: controlledValue }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  const [value, setValue] = React.useState("")
+  const [internalValue, setInternalValue] = React.useState("")
+  
+  const value = controlledValue !== undefined ? controlledValue : internalValue;
+  const setValue = controlledValue !== undefined ? onSelect : setInternalValue;
+
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -58,8 +63,9 @@ export function Combobox({ options, onSelect, placeholder = "Select an option...
                   key={option.value}
                   value={option.value}
                   onSelect={(currentValue) => {
-                    onSelect(currentValue)
-                    setValue("") // Reset combobox text after selection
+                    const newValue = currentValue === value ? "" : currentValue
+                    setValue(newValue)
+                    onSelect(newValue);
                     setOpen(false)
                   }}
                 >
