@@ -104,6 +104,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
 
   useEffect(() => {
     fetchData();
+    // Set isMounted to true after the component has mounted on the client
     setIsMounted(true);
   }, [fetchData]);
 
@@ -477,3 +478,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
+
+    
