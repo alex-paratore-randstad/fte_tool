@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { addWeeks, subWeeks, startOfWeek, endOfWeek, format, isBefore, isSameWeek, eachWeekOfInterval } from 'date-fns';
+import { addWeeks, subWeeks, startOfWeek, endOfWeek, format, isBefore, isSameWeek } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, UserPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember } from '@/types';
 import { cn } from '@/lib/utils';
@@ -31,16 +31,6 @@ import { Skeleton } from '../ui/skeleton';
 import { Combobox } from '@/components/ui/combobox';
 
 type CostCenterData = { ['cost_center_number']: string; ['cost_center_name']: string };
-type AllocationDoc = {
-    id: string;
-    content: {
-        allocation_date: string;
-        allocation_name: string;
-        cost_center_name: string;
-        cost_center_number: string;
-        allocation_amount: string;
-    }
-};
 
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
@@ -68,7 +58,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { currentUser, isManager, isAdmin, isVp, loading: userLoading } = useCurrentUser();
+  const { isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
 
   const weeks = useMemo(() => {
@@ -77,26 +67,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   }, [currentDate]);
 
   const fetchData = useCallback(async () => {
-    // Initialize a local domo object to handle data fetching.
+    // This local domo object MUST be defined inside a client-side hook or event handler
+    // to prevent server-side execution during build, which causes deployment to fail.
     const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
     const domo = {
       get: async (url: string) => {
         const rUrl = `${baseUrl}${url}`;
         const response = await fetch(rUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      },
-      post: async (url: string, body: any) => {
-        const rUrl = `${baseUrl}${url}`;
-        const response = await fetch(rUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -130,8 +107,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
 
 
   const availableEmployees = useMemo(() => {
-    const activeEmployeeIds = activeAllocations.map(a => a.employee.Person_Number);
-    return allEmployees.filter(e => !activeEmployeeIds.includes(e.Person_Number));
+    const activeEmployeeIds = new Set(activeAllocations.map(a => a.employee.Person_Number));
+    return allEmployees.filter(e => !activeEmployeeIds.has(e.Person_Number));
   }, [allEmployees, activeAllocations]);
 
   const handlePrevWeeks = () => setCurrentDate(subWeeks(currentDate, 4));
@@ -251,17 +228,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   };
 
   const handleSave = async () => {
-     // Initialize a local domo object to handle data fetching.
+    // This local domo object MUST be defined inside a client-side hook or event handler
+    // to prevent server-side execution during build, which causes deployment to fail.
     const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
     const domo = {
-      get: async (url: string) => {
-        const rUrl = `${baseUrl}${url}`;
-        const response = await fetch(rUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      },
       post: async (url: string, body: any) => {
         const rUrl = `${baseUrl}${url}`;
         const response = await fetch(rUrl, {
@@ -417,7 +387,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                       </TableCell>
                       <TableCell></TableCell>
                       {weeklyTotals.map((total, index) => (
-                        <TableCell key={index} className={cn("text-right font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
+                        <TableCell key={index} className={cn("text-center font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
                           {total > 0 ? total.toFixed(2) : '-'}
                         </TableCell>
                       ))}
