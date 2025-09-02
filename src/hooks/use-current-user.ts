@@ -64,13 +64,45 @@ export function useCurrentUser() {
 
       } catch (error) {
         // Fallback for local development or if the API fails
-        console.error("Failed to fetch live user, using fallback:", error);
+        console.error("Failed to fetch live user, using fallback for development:", error);
+        
+        // To impersonate a user for development, comment out the admin user
+        // and uncomment one of the manager personas below.
+        
+        // --- Admin Persona (Default for Dev) ---
         setCurrentUser({ 
             id: 'dev-admin', 
             name: 'Development Admin', 
             title: 'System Administrator', 
             role: 'admin' 
         });
+
+        // --- Manager Personas for Impersonation ---
+        /*
+        setCurrentUser({ 
+            id: 'mgr-1', 
+            name: 'Sawyer Ames', 
+            title: 'Manager, Core Platform', 
+            role: 'manager' 
+        });
+        */
+        /*
+        setCurrentUser({ 
+            id: 'mgr-2', 
+            name: 'Cheryl MacMillan', 
+            title: 'Manager, Client Integrations', 
+            role: 'manager' 
+        });
+        */
+        /*
+        setCurrentUser({ 
+            id: 'mgr-3', 
+            name: 'John Slocum', 
+            title: 'Manager, Analytics', 
+            role: 'manager' 
+        });
+        */
+
       } finally {
         setLoading(false);
       }
