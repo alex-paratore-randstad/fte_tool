@@ -5,12 +5,15 @@ import { useState, useEffect } from 'react';
 import { employees } from '@/lib/mock-data';
 import type { Employee } from '@/types';
 
+// The 'id' property of the mock Employee type will be used to simulate
+// the 'Person_Number' or 'First_Reviewer_Code' from the live data.
 export type CurrentUser = Employee & {
+  id: string; // Ensure id is always present
   role: 'manager' | 'admin' | 'vp';
 };
 
 const placeholderUser: CurrentUser = { 
-  id: 'placeholder-user', 
+  id: '', 
   name: '', 
   title: '', 
   region: 'NAM', 
@@ -26,10 +29,10 @@ export function useCurrentUser() {
   useEffect(() => {
     // This effect runs only on the client, ensuring no server-side execution of this logic.
     // To demonstrate different roles, change this name:
-    // 'Sawyer Ames' (Manager)
-    // 'Caroline Reynolds' (Vice President)
-    // 'Super Admin' (Administrator)
-    const currentUserName = 'Super Admin';
+    // 'Sawyer Ames' (Manager, id: 'mgr-1')
+    // 'Caroline Reynolds' (Vice President, id: 'vp-1')
+    // 'Super Admin' (Administrator, id: 'admin-01')
+    const currentUserName = 'Sawyer Ames';
     const loggedInEmployee = employees.find(e => e.name === currentUserName);
 
     if (loggedInEmployee) {

@@ -95,8 +95,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
       setAllEmployees(empData);
       setCostCenters(ccData);
 
-      if (isManager && currentUser) {
-        const directReports = empData.filter(e => e.First_Reviewer_Name === currentUser.name);
+      if (isManager && currentUser && currentUser.id) {
+        const directReports = empData.filter(e => e.First_Reviewer_Code === currentUser.id);
         const initialAllocations = directReports.map(employee => {
           const newAllocationRow: AllocationRow = {
             id: `${employee.Person_Number}-new-${Date.now()}`,
