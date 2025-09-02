@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { Employee } from '@/types';
+import type { Employee, TeamMember } from '@/types';
 
 // The 'id' property of the mock Employee type will be used to simulate
 // the 'Person_Number' or 'First_Reviewer_Code' from the live data.
@@ -44,7 +44,25 @@ export function useCurrentUser() {
       };
 
       try {
-        const liveUser = await domo.get('/domo/users/v1/me');
+        const impersonatedUserId = localStorage.getItem('impersonated_user_id');
+        let liveUser;
+
+        if (impersonatedUserId) {
+            const allEmployees: TeamMember[] = await domo.get(`/data/v1/gbs_ind_hr_fte_report`);
+            const impersonatedEmp = allEmployees.find(e => e.Person_Number === impersonatedUserId);
+            if (impersonatedEmp) {
+                liveUser = {
+                    id: impersonatedEmp.Person_Number,
+                    displayName: impersonatedEmp.Full_Name,
+                    title: impersonatedEmp.Market_Facing_Title,
+                    roles: [{name: 'Manager'}] // Assume impersonated users are managers
+                }
+            } else {
+                 throw new Error("Impersonated user not found");
+            }
+        } else {
+            liveUser = await domo.get('/domo/users/v1/me');
+        }
         
         let role: 'manager' | 'admin' | 'vp' = 'manager'; // Default role
         const userRoles = liveUser.roles.map((r: any) => r.name);
