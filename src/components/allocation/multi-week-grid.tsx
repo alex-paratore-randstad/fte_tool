@@ -60,7 +60,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { isAdmin, loading: userLoading } = useCurrentUser();
+  const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
 
   const weeks = useMemo(() => {
@@ -95,19 +95,39 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
       setAllEmployees(empData);
       setCostCenters(ccData);
 
+      if (isManager && currentUser) {
+        const directReports = empData.filter(e => e.First_Reviewer_Name === currentUser.name);
+        const initialAllocations = directReports.map(employee => {
+          const newAllocationRow: AllocationRow = {
+            id: `${employee.Person_Number}-new-${Date.now()}`,
+            costCenterId: '',
+            costCenterName: '',
+            weeklyFtes: {},
+          };
+          return {
+            employee,
+            allocations: [newAllocationRow]
+          };
+        });
+        setActiveAllocations(initialAllocations);
+      }
+
+
     } catch (error) {
       console.error("Failed to fetch initial data:", error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, isManager, currentUser]);
 
   useEffect(() => {
-    fetchData();
+    if (!userLoading) {
+        fetchData();
+    }
     // Set isMounted to true after the component has mounted on the client
     setIsMounted(true);
-  }, [fetchData]);
+  }, [fetchData, userLoading]);
 
 
   const availableEmployees = useMemo(() => {
@@ -486,3 +506,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
+
+    
