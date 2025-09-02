@@ -110,6 +110,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
           };
         });
         setActiveAllocations(initialAllocations);
+      } else {
+        setActiveAllocations([]);
       }
 
 
@@ -119,7 +121,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     } finally {
       setLoading(false);
     }
-  }, [toast, isManager, currentUser]);
+  }, [toast, isManager, currentUser.id]);
 
   useEffect(() => {
     if (!userLoading) {
@@ -127,7 +129,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     }
     // Set isMounted to true after the component has mounted on the client
     setIsMounted(true);
-  }, [fetchData, userLoading]);
+  }, [fetchData, userLoading, currentUser.id]);
 
 
   const availableEmployees = useMemo(() => {
@@ -506,3 +508,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
+
+    
