@@ -2,23 +2,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { employees } from '@/lib/mock-data';
 import type { Employee } from '@/types';
 
 // The 'id' property of the mock Employee type will be used to simulate
 // the 'Person_Number' or 'First_Reviewer_Code' from the live data.
-export type CurrentUser = Employee & {
+export type CurrentUser = Partial<Employee> & {
   id: string; // Ensure id is always present
+  name: string;
   role: 'manager' | 'admin' | 'vp';
+  title?: string;
+  region?: 'HYD' | 'EMEA' | 'NAM' | 'Central';
+  manager?: string;
+  team?: string;
 };
 
 const placeholderUser: CurrentUser = { 
   id: '', 
-  name: '', 
-  title: '', 
-  region: 'NAM', 
-  manager: '', 
-  team: '', 
+  name: 'Guest', 
+  title: '...', 
   role: 'manager' 
 };
 
@@ -27,32 +28,55 @@ export function useCurrentUser() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This effect runs only on the client, ensuring no server-side execution of this logic.
-    // To demonstrate different roles, change this name:
-    // 'Sawyer Ames' (Manager, id: 'mgr-1')
-    // 'Caroline Reynolds' (Vice President, id: 'vp-1')
-    // 'Super Admin' (Administrator, id: 'admin-01')
-    const currentUserName = 'Sawyer Ames';
-    const loggedInEmployee = employees.find(e => e.name === currentUserName);
+    const fetchUser = async () => {
+      // This local domo object MUST be defined inside a client-side hook or event handler
+      // to prevent server-side execution during build, which causes deployment to fail.
+      const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
+      const domo = {
+        get: async (url: string) => {
+          const rUrl = `${baseUrl}${url}`;
+          const response = await fetch(rUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        }
+      };
 
-    if (loggedInEmployee) {
-      let role: 'manager' | 'admin' | 'vp' = 'manager'; // Default role
-      if (loggedInEmployee.title.includes('Administrator') || loggedInEmployee.name === 'Super Admin') {
+      try {
+        const liveUser = await domo.get('/domo/users/v1/me');
+        
+        let role: 'manager' | 'admin' | 'vp' = 'manager'; // Default role
+        const userRoles = liveUser.roles.map((r: any) => r.name);
+
+        if (userRoles.includes('Admin')) {
           role = 'admin';
-      } else if (loggedInEmployee.title.includes('Vice President')) {
+        } else if (userRoles.includes('Privileged')) { // Assuming 'Privileged' might map to VP
           role = 'vp';
-      } else if (loggedInEmployee.title.includes('Manager')) {
-          role = 'manager';
+        }
+        
+        setCurrentUser({
+            id: liveUser.id.toString(),
+            name: liveUser.displayName,
+            title: liveUser.title,
+            role: role,
+        });
+
+      } catch (error) {
+        // Fallback for local development or if the API fails
+        console.error("Failed to fetch live user, using fallback:", error);
+        setCurrentUser({ 
+            id: 'dev-admin', 
+            name: 'Development Admin', 
+            title: 'System Administrator', 
+            role: 'admin' 
+        });
+      } finally {
+        setLoading(false);
       }
-      setCurrentUser({ ...loggedInEmployee, role });
-    } else {
-        // Handle case where user isn't found, which is unlikely with mock data.
-        // Fallback to a default user to prevent crashes.
-        const defaultUser = employees[0] || placeholderUser;
-        setCurrentUser({ ...defaultUser, role: 'manager' });
     }
-    
-    setLoading(false);
+
+    fetchUser();
   }, []);
   
   const isAdmin = currentUser.role === 'admin';
