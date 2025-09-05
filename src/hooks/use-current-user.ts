@@ -58,6 +58,8 @@ export function useCurrentUser() {
                     roles: [{name: 'Manager'}] // Assume impersonated users are managers
                 }
             } else {
+                 // If impersonated user is not found in the live data (e.g., in dev),
+                 // we can fall through to the mock data logic below.
                  throw new Error("Impersonated user not found");
             }
         } else {
@@ -82,7 +84,7 @@ export function useCurrentUser() {
 
       } catch (error) {
         // Fallback for local development or if the API fails
-        console.error("Failed to fetch live user, using fallback for development:", error);
+        console.warn("Failed to fetch live user, using fallback for development:", error);
         
         // To impersonate a user for development, comment out the admin user
         // and uncomment one of the manager personas below.
