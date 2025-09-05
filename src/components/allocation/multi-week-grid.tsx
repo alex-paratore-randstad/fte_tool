@@ -105,26 +105,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
       const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }));
       setManagers(uniqueManagers);
 
-
-      if (isManager && currentUser && currentUser.id) {
-        const directReports = empData.filter(e => e.First_Reviewer_Code === currentUser.id);
-        const initialAllocations = directReports.map(employee => {
-          const newAllocationRow: AllocationRow = {
-            id: `${employee.Person_Number}-new-${Date.now()}`,
-            costCenterId: '',
-            costCenterName: '',
-            weeklyFtes: {},
-          };
-          return {
-            employee,
-            allocations: [newAllocationRow]
-          };
-        });
-        setActiveAllocations(initialAllocations);
-      } else {
-        setActiveAllocations([]);
-      }
-
+      setActiveAllocations([]);
 
     } catch (error) {
       console.error("Failed to fetch initial data:", error);
@@ -132,7 +113,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     } finally {
       setLoading(false);
     }
-  }, [toast, isManager, currentUser.id]);
+  }, [toast]);
 
   useEffect(() => {
     if (!userLoading) {
@@ -559,7 +540,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
-
-    
-
-    
