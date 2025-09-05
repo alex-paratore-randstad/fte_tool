@@ -56,6 +56,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   const [isMounted, setIsMounted] = useState(false);
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
+  const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -94,6 +95,16 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
       
       setAllEmployees(empData);
       setCostCenters(ccData);
+      
+      const managerMap = new Map<string, string>();
+      empData.forEach(emp => {
+          if(emp.First_Reviewer_Code && emp.First_Reviewer_Name) {
+              managerMap.set(emp.First_Reviewer_Code, emp.First_Reviewer_Name);
+          }
+      });
+      const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }));
+      setManagers(uniqueManagers);
+
 
       if (isManager && currentUser && currentUser.id) {
         const directReports = empData.filter(e => e.First_Reviewer_Code === currentUser.id);
@@ -167,6 +178,34 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
       }, ...prev]);
     }
   };
+
+  const handleAddManagerTeam = (managerId: string) => {
+    if (!managerId) return;
+    const directReports = allEmployees.filter(e => e.First_Reviewer_Code === managerId);
+    
+    const newAllocations = directReports
+      .filter(employee => !activeAllocations.some(a => a.employee.Person_Number === employee.Person_Number))
+      .map(employee => {
+        const newAllocationRow: AllocationRow = {
+          id: `${employee.Person_Number}-new-${Date.now()}`,
+          costCenterId: '',
+          costCenterName: '',
+          weeklyFtes: {},
+        };
+        return {
+          employee,
+          allocations: [newAllocationRow],
+        };
+      });
+
+    if (newAllocations.length > 0) {
+      setActiveAllocations(prev => [...newAllocations, ...prev]);
+      toast({ title: 'Team Loaded', description: `${newAllocations.length} employees have been added to the grid.` });
+    } else {
+      toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' });
+    }
+  };
+
 
   const handleRemoveEmployee = (employeeId: string) => {
     setActiveAllocations(prev => prev.filter(a => a.employee.Person_Number !== employeeId));
@@ -370,6 +409,18 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                             No employees found.
                         </div>
                     )}
+                </SelectContent>
+            </Select>
+            <Select onValueChange={handleAddManagerTeam}>
+                <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Load Team..." />
+                </SelectTrigger>
+                <SelectContent>
+                    {managers.map(m => (
+                        <SelectItem key={m.id} value={m.id}>
+                            {m.name}
+                        </SelectItem>
+                    ))}
                 </SelectContent>
             </Select>
             <Button variant="outline" size="icon" onClick={handlePrevWeeks}><ChevronLeft className="h-4 w-4" /></Button>
