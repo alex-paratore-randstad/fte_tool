@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { FtePrototypeData } from '@/types';
@@ -11,36 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-// Initialize a local domo object to handle data fetching.
-// Replace '[your-domo-instance-subdomain]' with your actual Domo subdomain.
-const baseUrl = 'https://[your-domo-instance-subdomain].domoapps.prod10.domo.com';
-const domo = {
-  get: async (url: string) => {
-    var rUrl = `${baseUrl}${url}`.replace('[your-domo-instance-subdomain]','c5899a60-de1d-42af-b19b-99f8dff54fad');
-    console.log(`GET: ${rUrl}`);
-    console.log(`${URL.toString}`);
-    const response = await fetch(rUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  },
-  post: async (url: string, body: { content: { name: string, value: string }}) => {
-    var rUrl = `${baseUrl}${url}`.replace('[your-domo-instance-subdomain]','c5899a60-de1d-42af-b19b-99f8dff54fad');
-    console.log(`POST: ${rUrl}`);
-    const response = await fetch(rUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  }
-};
 
 export function FtePrototypeContent() {
   const [data, setData] = useState<FtePrototypeData[]>([]);
@@ -50,10 +20,14 @@ export function FtePrototypeContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await domo.get(`/domo/datastores/v1/collections/fte_prototype/documents/`);
+      const response = await fetch(`/domo/datastores/v1/collections/fte_prototype/documents/`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const result = await response.json();
       setData(result);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -66,11 +40,11 @@ export function FtePrototypeContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,9 +58,20 @@ export function FtePrototypeContent() {
     }
     setIsSubmitting(true);
     try {
-      await domo.post('/domo/datastores/v1/collections/fte_prototype/documents/', {
-        content: { name: newName, value: newValue }
+      const response = await fetch('/domo/datastores/v1/collections/fte_prototype/documents/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: { name: newName, value: newValue }
+        }),
       });
+
+       if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       toast({
         title: 'Success!',
         description: 'New entry has been added.',
