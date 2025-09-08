@@ -19,8 +19,9 @@ export function CostCenterContent() {
       setLoading(true);
       try {
         // Construct the full URL and fetch directly inside useEffect
-        const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-        const url = `${baseUrl}/data/v1/gbs_ind_finance_cc_report`;
+        //const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
+        //const url = `${baseUrl}/data/v1/gbs_ind_finance_cc_report`;
+        const url = `/data/v1/gbs_ind_finance_cc_report`;
         const response = await fetch(url);
         
         if (!response.ok) {

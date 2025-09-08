@@ -22,19 +22,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Initialize a local domo object to handle data fetching, replicating the working pattern.
-const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-const domo = {
-  get: async (url: string) => {
-    const rUrl = `${baseUrl}${url}`;
-    const response = await fetch(rUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  }
-};
-
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
@@ -45,8 +32,11 @@ export function TeamContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Use the stable domo object for fetching
-        const data = await domo.get(`/data/v1/gbs_ind_hr_fte_report`);
+        const response = await fetch(`/data/v1/gbs_ind_hr_fte_report`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
         setTeamMembers(data);
         if (data.length > 0) {
           setColumns(Object.keys(data[0]));
@@ -107,7 +97,7 @@ export function TeamContent() {
             </TableHeader>
             <TableBody>
               {teamMembers.map((member, rowIndex) => (
-                <TableRow key={member['Person Number'] || rowIndex}>
+                <TableRow key={member['Person_Number'] || rowIndex}>
                   {columns.map((column) => (
                     <TableCell key={column}>{member[column as keyof TeamMember]}</TableCell>
                   ))}
