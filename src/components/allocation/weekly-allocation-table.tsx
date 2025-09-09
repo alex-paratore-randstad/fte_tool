@@ -23,18 +23,6 @@ type WeeklyAllocationDoc = {
   }
 }
 
-const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-const domo = {
-  get: async (url: string) => {
-    const rUrl = `${baseUrl}${url}`;
-    const response = await fetch(rUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  }
-};
-
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
 type AllocationRow = {
@@ -67,9 +55,13 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
     setLoading(true);
     try {
       const weekKeys = weeks.map(formatDateKey);
-      const allocationRequests = weekKeys.map(weekKey => 
-        domo.get(`/domo/datastores/v1/collections/weekly_allocation/documents?filter=content.allocation_date='${weekKey}'`)
-      );
+      
+      const allocationRequests = weekKeys.map(async weekKey => {
+        const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?filter=content.allocation_date='${weekKey}'`);
+        if (!response.ok) throw new Error(`Failed to fetch allocations for ${weekKey}`);
+        return response.json();
+      });
+
       const results = await Promise.all(allocationRequests);
       const allFetchedAllocations: WeeklyAllocationDoc[] = results.flat();
       

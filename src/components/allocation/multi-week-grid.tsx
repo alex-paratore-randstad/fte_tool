@@ -70,28 +70,19 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   }, [currentDate]);
 
   const fetchData = useCallback(async () => {
-    // This local domo object MUST be defined inside a client-side hook or event handler
-    // to prevent server-side execution during build, which causes deployment to fail.
-    const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-    const domo = {
-      get: async (url: string) => {
-        const rUrl = `${baseUrl}${url}`;
-        const response = await fetch(rUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      }
-    };
-    
     setLoading(true);
     try {
-      const [empResult, ccResult] = await Promise.all([
-        domo.get(`/data/v1/gbs_ind_hr_fte_report`),
-        domo.get(`/data/v1/gbs_ind_finance_cc_report`),
+      const [empResponse, ccResponse] = await Promise.all([
+        fetch(`/data/v1/gbs_ind_hr_fte_report`),
+        fetch(`/data/v1/gbs_ind_finance_cc_report`),
       ]);
-      const empData: TeamMember[] = empResult.filter((e: TeamMember) => e.Full_Name);
-      const ccData: CostCenterData[] = ccResult.filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name);
+
+      if (!empResponse.ok || !ccResponse.ok) {
+        throw new Error('Failed to fetch initial data.');
+      }
+      
+      const empData: TeamMember[] = (await empResponse.json()).filter((e: TeamMember) => e.Full_Name);
+      const ccData: CostCenterData[] = (await ccResponse.json()).filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name);
       
       setAllEmployees(empData);
       setCostCenters(ccData);
@@ -119,7 +110,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     if (!userLoading) {
         fetchData();
     }
-    // Set isMounted to true after the component has mounted on the client
     setIsMounted(true);
   }, [fetchData, userLoading, currentUser.id]);
 
@@ -276,26 +266,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   };
 
   const handleSave = async () => {
-    // This local domo object MUST be defined inside a client-side hook or event handler
-    // to prevent server-side execution during build, which causes deployment to fail.
-    const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-    const domo = {
-      post: async (url: string, body: any) => {
-        const rUrl = `${baseUrl}${url}`;
-        const response = await fetch(rUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      }
-    };
-
     const submissions: any[] = [];
     let hasInvalidAllocation = false;
     
@@ -331,7 +301,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
 
     try {
         await Promise.all(submissions.map(entry => 
-            domo.post('/domo/datastores/v1/collections/weekly_allocation/documents/', entry)
+            fetch('/domo/datastores/v1/collections/weekly_allocation/documents/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(entry),
+            }).then(res => {
+                if (!res.ok) throw new Error('One or more saves failed.');
+                return res.json();
+            })
         ));
         toast({
             title: 'Allocations Saved',

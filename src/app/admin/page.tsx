@@ -33,24 +33,14 @@ export default function AdminPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // This local domo object MUST be defined inside a client-side hook or event handler
-    // to prevent server-side execution during build, which causes deployment to fail.
-    const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-    const domo = {
-      get: async (url: string) => {
-        const rUrl = `${baseUrl}${url}`;
-        const response = await fetch(rUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      }
-    };
-    
     async function getManagers() {
         if (!isAdmin) return;
         try {
-            const allEmployees: TeamMember[] = await domo.get(`/data/v1/gbs_ind_hr_fte_report`);
+            const response = await fetch(`/data/v1/gbs_ind_hr_fte_report`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const allEmployees: TeamMember[] = await response.json();
             const managerMap = new Map<string, string>();
             allEmployees.forEach(emp => {
                 if(emp.First_Reviewer_Code && emp.First_Reviewer_Name) {
@@ -69,7 +59,10 @@ export default function AdminPage() {
 
     if (!loading) {
         getManagers();
-        setImpersonatedId(localStorage.getItem('impersonated_user_id'));
+        const storedId = localStorage.getItem('impersonated_user_id');
+        if (storedId) {
+            setImpersonatedId(storedId);
+        }
     }
   }, [isAdmin, loading, toast]);
   

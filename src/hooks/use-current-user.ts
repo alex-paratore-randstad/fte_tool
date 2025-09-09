@@ -29,26 +29,15 @@ export function useCurrentUser() {
 
   useEffect(() => {
     const fetchUser = async () => {
-      // This local domo object MUST be defined inside a client-side hook or event handler
-      // to prevent server-side execution during build, which causes deployment to fail.
-      const baseUrl = 'https://c5899a60-de1d-42af-b19b-99f8dff54fad.domoapps.prod10.domo.com';
-      const domo = {
-        get: async (url: string) => {
-          const rUrl = `${baseUrl}${url}`;
-          const response = await fetch(rUrl);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-        }
-      };
-
       try {
         const impersonatedUserId = localStorage.getItem('impersonated_user_id');
         let liveUser;
 
         if (impersonatedUserId) {
-            const allEmployees: TeamMember[] = await domo.get(`/data/v1/gbs_ind_hr_fte_report`);
+            const response = await fetch(`/data/v1/gbs_ind_hr_fte_report`);
+            if (!response.ok) throw new Error("Failed to fetch employees for impersonation.");
+            const allEmployees: TeamMember[] = await response.json();
+
             const impersonatedEmp = allEmployees.find(e => e.Person_Number === impersonatedUserId);
             if (impersonatedEmp) {
                 liveUser = {
@@ -58,12 +47,12 @@ export function useCurrentUser() {
                     roles: [{name: 'Manager'}] // Assume impersonated users are managers
                 }
             } else {
-                 // If impersonated user is not found in the live data (e.g., in dev),
-                 // we can fall through to the mock data logic below.
                  throw new Error("Impersonated user not found");
             }
         } else {
-            liveUser = await domo.get('/domo/users/v1/me');
+            const response = await fetch('/domo/users/v1/me');
+            if (!response.ok) throw new Error("Failed to fetch current user.");
+            liveUser = await response.json();
         }
         
         let role: 'manager' | 'admin' | 'vp' = 'manager'; // Default role
@@ -83,11 +72,7 @@ export function useCurrentUser() {
         });
 
       } catch (error) {
-        // Fallback for local development or if the API fails
-        console.warn("Failed to fetch live user, using fallback for development:", error);
-        
-        // To impersonate a user for development, comment out the admin user
-        // and uncomment one of the manager personas below.
+        console.warn("Could not fetch live user. Falling back to dev personas.", error);
         
         // --- Admin Persona (Default for Dev) ---
         setCurrentUser({ 
@@ -96,32 +81,6 @@ export function useCurrentUser() {
             title: 'System Administrator', 
             role: 'admin' 
         });
-
-        // --- Manager Personas for Impersonation ---
-        /*
-        setCurrentUser({ 
-            id: 'mgr-1', 
-            name: 'Sawyer Ames', 
-            title: 'Manager, Core Platform', 
-            role: 'manager' 
-        });
-        */
-        /*
-        setCurrentUser({ 
-            id: 'mgr-2', 
-            name: 'Cheryl MacMillan', 
-            title: 'Manager, Client Integrations', 
-            role: 'manager' 
-        });
-        */
-        /*
-        setCurrentUser({ 
-            id: 'mgr-3', 
-            name: 'John Slocum', 
-            title: 'Manager, Analytics', 
-            role: 'manager' 
-        });
-        */
 
       } finally {
         setLoading(false);
