@@ -37,14 +37,19 @@ export default function DashboardPage() {
         ]);
 
         if (!empResponse.ok) {
-          throw new Error('Failed to fetch employee data.');
+          console.warn("Could not fetch employee data. This may be expected in local dev.");
+          toast({
+            variant: 'destructive',
+            title: 'Failed to load employee data',
+            description: 'Dashboard metrics will be incomplete.'
+          });
         }
          if (!allocResponse.ok) {
           // In local dev, this might fail, which is okay.
           console.warn("Could not fetch allocation data. This may be expected in local dev.");
         }
 
-        const employees: TeamMember[] = await empResponse.json();
+        const employees: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
         const allocations: WeeklyAllocation[] = allocResponse.ok ? await allocResponse.json() : [];
 
         setAllEmployees(employees);
