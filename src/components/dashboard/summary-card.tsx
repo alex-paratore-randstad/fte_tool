@@ -25,6 +25,8 @@ export interface SummaryCardProps extends VariantProps<typeof changeTextVariants
   value: string;
   icon: LucideIcon;
   change?: string;
+  onClick?: () => void;
+  isActive?: boolean;
 };
 
 export default function SummaryCard({
@@ -33,9 +35,18 @@ export default function SummaryCard({
   icon: Icon,
   change,
   variant,
+  onClick,
+  isActive = false,
 }: SummaryCardProps) {
   return (
-    <Card>
+    <Card
+      onClick={onClick}
+      className={cn(
+        'transition-all',
+        onClick && 'cursor-pointer hover:bg-muted/50',
+        isActive && 'ring-2 ring-primary'
+      )}
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className="h-4 w-4 text-muted-foreground" />
@@ -51,3 +62,5 @@ export default function SummaryCard({
     </Card>
   );
 }
+
+    

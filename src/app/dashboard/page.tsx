@@ -3,24 +3,27 @@
 
 import { PageHeader } from '@/components/page-header';
 import { Users, Briefcase, AlertTriangle, UserMinus } from 'lucide-react';
-import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import SummaryCard from '@/components/dashboard/summary-card';
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TeamMember, WeeklyAllocation } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
-type AggregatedAllocation = {
-  name: string;
-  [key: string]: number | string;
-}
+type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
 
 export default function DashboardPage() {
   const [totalFtes, setTotalFtes] = useState(0);
   const [allocatedFtes, setAllocatedFtes] = useState(0);
   const [unallocatedFtes, setUnallocatedFtes] = useState(0);
   const [missingAllocations, setMissingAllocations] = useState(0);
-  const [allocationData, setAllocationData] = useState<any[]>([]);
+
+  const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
+  const [allocatedEmployees, setAllocatedEmployees] = useState<TeamMember[]>([]);
+  const [unallocatedEmployees, setUnallocatedEmployees] = useState<TeamMember[]>([]);
+  
+  const [activeView, setActiveView] = useState<ActiveView>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -40,54 +43,19 @@ export default function DashboardPage() {
         const employees: TeamMember[] = await empResponse.json();
         const allocations: WeeklyAllocation[] = await allocResponse.json();
 
+        setAllEmployees(employees);
         const totalEmployeeCount = new Set(employees.map(e => e.Person_Number)).size;
         setTotalFtes(totalEmployeeCount);
 
         const allocatedEmployeeNames = new Set(allocations.map(a => a.content.allocation_name));
-        const allocatedEmployeeCount = allocatedEmployeeNames.size;
-        setAllocatedFtes(allocatedEmployeeCount);
+        const allocatedEmps = employees.filter(e => allocatedEmployeeNames.has(e.Full_Name));
+        setAllocatedEmployees(allocatedEmps);
+        setAllocatedFtes(allocatedEmps.length);
 
-        const unallocatedCount = totalEmployeeCount - allocatedEmployeeCount;
-        setUnallocatedFtes(unallocatedCount);
-        
-        const employeesInHrReport = new Set(employees.map(e => e.Full_Name));
-        let missingCount = 0;
-        employeesInHrReport.forEach(empName => {
-            if(!allocatedEmployeeNames.has(empName)) {
-                missingCount++;
-            }
-        });
-        setMissingAllocations(missingCount);
-
-
-        // Aggregate data for the chart
-        const aggregated: Record<string, Record<string, number>> = {};
-        const costCenterNames: Record<string, string> = {};
-
-        allocations.forEach(alloc => {
-          const { cost_center_name, allocation_date, allocation_amount } = alloc.content;
-          const week = allocation_date;
-
-          if (!aggregated[week]) {
-            aggregated[week] = { name: week };
-          }
-          if (!aggregated[week][cost_center_name]) {
-            aggregated[week][cost_center_name] = 0;
-          }
-          aggregated[week][cost_center_name] += Number(allocation_amount);
-          costCenterNames[cost_center_name] = cost_center_name;
-        });
-
-        const chartData = Object.values(aggregated).map(weekData => {
-            const transformedData: AggregatedAllocation = { name: weekData.name as string };
-            Object.keys(costCenterNames).forEach(ccName => {
-                transformedData[ccName] = (weekData[ccName] as number) || 0;
-            });
-            return transformedData;
-        });
-
-        setAllocationData(chartData);
-
+        const unallocatedEmps = employees.filter(e => !allocatedEmployeeNames.has(e.Full_Name));
+        setUnallocatedEmployees(unallocatedEmps);
+        setUnallocatedFtes(unallocatedEmps.length);
+        setMissingAllocations(unallocatedEmps.length);
 
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
@@ -103,6 +71,70 @@ export default function DashboardPage() {
 
     fetchData();
   }, [toast]);
+
+  const handleCardClick = (view: ActiveView) => {
+    setActiveView(current => (current === view ? null : view));
+  };
+  
+  const renderDetailView = () => {
+    if (!activeView) return null;
+
+    let title = '';
+    let data: TeamMember[] = [];
+
+    switch (activeView) {
+      case 'total':
+        title = 'All FTEs';
+        data = allEmployees;
+        break;
+      case 'allocated':
+        title = 'Allocated FTEs';
+        data = allocatedEmployees;
+        break;
+      case 'unallocated':
+        title = 'Unallocated FTEs';
+        data = unallocatedEmployees;
+        break;
+      case 'missing':
+        title = 'FTEs with Missing Allocations';
+        data = unallocatedEmployees;
+        break;
+    }
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>
+            Displaying {data.length} employee(s) in this category.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-96">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Full Name</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Manager</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.map(employee => (
+                  <TableRow key={employee.Person_Number}>
+                    <TableCell>{employee.Full_Name}</TableCell>
+                    <TableCell>{employee.Market_Facing_Title}</TableCell>
+                    <TableCell>{employee.First_Reviewer_Name}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    );
+  };
+
 
   if (loading) {
     return (
@@ -140,7 +172,7 @@ export default function DashboardPage() {
         </div>
          <Card>
             <CardHeader>
-                <CardTitle>FTE Allocation by Account</CardTitle>
+                <CardTitle>FTE Details</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="h-[300px] w-full rounded-md bg-muted animate-pulse" />
@@ -158,36 +190,39 @@ export default function DashboardPage() {
           title="Total FTEs"
           value={totalFtes.toString()}
           icon={Users}
+          onClick={() => handleCardClick('total')}
+          isActive={activeView === 'total'}
         />
         <SummaryCard
           title="Allocated FTEs"
           value={allocatedFtes.toString()}
           icon={Briefcase}
+           onClick={() => handleCardClick('allocated')}
+           isActive={activeView === 'allocated'}
         />
         <SummaryCard
           title="Unallocated FTEs"
           value={unallocatedFtes.toString()}
           icon={UserMinus}
           variant={unallocatedFtes > 0 ? 'default' : 'default'}
+           onClick={() => handleCardClick('unallocated')}
+           isActive={activeView === 'unallocated'}
         />
         <SummaryCard
           title="Missing Allocations"
           value={missingAllocations.toString()}
           icon={AlertTriangle}
           variant={missingAllocations > 0 ? 'destructive' : 'default'}
+           onClick={() => handleCardClick('missing')}
+           isActive={activeView === 'missing'}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>FTE Allocation by Account</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FteAllocationChart data={allocationData} />
-          </CardContent>
-        </Card>
+        {renderDetailView()}
       </div>
     </div>
   );
 }
+
+    

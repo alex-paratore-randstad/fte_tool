@@ -14,7 +14,6 @@ import {
 import {
   ChartContainer,
   ChartTooltipContent,
-  ChartLegend,
   ChartLegendContent,
   ChartConfig,
 } from '@/components/ui/chart';
@@ -61,9 +60,10 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   }, [data]);
 
   const formattedData = useMemo(() => {
+    if (!data.length) return [];
     return data.map(item => ({
       ...item,
-      name: format(new Date(item.name), 'MMM d'),
+      name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown Date',
     }));
   }, [data]);
 
@@ -108,3 +108,5 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
     </ChartContainer>
   );
 }
+
+    
