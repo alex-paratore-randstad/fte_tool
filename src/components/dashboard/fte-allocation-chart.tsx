@@ -1,5 +1,7 @@
+
 'use client';
 
+import { useMemo } from 'react';
 import {
   Bar,
   BarChart,
@@ -14,39 +16,67 @@ import {
   ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
+  ChartConfig,
 } from '@/components/ui/chart';
+import { Skeleton } from '../ui/skeleton';
+import { format } from 'date-fns';
 
-const chartData = [
-  { month: 'Jan', projectAlpha: 150, projectBravo: 120, projectCharlie: 80 },
-  { month: 'Feb', projectAlpha: 160, projectBravo: 130, projectCharlie: 85 },
-  { month: 'Mar', projectAlpha: 170, projectBravo: 135, projectCharlie: 90 },
-  { month: 'Apr', projectAlpha: 165, projectBravo: 140, projectCharlie: 95 },
-  { month: 'May', projectAlpha: 180, projectBravo: 145, projectCharlie: 100 },
-  { month: 'Jun', projectAlpha: 185, projectBravo: 150, projectCharlie: 105 },
-];
-
-const chartConfig = {
-  projectAlpha: {
-    label: 'Project Alpha',
-    color: 'hsl(var(--chart-1))',
-  },
-  projectBravo: {
-    label: 'Project Bravo',
-    color: 'hsl(var(--chart-2))',
-  },
-  projectCharlie: {
-    label: 'Project Charlie',
-    color: 'hsl(var(--chart-3))',
-  },
+type FteAllocationChartProps = {
+  data: any[];
 };
 
-export default function FteAllocationChart() {
+const chartColors = [
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+];
+
+export default function FteAllocationChart({ data }: FteAllocationChartProps) {
+  const { chartConfig, costCenters } = useMemo(() => {
+    if (!data || data.length === 0) {
+      return { chartConfig: {}, costCenters: [] };
+    }
+
+    const ccKeys = new Set<string>();
+    data.forEach(week => {
+      Object.keys(week).forEach(key => {
+        if (key !== 'name') {
+          ccKeys.add(key);
+        }
+      });
+    });
+
+    const uniqueCostCenters = Array.from(ccKeys);
+    const config: ChartConfig = {};
+    uniqueCostCenters.forEach((cc, index) => {
+      config[cc] = {
+        label: cc,
+        color: chartColors[index % chartColors.length],
+      };
+    });
+
+    return { chartConfig: config, costCenters: uniqueCostCenters };
+  }, [data]);
+
+  const formattedData = useMemo(() => {
+    return data.map(item => ({
+      ...item,
+      name: format(new Date(item.name), 'MMM d'),
+    }));
+  }, [data]);
+
+  if (!data || data.length === 0) {
+    return <Skeleton className="h-[300px] w-full" />;
+  }
+  
   return (
     <ChartContainer config={chartConfig} className="h-[300px] w-full">
       <ResponsiveContainer>
-        <BarChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+        <BarChart data={formattedData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
           <XAxis
-            dataKey="month"
+            dataKey="name"
             stroke="hsl(var(--muted-foreground))"
             fontSize={12}
             tickLine={false}
@@ -64,24 +94,15 @@ export default function FteAllocationChart() {
             content={<ChartTooltipContent />}
           />
           <Legend content={<ChartLegendContent />} />
-          <Bar
-            dataKey="projectAlpha"
-            stackId="a"
-            fill="var(--color-projectAlpha)"
-            radius={[4, 4, 0, 0]}
-          />
-          <Bar
-            dataKey="projectBravo"
-            stackId="a"
-            fill="var(--color-projectBravo)"
-            radius={[4, 4, 0, 0]}
-          />
-          <Bar
-            dataKey="projectCharlie"
-            stackId="a"
-            fill="var(--color-projectCharlie)"
-            radius={[4, 4, 0, 0]}
-          />
+          {costCenters.map(cc => (
+             <Bar
+                key={cc}
+                dataKey={cc}
+                stackId="a"
+                fill={`var(--color-${cc})`}
+                radius={[4, 4, 0, 0]}
+            />
+          ))}
         </BarChart>
       </ResponsiveContainer>
     </ChartContainer>
