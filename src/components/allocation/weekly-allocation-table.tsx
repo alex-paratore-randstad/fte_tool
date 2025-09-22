@@ -65,7 +65,10 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
       
       const allocationRequests = weekKeys.map(async weekKey => {
         const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?filter=content.allocation_date='${weekKey}'`);
-        if (!response.ok) throw new Error(`Failed to fetch allocations for ${weekKey}`);
+        if (!response.ok) {
+            console.warn(`Failed to fetch allocations for ${weekKey}. This may be expected in local dev.`);
+            return []; // Return empty array on failure
+        };
         return response.json();
       });
 
@@ -108,28 +111,12 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
   }, [weeks, toast]);
   
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if(isMounted) {
+      fetchData();
+    }
+  }, [fetchData, isMounted]);
 
-  if (!isMounted) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Saved Allocations for this Period</CardTitle>
-          <CardDescription>Records from the weekly_allocation collection for the displayed weeks.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (loading) {
+  if (!isMounted || loading) {
     return (
       <Card>
         <CardHeader>
@@ -207,9 +194,10 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
                                         {weeks.map(week => {
                                             const weekKey = formatDateKey(week);
                                             const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                                             const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                                             const fte = alloc.weeklyFtes[weekKey] || 0;
                                             return (
-                                                <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast})}>
+                                                <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
                                                     {fte > 0 ? fte.toFixed(2) : '-'}
                                                 </TableCell>
                                             )
@@ -227,3 +215,5 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
     </Card>
   );
 }
+
+    

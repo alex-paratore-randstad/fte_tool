@@ -82,11 +82,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
       ]);
 
       if (!empResponse.ok || !ccResponse.ok) {
-        throw new Error('Failed to fetch initial data.');
+        console.warn("Could not fetch initial data. This may be expected in local dev.");
       }
       
-      const empData: TeamMember[] = (await empResponse.json()).filter((e: TeamMember) => e.Full_Name);
-      const ccData: CostCenterData[] = (await ccResponse.json()).filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name);
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name) : [];
+      const ccData: CostCenterData[] = ccResponse.ok ? (await ccResponse.json()).filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name) : [];
       
       setAllEmployees(empData);
       setCostCenters(ccData);
@@ -524,3 +524,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
+
+    
