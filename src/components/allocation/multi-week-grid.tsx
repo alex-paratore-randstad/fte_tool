@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { addWeeks, subWeeks, startOfWeek, endOfWeek, format, isBefore, isSameWeek } from 'date-fns';
+import { addMonths, subMonths, startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
+import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth } from '@/lib/fiscal-calendar';
 
 type CostCenterData = { ['cost_center_number']: string; ['cost_center_name']: string };
 
@@ -64,10 +65,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
 
-  const weeks = useMemo(() => {
-    const start = startOfWeek(currentDate, { weekStartsOn: 1 });
-    return Array.from({ length: 4 }, (_, i) => addWeeks(start, i));
-  }, [currentDate]);
+  const { weeks, fiscalMonthLabel } = useMemo(() => {
+    if (!isMounted) return { weeks: [], fiscalMonthLabel: ''};
+    const fiscalData = getFiscalDataForDate(currentDate);
+    const monthWeeks = getWeeksForFiscalMonth(currentDate);
+    const label = fiscalData ? `${fiscalData.reporting_month} ${fiscalData.reporting_year}` : 'Loading...';
+    return { weeks: monthWeeks, fiscalMonthLabel: label };
+  }, [currentDate, isMounted]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -107,11 +111,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   }, [toast]);
 
   useEffect(() => {
-    if (!userLoading) {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!userLoading && isMounted) {
         fetchData();
     }
-    setIsMounted(true);
-  }, [fetchData, userLoading, currentUser.id]);
+  }, [fetchData, userLoading, currentUser.id, isMounted]);
 
 
   const availableEmployees = useMemo(() => {
@@ -123,8 +130,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     return unallocatedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [allEmployees, activeAllocations, searchTerm]);
 
-  const handlePrevWeeks = () => setCurrentDate(subWeeks(currentDate, 4));
-  const handleNextWeeks = () => setCurrentDate(addWeeks(currentDate, 4));
+  const handlePrevMonth = () => setCurrentDate(getPreviousFiscalMonth(currentDate));
+  const handleNextMonth = () => setCurrentDate(getNextFiscalMonth(currentDate));
   
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
@@ -199,6 +206,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
   };
 
   const handleMonthlyFteChange = (employeeId: string, allocId: string, monthlyFteValue: string) => {
+    if (!isMounted) return;
     const monthlyFte = parseFloat(monthlyFteValue) || 0;
     const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
     setActiveAllocations(prev => prev.map(empAlloc => {
@@ -338,9 +346,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     );
   }
 
-  // Define date-dependent constants only after mount to avoid hydration errors
-  const today = new Date();
-  const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
+  const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
 
   return (
     <Card>
@@ -381,11 +387,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                     ))}
                 </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" onClick={handlePrevWeeks}><ChevronLeft className="h-4 w-4" /></Button>
-            <span className="text-sm font-medium w-48 text-center">
-              {format(weeks[0], 'MMM d')} - {format(endOfWeek(weeks[3], { weekStartsOn: 1 }), 'MMM d, yyyy')}
+            <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-sm font-medium w-32 text-center">
+              {fiscalMonthLabel}
             </span>
-            <Button variant="outline" size="icon" onClick={handleNextWeeks}><ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
             <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
           </div>
         </div>
@@ -399,7 +405,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                 <TableHead className="text-center min-w-[150px]">Bulk Hours Entry</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                  const isCurrent = isSameWeek(week, today, { weekStartsOn: 1 });
+                  const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                   const isLockedForUser = isPast && !isAdmin;
                   return (
                     <TableHead key={week.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
@@ -476,9 +482,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                         {weeks.map(week => {
                           const weekKey = formatDateKey(week);
                           const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                           const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                           const isLockedForUser = isPast && !isAdmin;
                           return (
-                            <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast})}>
+                            <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
                               <Input
                                 type="number" step="0.05" min="0" placeholder="0.00"
                                 className={cn("w-24 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
@@ -517,5 +524,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
-
-    

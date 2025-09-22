@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { addWeeks, startOfWeek, endOfWeek, format, isBefore, isSameWeek } from 'date-fns';
+import { addWeeks, startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
+import { getWeeksForFiscalMonth } from '@/lib/fiscal-calendar';
 
 type WeeklyAllocationDoc = {
   id: string;
@@ -41,17 +42,23 @@ type WeeklyAllocationTableProps = {
 };
 
 export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProps) {
+  const [isMounted, setIsMounted] = useState(false);
   const [allocations, setAllocations] = useState<EmployeeAllocation[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { isAdmin } = useCurrentUser();
 
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
   const weeks = useMemo(() => {
-    const start = startOfWeek(currentDate, { weekStartsOn: 1 });
-    return Array.from({ length: 4 }, (_, i) => addWeeks(start, i));
-  }, [currentDate]);
+    if (!isMounted) return [];
+    return getWeeksForFiscalMonth(currentDate);
+  }, [currentDate, isMounted]);
 
   const fetchData = useCallback(async () => {
+    if (weeks.length === 0) return;
     setLoading(true);
     try {
       const weekKeys = weeks.map(formatDateKey);
@@ -104,8 +111,23 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
     fetchData();
   }, [fetchData]);
 
-  const today = new Date();
-  const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
+  if (!isMounted) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Saved Allocations for this Period</CardTitle>
+          <CardDescription>Records from the weekly_allocation collection for the displayed weeks.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (loading) {
     return (
@@ -124,6 +146,8 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
       </Card>
     );
   }
+  
+  const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
 
   return (
     <Card>
@@ -139,7 +163,7 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
                     <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Cost Center</TableHead>
                     {weeks.map(week => {
                         const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                        const isCurrent = isSameWeek(week, today, { weekStartsOn: 1 });
+                        const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                         const isLockedForUser = isPast && !isAdmin;
                         return (
                             <TableHead key={week.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
