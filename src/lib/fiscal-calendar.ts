@@ -1,5 +1,5 @@
 
-import { startOfWeek, addMonths, subMonths, parse, getYear, getMonth } from 'date-fns';
+import { startOfWeek, addMonths, subMonths, parse, getYear, getMonth, addWeeks } from 'date-fns';
 
 type FiscalCalendarEntry = {
   day: string;
@@ -274,63 +274,16 @@ const fiscalCalendarData: FiscalCalendarEntry[] = [
   { day: '9/23/2023', week: '38', reporting_month: 'Sep', reporting_year: '2023' },
   { day: '9/18/2023', week: '38', reporting_month: 'Sep', reporting_year: '2023' },
   { day: '9/21/2023', week: '38', reporting_month: 'Sep', reporting_year: '2023' },
-  { day: '9/19/2023', week: '38', reporting_month": "Sep",
-    "reporting_year": "2023"
-  },
-  {
-    "day": "9/22/2023",
-    "week": "38",
-    "reporting_month": "Sep",
-    "reporting_year": "2023"
-  },
-  {
-    "day": "9/20/2023",
-    "week": "38",
-    "reporting_month": "Sep",
-    "reporting_year": "2023"
-  },
-  {
-    "day": "8/29/2023",
-    "week": "35",
-    "reporting_month": "Sep",
-    "reporting_year": "2023"
-  },
-  {
-    "day": "8/30/2023",
-    "week": "35",
-    "reporting_month": "Sep",
-    "reporting_year": "2023"
-  },
-  {
-    "day": "8/31/2023",
-    "week": "35",
-    "reporting_month": "Sep",
-    "reporting_year": "2023"
-  },
-  {
-    "day": "9/3/2023",
-    "week": "35",
-    "reporting_month": "Sep",
-    "reporting_year": "2023"
-  },
-  {
-    "day": "9/1/2023",
-    "week": "35",
-    "reporting_month": "Sep",
-    "reporting_year": "2023"
-  },
-  {
-    "day": "9/2/2023",
-    "week": "35",
-    "reporting_month": "Sep",
-    "reporting_year": "2023"
-  },
-  {
-    "day": "8/28/2023",
-    "week": "35",
-    "reporting_month": "Sep",
-    "reporting_year": "2023"
-  }
+  { day: '9/19/2023', week: '38', reporting_month: 'Sep', reporting_year: '2023' },
+  { day: '9/22/2023', week: '38', reporting_month: 'Sep', reporting_year: '2023' },
+  { day: '9/20/2023', week: '38', reporting_month: 'Sep', reporting_year: '2023' },
+  { day: '8/29/2023', week: '35', reporting_month: 'Sep', reporting_year: '2023' },
+  { day: '8/30/2023', week: '35', reporting_month: 'Sep', reporting_year: '2023' },
+  { day: '8/31/2023', week: '35', reporting_month": "Sep", "reporting_year": "2023" },
+  { day: '9/3/2023', week: '35', reporting_month: 'Sep', reporting_year: '2023' },
+  { day: '9/1/2023', week: '35', reporting_month: 'Sep', reporting_year: '2023' },
+  { day: '9/2/2023', week: '35', reporting_month: 'Sep', reporting_year: '2023' },
+  { day: '8/28/2023', week: '35', reporting_month: 'Sep', reporting_year: '2023' }
 ];
 
 // Sort the data by year, month, and day for reliable processing.
