@@ -396,7 +396,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Cost Center</TableHead>
-                <TableHead className="text-center min-w-[150px]">Monthly FTE</TableHead>
+                <TableHead className="text-center min-w-[150px]">Bulk Hours Entry</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                   const isCurrent = isSameWeek(week, today, { weekStartsOn: 1 });
@@ -517,3 +517,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
+
+    
