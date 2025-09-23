@@ -251,7 +251,7 @@ const fiscalCalendarData: FiscalCalendarEntry[] = [
   { day: '7/31/2023', week: '31', reporting_month: 'Aug', reporting_year: '2023' },
   { day: '9/25/2023', week: '39', reporting_month: 'Sep', reporting_year: '2023' },
   { day: '9/29/2023', week: '39', reporting_month: 'Sep', reporting_year: '2023' },
-  { day: '9/28/2023', week: '39', reporting_month": "Sep", "reporting_year": "2023" },
+  { day: '9/28/2023', week: '39', reporting_month: 'Sep', reporting_year: '2023' },
   { day: '9/30/2023', week: '39', reporting_month: 'Sep', reporting_year: '2023' },
   { day: '9/26/2023', week: '39', reporting_month: 'Sep', reporting_year: '2023' },
   { day: '10/1/2023', week: '39', reporting_month: 'Sep', reporting_year: '2023' },
@@ -391,3 +391,5 @@ export function getNextFiscalMonth(currentDate: Date): Date {
 
     return firstDayOfNextFiscalMonth ? firstDayOfNextFiscalMonth.date : addMonths(currentDate, 1);
 }
+
+    
