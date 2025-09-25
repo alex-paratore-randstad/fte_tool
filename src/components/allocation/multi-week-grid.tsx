@@ -401,7 +401,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Cost Center</TableHead>
+                <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee</TableHead>
+                <TableHead className="min-w-[250px]">Cost Center Name</TableHead>
+                <TableHead className="min-w-[150px]">Cost Center Code</TableHead>
                 <TableHead className="text-center min-w-[150px]">Bulk Hours Entry</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
@@ -423,7 +425,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
             <TableBody>
              {activeAllocations.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={weeks.length + 3} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
                         Select an employee from the dropdown above to begin building your allocation plan.
                     </TableCell>
                 </TableRow>
@@ -441,6 +443,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                         {employee.Full_Name}
                         <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
                       </TableCell>
+                      <TableCell colSpan={2}></TableCell>
                       <TableCell></TableCell>
                       {weeklyTotals.map((total, index) => (
                         <TableCell key={index} className={cn("text-center font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
@@ -461,15 +464,22 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                        });
                       return (
                       <TableRow key={alloc.id}>
-                        <TableCell className="sticky left-0 bg-card z-10">
-                          <div className="pl-6">
-                            <Select value={alloc.costCenterName} onValueChange={(newCcName) => handleCostCenterChange(employee.Person_Number, alloc.id, newCcName)} disabled={isRowLocked}>
-                              <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectTrigger>
-                              <SelectContent>
-                                {costCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        <TableCell className="sticky left-0 bg-card z-10"></TableCell>
+                        <TableCell>
+                          <Select value={alloc.costCenterName} onValueChange={(newCcName) => handleCostCenterChange(employee.Person_Number, alloc.id, newCcName)} disabled={isRowLocked}>
+                            <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectTrigger>
+                            <SelectContent>
+                              {costCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                         <TableCell>
+                            <Input
+                                value={alloc.costCenterId}
+                                readOnly
+                                className="bg-muted"
+                                placeholder="CC Code"
+                            />
                         </TableCell>
                         <TableCell className="text-center">
                            <Input
@@ -505,12 +515,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
                     )})}
 
                     <TableRow>
-                      <TableCell className="sticky left-0 bg-card z-10 py-2">
-                        <div className="pl-6">
-                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
-                          </Button>
-                        </div>
+                      <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
+                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
+                          <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
+                        </Button>
                       </TableCell>
                       <TableCell colSpan={weeks.length + 2}></TableCell>
                     </TableRow>
