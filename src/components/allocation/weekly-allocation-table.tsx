@@ -39,9 +39,10 @@ type EmployeeAllocation = {
 
 type WeeklyAllocationTableProps = {
   currentDate: Date;
+  refreshKey: number;
 };
 
-export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProps) {
+export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocationTableProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [allocations, setAllocations] = useState<EmployeeAllocation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,7 +115,7 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
     if(isMounted) {
       fetchData();
     }
-  }, [fetchData, isMounted]);
+  }, [fetchData, isMounted, refreshKey]);
 
   if (!isMounted || loading) {
     return (
@@ -215,5 +216,3 @@ export function WeeklyAllocationTable({ currentDate }: WeeklyAllocationTableProp
     </Card>
   );
 }
-
-    

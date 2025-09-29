@@ -50,10 +50,11 @@ type EmployeeAllocation = {
 type MultiWeekGridProps = {
   currentDate: Date;
   setCurrentDate: (date: Date) => void;
+  onSaveSuccess: () => void;
 };
 
 
-export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProps) {
+export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: MultiWeekGridProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
@@ -322,6 +323,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
             title: 'Allocations Saved',
             description: `${submissions.length} allocation entries have been saved successfully.`,
         });
+        onSaveSuccess();
     } catch (error: any) {
         console.error("Save error:", error);
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
@@ -532,5 +534,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate }: MultiWeekGridProp
     </Card>
   );
 }
-
-    

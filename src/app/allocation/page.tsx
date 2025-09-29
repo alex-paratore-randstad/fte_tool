@@ -8,6 +8,11 @@ import { WeeklyAllocationTable } from '@/components/allocation/weekly-allocation
 
 export default function AllocationPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshKey(prevKey => prevKey + 1);
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -15,8 +20,8 @@ export default function AllocationPage() {
         title="Monthly Allocation"
         description="Allocate FTEs for the current month."
       />
-      <MultiWeekGrid currentDate={currentDate} setCurrentDate={setCurrentDate} />
-      <WeeklyAllocationTable currentDate={currentDate} />
+      <MultiWeekGrid currentDate={currentDate} setCurrentDate={setCurrentDate} onSaveSuccess={handleRefresh} />
+      <WeeklyAllocationTable currentDate={currentDate} refreshKey={refreshKey} />
     </div>
   );
 }
