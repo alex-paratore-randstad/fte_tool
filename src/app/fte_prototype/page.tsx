@@ -2,16 +2,16 @@
 'use client';
 
 import { PageHeader } from '@/components/page-header';
-import { FtePrototypeContent } from '@/components/fte_prototype/fte-prototype-content';
+import { TitleManagementContent } from '@/components/fte_prototype/fte-prototype-content';
 
-export default function FtePrototypePage() {
+export default function TitleManagementPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="FTE Prototype Data"
-        description="This page fetches live data from the fte_prototype AppDB collection."
+        title="Title Management"
+        description="Assign new market-facing titles to employees."
       />
-      <FtePrototypeContent />
+      <TitleManagementContent />
     </div>
   );
 }

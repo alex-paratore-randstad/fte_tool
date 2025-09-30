@@ -182,6 +182,24 @@
                     "columnName": "Cost Center Name/Description"
                 }
             ]
+        },
+        {
+            "dataSetId": "08f5bbf7-5327-4991-b932-9de9c776c83f",
+            "alias": "mst_fte_updated_titles",
+            "fields": [
+                {
+                    "alias": "updated_titles",
+                    "columnName": "updated_titles"
+                },
+                {
+                    "alias": "_BATCH_ID_",
+                    "columnName": "_BATCH_ID_"
+                },
+                {
+                    "alias": "_BATCH_LAST_RUN_",
+                    "columnName": "_BATCH_LAST_RUN_"
+                }
+            ]
         }
     ],
     "collectionsMapping": [
@@ -223,6 +241,26 @@
                     },
                     {
                         "name": "cost_center_number",
+                        "type": "STRING"
+                    }
+                ]
+            },
+            "syncEnabled": false
+        },
+        {
+            "name": "title_management",
+            "schema": {
+                "columns": [
+                    {
+                        "name": "employee_id",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "employee_name",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "updated_title",
                         "type": "STRING"
                     }
                 ]

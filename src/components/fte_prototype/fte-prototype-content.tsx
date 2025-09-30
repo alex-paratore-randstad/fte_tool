@@ -2,41 +2,57 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { FtePrototypeData } from '@/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TeamMember } from '@/types';
 
+type UpdatedTitle = {
+  'Updated Market Facing Title': string;
+};
 
-export function FtePrototypeContent() {
-  const [data, setData] = useState<FtePrototypeData[]>([]);
+export function TitleManagementContent() {
+  const [employees, setEmployees] = useState<TeamMember[]>([]);
+  const [titles, setTitles] = useState<UpdatedTitle[]>([]);
+  
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [selectedTitle, setSelectedTitle] = useState<string>('');
+  
   const [loading, setLoading] = useState(true);
-  const [newName, setNewName] = useState('');
-  const [newValue, setNewValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/domo/datastores/v1/collections/fte_prototype/documents/`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const [empResponse, titleResponse] = await Promise.all([
+        fetch(`/data/v1/gbs_ind_hr_fte_report`),
+        fetch(`/data/v1/mst_fte_updated_titles`),
+      ]);
+
+      if (!empResponse.ok) {
+        throw new Error('Failed to fetch employee list.');
       }
-      const result = await response.json();
-      setData(result);
-    } catch (error) {
+      if (!titleResponse.ok) {
+        throw new Error('Failed to fetch title list.');
+      }
+
+      const empData: TeamMember[] = await empResponse.json();
+      const titleData: UpdatedTitle[] = await titleResponse.json();
+      
+      setEmployees(empData.filter(e => e.Full_Name));
+      setTitles(titleData.filter(t => t['Updated Market Facing Title']));
+
+    } catch (error: any) {
       console.error('Error fetching data:', error);
       toast({
         variant: 'destructive',
         title: 'Failed to fetch data',
         description: 'Could not retrieve data from the server.'
       });
-      setData([]);
     } finally {
       setLoading(false);
     }
@@ -48,23 +64,26 @@ export function FtePrototypeContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName || !newValue) {
+    if (!selectedEmployeeId || !selectedTitle) {
       toast({
         variant: 'destructive',
         title: 'Missing Fields',
-        description: 'Please fill out both Name and Value.',
+        description: 'Please select an employee and a new title.',
       });
       return;
     }
     setIsSubmitting(true);
     try {
-      const response = await fetch('/domo/datastores/v1/collections/fte_prototype/documents/', {
+      const response = await fetch('/domo/datastores/v1/collections/title_management/documents/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          content: { name: newName, value: newValue }
+          content: { 
+            employee_id: selectedEmployeeId, 
+            updated_title: selectedTitle 
+          }
         }),
       });
 
@@ -74,117 +93,94 @@ export function FtePrototypeContent() {
 
       toast({
         title: 'Success!',
-        description: 'New entry has been added.',
+        description: 'New title has been assigned.',
       });
-      setNewName('');
-      setNewValue('');
-      await fetchData(); // Refresh data
+      // Reset form
+      setSelectedEmployeeId('');
+      setSelectedTitle('');
     } catch (error) {
       console.error('Error submitting data:', error);
       toast({
         variant: 'destructive',
         title: 'Submission Failed',
-        description: 'Could not add the new entry.'
+        description: 'Could not assign the new title.'
       });
     } finally {
       setIsSubmitting(false);
     }
   };
   
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-        </div>
-      )
-    }
-
-    if (data.length === 0) {
-      return (
-        <p>
-            No data was returned from the endpoint. This may be expected if the
-            data source is empty or if you are in a local development environment.
-        </p>
-      )
-    }
-    
-    return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Value</TableHead>
-            <TableHead>Document ID</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.map((item) => (
-            <TableRow key={item.id}>
-              <TableCell className="font-medium">{item.content.name}</TableCell>
-              <TableCell>{item.content.value}</TableCell>
-              <TableCell className="font-mono text-xs">{item.id}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    );
+  if (loading) {
+     return (
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-6 w-1/3 mb-2" />
+                <Skeleton className="h-4 w-2/3" />
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-1/4" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+                 <div className="space-y-2">
+                    <Skeleton className="h-4 w-1/4" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+            </CardContent>
+            <CardFooter>
+                 <Skeleton className="h-10 w-24" />
+            </CardFooter>
+        </Card>
+     )
   }
 
   return (
-    <div className="flex flex-col gap-8">
-       <Card>
+    <Card>
+      <form onSubmit={handleSubmit}>
         <CardHeader>
-          <CardTitle>Add New Entry</CardTitle>
+          <CardTitle>Update Employee Title</CardTitle>
           <CardDescription>
-            Enter a name and value to add a new document to the fte_prototype collection.
+            Select an employee and choose their new market-facing title.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4">
-            <div className="grid gap-2 flex-1">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                placeholder="Enter a name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                disabled={isSubmitting}
-              />
+        <CardContent className="grid gap-6">
+            <div className="grid gap-2">
+              <Label htmlFor="employee">Employee</Label>
+              <Select onValueChange={setSelectedEmployeeId} value={selectedEmployeeId} disabled={isSubmitting}>
+                  <SelectTrigger id="employee">
+                      <SelectValue placeholder="Select an employee..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {employees.map(emp => (
+                          <SelectItem key={emp.Person_Number} value={emp.Person_Number}>
+                              {emp.Full_Name}
+                          </SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
             </div>
-            <div className="grid gap-2 flex-1">
-              <Label htmlFor="value">Value</Label>
-              <Input
-                id="value"
-                placeholder="Enter a value"
-                value={newValue}
-                onChange={(e) => setNewValue(e.target.value)}
-                disabled={isSubmitting}
-              />
+            <div className="grid gap-2">
+              <Label htmlFor="title">New Market-Facing Title</Label>
+              <Select onValueChange={setSelectedTitle} value={selectedTitle} disabled={isSubmitting}>
+                  <SelectTrigger id="title">
+                      <SelectValue placeholder="Select a new title..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {titles.map(t => (
+                          <SelectItem key={t['Updated Market Facing Title']} value={t['Updated Market Facing Title']}>
+                              {t['Updated Market Facing Title']}
+                          </SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
             </div>
-            <div className="flex items-end">
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Submitting...' : 'Submit'}
-                </Button>
-            </div>
-          </form>
         </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Live Data</CardTitle>
-          <CardDescription>
-            This is the live data being returned from the AppDB.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {renderContent()}
-        </CardContent>
-      </Card>
-    </div>
+        <CardFooter>
+            <Button type="submit" disabled={isSubmitting || !selectedEmployeeId || !selectedTitle}>
+              {isSubmitting ? 'Saving...' : 'Save Title Update'}
+            </Button>
+        </CardFooter>
+      </form>
+    </Card>
   );
 }
