@@ -45,26 +45,46 @@ export default function DashboardPage() {
           });
         }
          if (!allocResponse.ok) {
-          // In local dev, this might fail, which is okay.
           console.warn("Could not fetch allocation data. This may be expected in local dev.");
         }
 
         const employees: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
         const allocations: WeeklyAllocation[] = allocResponse.ok ? await allocResponse.json() : [];
 
-        setAllEmployees(employees);
-        const totalEmployeeCount = new Set(employees.map(e => e.Person_Number)).size;
-        setTotalFtes(totalEmployeeCount);
+        // Safe data processing to prevent runtime errors
+        try {
+            const safeEmployees = employees.filter(e => e && e.Person_Number && e.Full_Name);
+            setAllEmployees(safeEmployees);
+            const totalEmployeeCount = new Set(safeEmployees.map(e => e.Person_Number)).size;
+            setTotalFtes(totalEmployeeCount);
 
-        const allocatedEmployeeNames = new Set(allocations.map(a => a.content.allocation_name));
-        const allocatedEmps = employees.filter(e => allocatedEmployeeNames.has(e.Full_Name));
-        setAllocatedEmployees(allocatedEmps);
-        setAllocatedFtes(allocatedEmps.length);
+            const allocatedEmployeeNames = new Set(
+                allocations
+                    .filter(a => a && a.content && a.content.allocation_name)
+                    .map(a => a.content.allocation_name)
+            );
 
-        const unallocatedEmps = employees.filter(e => !allocatedEmployeeNames.has(e.Full_Name));
-        setUnallocatedEmployees(unallocatedEmps);
-        setUnallocatedFtes(unallocatedEmps.length);
-        setMissingAllocations(unallocatedEmps.length);
+            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeNames.has(e.Full_Name));
+            setAllocatedEmployees(allocatedEmps);
+            setAllocatedFtes(allocatedEmps.length);
+
+            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeNames.has(e.Full_Name));
+            setUnallocatedEmployees(unallocatedEmps);
+            setUnallocatedFtes(unallocatedEmps.length);
+            setMissingAllocations(unallocatedEmps.length);
+        } catch (processingError) {
+             console.error("Failed to process dashboard data:", processingError);
+             toast({
+                variant: 'destructive',
+                title: 'Failed to process data',
+                description: 'Could not calculate dashboard metrics.'
+            });
+            // Reset to zero to avoid showing stale/incorrect data
+            setTotalFtes(0);
+            setAllocatedFtes(0);
+            setUnallocatedFtes(0);
+            setMissingAllocations(0);
+        }
 
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
@@ -129,13 +149,19 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map(employee => (
+                {data.length > 0 ? data.map(employee => (
                   <TableRow key={employee.Person_Number}>
                     <TableCell>{employee.Full_Name}</TableCell>
                     <TableCell>{employee.Market_Facing_Title}</TableCell>
                     <TableCell>{employee.First_Reviewer_Name}</TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                      No data available.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </ScrollArea>
@@ -233,3 +259,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

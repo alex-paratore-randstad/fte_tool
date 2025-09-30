@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TeamMember } from '@/types';
 import { SelectSearch } from '../ui/select-search';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type UpdatedTitle = {
   'Updated Market Facing Title': string;
@@ -114,83 +116,127 @@ export function TitleManagementContent() {
   
   if (loading) {
      return (
-        <Card>
-            <CardHeader>
-                <Skeleton className="h-6 w-1/3 mb-2" />
-                <Skeleton className="h-4 w-2/3" />
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="space-y-2">
-                    <Skeleton className="h-4 w-1/4" />
-                    <Skeleton className="h-10 w-full" />
-                </div>
-                 <div className="space-y-2">
-                    <Skeleton className="h-4 w-1/4" />
-                    <Skeleton className="h-10 w-full" />
-                </div>
-            </CardContent>
-            <CardFooter>
-                 <Skeleton className="h-10 w-24" />
-            </CardFooter>
-        </Card>
+        <div className="space-y-8">
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-1/3 mb-2" />
+                    <Skeleton className="h-4 w-2/3" />
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                     <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                </CardContent>
+                <CardFooter>
+                     <Skeleton className="h-10 w-24" />
+                </CardFooter>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-1/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-48 w-full" />
+                </CardContent>
+            </Card>
+        </div>
      )
   }
 
   const filteredEmployees = employees.filter(emp => emp['Full_Name'].toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <Card>
-      <form onSubmit={handleSubmit}>
-        <CardHeader>
-          <CardTitle>Update Employee Title</CardTitle>
-          <CardDescription>
-            Select an employee and choose their new market-facing title.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-6">
-            <div className="grid gap-2">
-              <Label htmlFor="employee">Employee</Label>
-              <Select onValueChange={setSelectedEmployeeId} value={selectedEmployeeId} disabled={isSubmitting}>
-                  <SelectTrigger id="employee">
-                      <SelectValue placeholder="Select an employee..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectSearch onChange={setSearchTerm} />
-                      {filteredEmployees.map(emp => (
-                          <SelectItem key={emp['Person_Number']} value={emp['Person_Number']}>
-                              {emp['Full_Name']}
-                          </SelectItem>
-                      ))}
-                      {filteredEmployees.length === 0 && (
-                        <div className="p-4 text-sm text-center text-muted-foreground">
-                            No employees found.
-                        </div>
-                      )}
-                  </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="title">New Market-Facing Title</Label>
-              <Select onValueChange={setSelectedTitle} value={selectedTitle} disabled={isSubmitting}>
-                  <SelectTrigger id="title">
-                      <SelectValue placeholder="Select a new title..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                      {titles.map(t => (
-                          <SelectItem key={t['Updated Market Facing Title']} value={t['Updated Market Facing Title']}>
-                              {t['Updated Market Facing Title']}
-                          </SelectItem>
-                      ))}
-                  </SelectContent>
-              </Select>
-            </div>
-        </CardContent>
-        <CardFooter>
-            <Button type="submit" disabled={isSubmitting || !selectedEmployeeId || !selectedTitle}>
-              {isSubmitting ? 'Saving...' : 'Save Title Update'}
-            </Button>
-        </CardFooter>
-      </form>
-    </Card>
+    <div className="space-y-8">
+        <Card>
+          <form onSubmit={handleSubmit}>
+            <CardHeader>
+              <CardTitle>Update Employee Title</CardTitle>
+              <CardDescription>
+                Select an employee and choose their new market-facing title.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-6">
+                <div className="grid gap-2">
+                  <Label htmlFor="employee">Employee</Label>
+                  <Select onValueChange={setSelectedEmployeeId} value={selectedEmployeeId} disabled={isSubmitting}>
+                      <SelectTrigger id="employee">
+                          <SelectValue placeholder="Select an employee..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectSearch onChange={setSearchTerm} />
+                          {filteredEmployees.map(emp => (
+                              <SelectItem key={emp['Person_Number']} value={emp['Person_Number']}>
+                                  {emp['Full_Name']}
+                              </SelectItem>
+                          ))}
+                          {filteredEmployees.length === 0 && (
+                            <div className="p-4 text-sm text-center text-muted-foreground">
+                                No employees found.
+                            </div>
+                          )}
+                      </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="title">New Market-Facing Title</Label>
+                  <Select onValueChange={setSelectedTitle} value={selectedTitle} disabled={isSubmitting}>
+                      <SelectTrigger id="title">
+                          <SelectValue placeholder="Select a new title..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {titles.map(t => (
+                              <SelectItem key={t['Updated Market Facing Title']} value={t['Updated Market Facing Title']}>
+                                  {t['Updated Market Facing Title']}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+                </div>
+            </CardContent>
+            <CardFooter>
+                <Button type="submit" disabled={isSubmitting || !selectedEmployeeId || !selectedTitle}>
+                  {isSubmitting ? 'Saving...' : 'Save Title Update'}
+                </Button>
+            </CardFooter>
+          </form>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Employee List</CardTitle>
+                <CardDescription>
+                    A distinct list of all employees from the dataset.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ScrollArea className="h-96">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Full Name</TableHead>
+                                <TableHead>Current Title</TableHead>
+                                <TableHead>Manager</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {employees.map((employee) => (
+                                <TableRow key={employee.Person_Number}>
+                                    <TableCell>{employee.Full_Name}</TableCell>
+                                    <TableCell>{employee.Market_Facing_Title}</TableCell>
+                                    <TableCell>{employee.First_Reviewer_Name}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
+            </CardContent>
+        </Card>
+    </div>
   );
 }
