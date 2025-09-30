@@ -226,10 +226,10 @@ export function TitleManagementContent() {
                         </TableHeader>
                         <TableBody>
                             {employees.map((employee) => (
-                                <TableRow key={employee.Person_Number}>
-                                    <TableCell>{employee.Full_Name}</TableCell>
-                                    <TableCell>{employee.Market_Facing_Title}</TableCell>
-                                    <TableCell>{employee.First_Reviewer_Name}</TableCell>
+                                <TableRow key={employee['Person_Number']}>
+                                    <TableCell>{employee['Full_Name']}</TableCell>
+                                    <TableCell>{employee['Market_Facing_Title']}</TableCell>
+                                    <TableCell>{employee['First_Reviewer_Name']}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
