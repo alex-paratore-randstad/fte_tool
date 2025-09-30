@@ -207,13 +207,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   };
 
   const handleMonthlyFteChange = (employeeId: string, allocId: string, monthlyFteValue: string) => {
-    if (!isMounted) return;
     const monthlyFte = parseFloat(monthlyFteValue) || 0;
-    const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
     setActiveAllocations(prev => prev.map(empAlloc => {
       if (empAlloc.employee.Person_Number === employeeId) {
         const newAllocations = empAlloc.allocations.map(alloc => {
           if (alloc.id === allocId) {
+            const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
             const updatedWeeklyFtes = { ...alloc.weeklyFtes };
             weeks.forEach(week => {
               const weekKey = formatDateKey(week);
