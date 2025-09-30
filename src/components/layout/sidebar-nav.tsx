@@ -26,9 +26,9 @@ const navItems = [
   { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock, roles: ['admin', 'manager', 'vp'] },
   { href: '/team', label: 'Team Management', icon: Users, roles: ['admin', 'manager', 'vp'] },
   { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
+  { href: '/title_management', label: 'Title Management', icon: FlaskConical, roles: ['admin', 'manager'] },
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'vp'] },
   { href: '/admin', label: 'Admin', icon: Shield, roles: ['admin'] },
-  { href: '/title_management', label: 'Title Management', icon: FlaskConical, roles: ['admin', 'manager'] },
 ];
 
 export function SidebarNav() {

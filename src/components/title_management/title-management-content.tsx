@@ -32,7 +32,7 @@ export function TitleManagementContent() {
     try {
       const [empResponse, titleResponse] = await Promise.all([
         fetch(`/data/v1/gbs_ind_hr_fte_report`),
-        fetch(`/data/v1/mst_fte_updated_titles`),
+        fetch(`/data/v1/gbs_ind_mst_fte_updated_titles`),
       ]);
 
       if (!empResponse.ok) {
