@@ -45,7 +45,7 @@ export function TitleManagementContent() {
       const empData: TeamMember[] = await empResponse.json();
       const titleData: UpdatedTitle[] = await titleResponse.json();
       
-      setEmployees(empData.filter(e => e.Full_Name));
+      setEmployees(empData.filter(e => e['Full_Name']));
       setTitles(titleData.filter(t => t['Updated Market Facing Title']));
 
     } catch (error: any) {
@@ -136,7 +136,7 @@ export function TitleManagementContent() {
      )
   }
 
-  const filteredEmployees = employees.filter(emp => emp.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredEmployees = employees.filter(emp => emp['Full_Name'].toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <Card>
@@ -157,8 +157,8 @@ export function TitleManagementContent() {
                   <SelectContent>
                       <SelectSearch onChange={setSearchTerm} />
                       {filteredEmployees.map(emp => (
-                          <SelectItem key={emp.Person_Number} value={emp.Person_Number}>
-                              {emp.Full_Name}
+                          <SelectItem key={emp['Person_Number']} value={emp['Person_Number']}>
+                              {emp['Full_Name']}
                           </SelectItem>
                       ))}
                       {filteredEmployees.length === 0 && (

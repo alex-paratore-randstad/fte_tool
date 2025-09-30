@@ -30,6 +30,7 @@ export function useCurrentUser() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
+        // Access localStorage ONLY on the client-side within useEffect
         const impersonatedUserId = localStorage.getItem('impersonated_user_id');
         let liveUser;
 
@@ -96,3 +97,4 @@ export function useCurrentUser() {
 
   return { currentUser, isAdmin, isVp, isManager, loading };
 }
+
