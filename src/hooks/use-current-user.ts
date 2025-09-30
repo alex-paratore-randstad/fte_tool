@@ -29,6 +29,7 @@ export function useCurrentUser() {
 
   useEffect(() => {
     const fetchUser = async () => {
+      setLoading(true);
       try {
         // Access localStorage ONLY on the client-side within useEffect
         const impersonatedUserId = localStorage.getItem('impersonated_user_id');
@@ -36,7 +37,10 @@ export function useCurrentUser() {
 
         if (impersonatedUserId) {
             const response = await fetch(`/data/v1/gbs_ind_hr_fte_report`);
-            if (!response.ok) throw new Error("Failed to fetch employees for impersonation.");
+            if (!response.ok) {
+                // Throw to be caught by the outer catch block for fallback
+                throw new Error("Failed to fetch employees for impersonation. Falling back to dev persona.");
+            }
             const allEmployees: TeamMember[] = await response.json();
 
             const impersonatedEmp = allEmployees.find(e => e.Person_Number === impersonatedUserId);
@@ -48,11 +52,11 @@ export function useCurrentUser() {
                     roles: [{name: 'Manager'}] // Assume impersonated users are managers
                 }
             } else {
-                 throw new Error("Impersonated user not found");
+                 throw new Error("Impersonated user not found. Falling back to dev persona.");
             }
         } else {
             const response = await fetch('/domo/users/v1/me');
-            if (!response.ok) throw new Error("Failed to fetch current user.");
+            if (!response.ok) throw new Error("Failed to fetch current user. Falling back to dev persona.");
             liveUser = await response.json();
         }
         
@@ -73,7 +77,7 @@ export function useCurrentUser() {
         });
 
       } catch (error) {
-        console.warn("Could not fetch live user. Falling back to dev personas.", error);
+        console.warn(error);
         
         // --- Admin Persona (Default for Dev) ---
         setCurrentUser({ 

@@ -66,10 +66,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const { toast } = useToast();
 
   const { weeks, fiscalMonthLabel } = useMemo(() => {
+    if (!currentDate) return { weeks: [], fiscalMonthLabel: 'Loading...' };
     const fiscalData = getFiscalDataForDate(currentDate);
     const monthWeeks = getWeeksForFiscalMonth(currentDate);
     const label = fiscalData ? `${fiscalData.reporting_month} ${fiscalData.reporting_year}` : 'Loading...';
     return { weeks: monthWeeks, fiscalMonthLabel: label };
+  }, [currentDate]);
+
+  const startOfCurrentWeek = useMemo(() => {
+    // This needs to be memoized and dependent on currentDate to ensure it only runs client-side
+    // when currentDate is available.
+    return startOfWeek(new Date(), { weekStartsOn: 1 });
   }, [currentDate]);
 
   const fetchData = useCallback(async () => {
@@ -203,7 +210,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const handleMonthlyFteChange = (employeeId: string, allocId: string, monthlyFteValue: string) => {
     const monthlyFte = parseFloat(monthlyFteValue) || 0;
     setActiveAllocations(prev => {
-      const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const localStartOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
       return prev.map(empAlloc => {
         if (empAlloc.employee.Person_Number === employeeId) {
           const newAllocations = empAlloc.allocations.map(alloc => {
@@ -211,7 +218,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
               const updatedWeeklyFtes = { ...alloc.weeklyFtes };
               weeks.forEach(week => {
                 const weekKey = formatDateKey(week);
-                const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), localStartOfCurrentWeek);
                 const isLockedForUser = isPast && !isAdmin;
                 if (!isLockedForUser) {
                   updatedWeeklyFtes[weekKey] = monthlyFte;
@@ -342,8 +349,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
       </Card>
     );
   }
-
-  const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
 
   return (
     <Card>
@@ -529,3 +534,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     </Card>
   );
 }
+
+    
