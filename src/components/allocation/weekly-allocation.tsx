@@ -43,10 +43,15 @@ export function WeeklyAllocation() {
   const [existingAllocations, setExistingAllocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [weekEndingDate, setWeekEndingDate] = useState('');
 
-  const weekEndingDate = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  useEffect(() => {
+    // Set the date only on the client side to avoid hydration errors
+    setWeekEndingDate(format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+  }, []);
 
   const fetchData = useCallback(async () => {
+    if (!weekEndingDate) return;
     setLoading(true);
     try {
        const [empResponse, ccResponse, existingAllocResponse] = await Promise.all([
@@ -77,6 +82,7 @@ export function WeeklyAllocation() {
   }, [fetchData]);
   
   const handleAddRow = () => {
+    if (!weekEndingDate) return;
     setAllocations(prev => [
       ...prev,
       { 
@@ -152,7 +158,7 @@ export function WeeklyAllocation() {
     }
   };
 
-  if (loading && employees.length === 0) {
+  if (loading && employees.length === 0 || !weekEndingDate) {
     return (
       <Card>
         <CardHeader><CardTitle>Weekly Allocation Entry</CardTitle></CardHeader>
