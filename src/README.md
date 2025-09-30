@@ -16,7 +16,7 @@ This application is built to run on the Domo platform and has specific configura
 
 2.  **API Calls to Domo**: All data fetching from Domo must be done on the **client-side** using a `useEffect` hook.
     *   The application uses static export (`output: 'export'`), so any data fetching attempted during the server-side build will cause an "Internal ServerError".
-    *   The proven, working pattern is to define a local `domo` object at the top of the component file that constructs the full production URL and initiates the `fetch` call. The methods on this object (`domo.get`, `domo.post`) must **only** be called from within a `useEffect` hook or a client-side event handler. **Follow this pattern precisely for all new data-fetching implementations.**
+    *   The proven, working pattern is to use the standard `fetch` API inside a `useEffect` hook to call the relative path for the data source. For datasets, use the alias from the manifest (e.g., `fetch('/data/v1/my_dataset_alias')`). For AppDB collections, use the Domo datastore endpoint (e.g., `fetch('/domo/datastores/v1/collections/my_collection/documents')`). **Follow this pattern precisely for all new data-fetching implementations.**
 
 3.  **`package.json`**: Do not add, remove, or change dependencies unless the user specifically requests it. The existing stack is configured for the Domo environment.
 
