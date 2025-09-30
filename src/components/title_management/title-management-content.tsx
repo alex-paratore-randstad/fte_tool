@@ -45,8 +45,8 @@ export function TitleManagementContent() {
       const empData: TeamMember[] = await empResponse.json();
       const titleData: UpdatedTitle[] = await titleResponse.json();
       
-      setEmployees(empData.filter(e => e['Full_Name']));
-      setTitles(titleData.filter(t => t['Updated Market Facing Title']));
+      setEmployees(empData.filter(e => typeof e['Full_Name'] === 'string' && e['Full_Name']));
+      setTitles(titleData.filter(t => typeof t['Updated Market Facing Title'] === 'string' && t['Updated Market Facing Title']));
 
     } catch (error: any) {
       console.error('Error fetching data:', error);
