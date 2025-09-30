@@ -97,4 +97,3 @@ export function useCurrentUser() {
 
   return { currentUser, isAdmin, isVp, isManager, loading };
 }
-
