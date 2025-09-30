@@ -59,6 +59,7 @@ export default function AdminPage() {
 
     if (!loading) {
         getManagers();
+        // Ensure localStorage is only accessed on the client-side after initial render and loading is complete
         const storedId = localStorage.getItem('impersonated_user_id');
         if (storedId) {
             setImpersonatedId(storedId);
