@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TeamMember } from '@/types';
+import { SelectSearch } from '../ui/select-search';
 
 type UpdatedTitle = {
   'Updated Market Facing Title': string;
@@ -24,6 +25,7 @@ export function TitleManagementContent() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -134,6 +136,8 @@ export function TitleManagementContent() {
      )
   }
 
+  const filteredEmployees = employees.filter(emp => emp.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
+
   return (
     <Card>
       <form onSubmit={handleSubmit}>
@@ -151,11 +155,17 @@ export function TitleManagementContent() {
                       <SelectValue placeholder="Select an employee..." />
                   </SelectTrigger>
                   <SelectContent>
-                      {employees.map(emp => (
+                      <SelectSearch onChange={setSearchTerm} />
+                      {filteredEmployees.map(emp => (
                           <SelectItem key={emp.Person_Number} value={emp.Person_Number}>
                               {emp.Full_Name}
                           </SelectItem>
                       ))}
+                      {filteredEmployees.length === 0 && (
+                        <div className="p-4 text-sm text-center text-muted-foreground">
+                            No employees found.
+                        </div>
+                      )}
                   </SelectContent>
               </Select>
             </div>

@@ -55,7 +55,6 @@ type MultiWeekGridProps = {
 
 
 export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: MultiWeekGridProps) {
-  const [isMounted, setIsMounted] = useState(false);
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
@@ -67,12 +66,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const { toast } = useToast();
 
   const { weeks, fiscalMonthLabel } = useMemo(() => {
-    if (!isMounted) return { weeks: [], fiscalMonthLabel: ''};
     const fiscalData = getFiscalDataForDate(currentDate);
     const monthWeeks = getWeeksForFiscalMonth(currentDate);
     const label = fiscalData ? `${fiscalData.reporting_month} ${fiscalData.reporting_year}` : 'Loading...';
     return { weeks: monthWeeks, fiscalMonthLabel: label };
-  }, [currentDate, isMounted]);
+  }, [currentDate]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -112,14 +110,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   }, [toast]);
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!userLoading && isMounted) {
+    if (!userLoading) {
         fetchData();
     }
-  }, [fetchData, userLoading, currentUser.id, isMounted]);
+  }, [fetchData, userLoading, currentUser.id]);
 
 
   const availableEmployees = useMemo(() => {
@@ -208,28 +202,30 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
 
   const handleMonthlyFteChange = (employeeId: string, allocId: string, monthlyFteValue: string) => {
     const monthlyFte = parseFloat(monthlyFteValue) || 0;
-    setActiveAllocations(prev => prev.map(empAlloc => {
-      if (empAlloc.employee.Person_Number === employeeId) {
-        const newAllocations = empAlloc.allocations.map(alloc => {
-          if (alloc.id === allocId) {
-            const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
-            const updatedWeeklyFtes = { ...alloc.weeklyFtes };
-            weeks.forEach(week => {
-              const weekKey = formatDateKey(week);
-              const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-              const isLockedForUser = isPast && !isAdmin;
-              if (!isLockedForUser) {
-                updatedWeeklyFtes[weekKey] = monthlyFte;
-              }
-            });
-            return { ...alloc, weeklyFtes: updatedWeeklyFtes };
-          }
-          return alloc;
-        });
-        return { ...empAlloc, allocations: newAllocations };
-      }
-      return empAlloc;
-    }));
+    setActiveAllocations(prev => {
+      const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
+      return prev.map(empAlloc => {
+        if (empAlloc.employee.Person_Number === employeeId) {
+          const newAllocations = empAlloc.allocations.map(alloc => {
+            if (alloc.id === allocId) {
+              const updatedWeeklyFtes = { ...alloc.weeklyFtes };
+              weeks.forEach(week => {
+                const weekKey = formatDateKey(week);
+                const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                const isLockedForUser = isPast && !isAdmin;
+                if (!isLockedForUser) {
+                  updatedWeeklyFtes[weekKey] = monthlyFte;
+                }
+              });
+              return { ...alloc, weeklyFtes: updatedWeeklyFtes };
+            }
+            return alloc;
+          });
+          return { ...empAlloc, allocations: newAllocations };
+        }
+        return empAlloc;
+      });
+    });
   };
   
   const handleCostCenterChange = (employeeId: string, allocId: string, newCostCenterName: string) => {
@@ -329,7 +325,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     }
   };
 
-  if (loading || userLoading || !isMounted) {
+  if (loading || userLoading) {
     return (
       <Card>
         <CardHeader>

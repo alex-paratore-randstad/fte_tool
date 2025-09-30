@@ -43,20 +43,14 @@ type WeeklyAllocationTableProps = {
 };
 
 export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocationTableProps) {
-  const [isMounted, setIsMounted] = useState(false);
   const [allocations, setAllocations] = useState<EmployeeAllocation[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { isAdmin } = useCurrentUser();
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-  
   const weeks = useMemo(() => {
-    if (!isMounted) return [];
     return getWeeksForFiscalMonth(currentDate);
-  }, [currentDate, isMounted]);
+  }, [currentDate]);
 
   const fetchData = useCallback(async () => {
     if (weeks.length === 0) return;
@@ -112,12 +106,10 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
   }, [weeks, toast]);
   
   useEffect(() => {
-    if(isMounted) {
-      fetchData();
-    }
-  }, [fetchData, isMounted, refreshKey]);
+    fetchData();
+  }, [fetchData, refreshKey]);
 
-  if (!isMounted || loading) {
+  if (loading) {
     return (
       <Card>
         <CardHeader>
