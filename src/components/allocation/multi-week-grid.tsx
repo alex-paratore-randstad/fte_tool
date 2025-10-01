@@ -61,6 +61,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [costCenterSearchTerm, setCostCenterSearchTerm] = useState('');
 
   const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
@@ -130,6 +131,15 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     }
     return unallocatedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [allEmployees, activeAllocations, searchTerm]);
+  
+  const filteredCostCenters = useMemo(() => {
+    if (!costCenterSearchTerm) {
+      return costCenters;
+    }
+    return costCenters.filter(cc =>
+      cc.cost_center_name.toLowerCase().includes(costCenterSearchTerm.toLowerCase())
+    );
+  }, [costCenters, costCenterSearchTerm]);
 
   const handlePrevMonth = () => setCurrentDate(getPreviousFiscalMonth(currentDate));
   const handleNextMonth = () => setCurrentDate(getNextFiscalMonth(currentDate));
@@ -471,7 +481,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                           <Select value={alloc.costCenterName} onValueChange={(newCcName) => handleCostCenterChange(employee.Person_Number, alloc.id, newCcName)} disabled={isRowLocked}>
                             <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectTrigger>
                             <SelectContent>
-                              {costCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
+                              <SelectSearch placeholder="Search cost center..." onChange={setCostCenterSearchTerm} />
+                              {filteredCostCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
+                               {filteredCostCenters.length === 0 && (
+                                <div className="p-4 text-sm text-center text-muted-foreground">
+                                    No cost centers found.
+                                </div>
+                              )}
                             </SelectContent>
                           </Select>
                         </TableCell>
