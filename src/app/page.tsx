@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { TeamMember, WeeklyAllocation } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
 
@@ -181,36 +182,37 @@ export default function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Total FTEs</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
             </Card>
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Allocated FTEs</CardTitle>
                      <Briefcase className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
             </Card>
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Unallocated FTEs</CardTitle>
                     <UserMinus className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
             </Card>
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Missing Allocations</CardTitle>
                     <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent><div className="h-8 w-1/2 rounded-md bg-muted animate-pulse" /></CardContent>
+                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
             </Card>
         </div>
          <Card>
             <CardHeader>
-                <CardTitle>FTE Details</CardTitle>
+                <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
+                 <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="h-[300px] w-full rounded-md bg-muted animate-pulse" />
+                <Skeleton className="h-[300px] w-full" />
             </CardContent>
         </Card>
       </div>
@@ -259,5 +261,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
