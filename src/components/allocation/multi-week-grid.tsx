@@ -62,9 +62,15 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [costCenterSearchTerm, setCostCenterSearchTerm] = useState('');
+  const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
 
   const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Set the date only on the client side to avoid hydration errors
+    setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  }, []);
 
   const { weeks, fiscalMonthLabel } = useMemo(() => {
     if (!currentDate) return { weeks: [], fiscalMonthLabel: 'Loading...' };
@@ -72,11 +78,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     const monthWeeks = getWeeksForFiscalMonth(currentDate);
     const label = fiscalData ? `${fiscalData.reporting_month} ${fiscalData.reporting_year}` : 'Loading...';
     return { weeks: monthWeeks, fiscalMonthLabel: label };
-  }, [currentDate]);
-
-  const startOfCurrentWeek = useMemo(() => {
-    if (!currentDate) return null;
-    return startOfWeek(new Date(), { weekStartsOn: 1 });
   }, [currentDate]);
 
   const fetchData = useCallback(async () => {
