@@ -11,6 +11,7 @@ import {
   Building,
   Shield,
   FlaskConical,
+  CaseUpper,
 } from 'lucide-react';
 
 import {
@@ -27,6 +28,7 @@ const navItems = [
   { href: '/team', label: 'Team Management', icon: Users, roles: ['admin', 'manager', 'vp'] },
   { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
   { href: '/title_management', label: 'Title Management', icon: FlaskConical, roles: ['admin', 'manager'] },
+  { href: '/title-allocation', label: 'Title Allocation', icon: CaseUpper, roles: ['admin', 'manager'] },
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'vp'] },
   { href: '/admin', label: 'Admin', icon: Shield, roles: ['admin'] },
 ];
