@@ -18,7 +18,7 @@ export function TitleManagementContent() {
   const [employees, setEmployees] = useState<TeamMember[]>([]);
   const [titles, setTitles] = useState<UpdatedTitle[]>([]);
   
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [selectedEmployeeName, setSelectedEmployeeName] = useState<string>('');
   const [selectedTitle, setSelectedTitle] = useState<string>('');
   
   const [loading, setLoading] = useState(true);
@@ -64,7 +64,7 @@ export function TitleManagementContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEmployeeId || !selectedTitle) {
+    if (!selectedEmployeeName || !selectedTitle) {
       toast({
         variant: 'destructive',
         title: 'Missing Fields',
@@ -72,7 +72,19 @@ export function TitleManagementContent() {
       });
       return;
     }
+    
+    const selectedEmployee = employees.find(emp => emp.Full_Name === selectedEmployeeName);
+    if (!selectedEmployee) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Employee',
+        description: 'The selected employee could not be found.',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
+
     try {
       const response = await fetch('/domo/datastores/v1/collections/title_management/documents/', {
         method: 'POST',
@@ -81,7 +93,7 @@ export function TitleManagementContent() {
         },
         body: JSON.stringify({
           content: { 
-            employee_id: selectedEmployeeId, 
+            employee_id: selectedEmployee.Person_Number, 
             updated_title: selectedTitle 
           }
         }),
@@ -96,7 +108,7 @@ export function TitleManagementContent() {
         description: 'New title has been assigned.',
       });
       // Reset form
-      setSelectedEmployeeId('');
+      setSelectedEmployeeName('');
       setSelectedTitle('');
     } catch (error) {
       console.error('Error submitting data:', error);
@@ -146,13 +158,13 @@ export function TitleManagementContent() {
         <CardContent className="grid gap-6">
             <div className="grid gap-2">
               <Label htmlFor="employee">Employee</Label>
-              <Select onValueChange={setSelectedEmployeeId} value={selectedEmployeeId} disabled={isSubmitting}>
+              <Select onValueChange={setSelectedEmployeeName} value={selectedEmployeeName} disabled={isSubmitting}>
                   <SelectTrigger id="employee">
                       <SelectValue placeholder="Select an employee..." />
                   </SelectTrigger>
                   <SelectContent>
                       {employees.map(emp => (
-                          <SelectItem key={emp.Person_Number} value={emp.Person_Number}>
+                          <SelectItem key={emp.Person_Number} value={emp.Full_Name}>
                               {emp.Full_Name}
                           </SelectItem>
                       ))}
@@ -176,7 +188,7 @@ export function TitleManagementContent() {
             </div>
         </CardContent>
         <CardFooter>
-            <Button type="submit" disabled={isSubmitting || !selectedEmployeeId || !selectedTitle}>
+            <Button type="submit" disabled={isSubmitting || !selectedEmployeeName || !selectedTitle}>
               {isSubmitting ? 'Saving...' : 'Save Title Update'}
             </Button>
         </CardFooter>
