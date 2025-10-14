@@ -24,9 +24,21 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [columns, setColumns] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  const displayColumns = [
+    'Person_Number',
+    'Full_Name',
+    'Employment_Status',
+    'Employment_Mode',
+    'Team_Name',
+    'Vertical_Name',
+    'Market_Facing_Title',
+    'First_Reviewer_Code',
+    'First_Reviewer_Name',
+    'Official_Email'
+  ];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -38,9 +50,6 @@ export function TeamContent() {
         }
         const data = await response.json();
         setTeamMembers(data);
-        if (data.length > 0) {
-          setColumns(Object.keys(data[0]));
-        }
       } catch (error) {
         console.error("Failed to fetch team members:", error);
         toast({
@@ -90,15 +99,15 @@ export function TeamContent() {
           <Table>
             <TableHeader>
               <TableRow>
-                {columns.map((column) => (
-                  <TableHead key={column}>{column}</TableHead>
+                {displayColumns.map((column) => (
+                  <TableHead key={column}>{column.replace(/_/g, ' ')}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {teamMembers.map((member, rowIndex) => (
                 <TableRow key={member['Person_Number'] || rowIndex}>
-                  {columns.map((column) => (
+                  {displayColumns.map((column) => (
                     <TableCell key={column}>{member[column as keyof TeamMember]}</TableCell>
                   ))}
                 </TableRow>
