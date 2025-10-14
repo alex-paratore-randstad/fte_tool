@@ -26,15 +26,19 @@ type Manager = {
 }
 
 export default function AdminPage() {
-  const { isAdmin, loading } = useCurrentUser();
+  const { isAdmin, loading: userLoading } = useCurrentUser();
   const [managers, setManagers] = useState<Manager[]>([]);
   const [impersonatedId, setImpersonatedId] = useState<string | null>(null);
   const [fetchingManagers, setFetchingManagers] = useState(true);
+  const [initializing, setInitializing] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     async function getManagers() {
-        if (!isAdmin) return;
+        if (!isAdmin) {
+          setFetchingManagers(false);
+          return;
+        };
         try {
             const response = await fetch(`/data/v1/gbs_ind_hr_fte_report`);
             if (!response.ok) {
@@ -57,15 +61,16 @@ export default function AdminPage() {
         }
     }
 
-    if (!loading) {
+    if (!userLoading) {
         getManagers();
         // Ensure localStorage is only accessed on the client-side after initial render and loading is complete
         const storedId = localStorage.getItem('impersonated_user_id');
         if (storedId) {
             setImpersonatedId(storedId);
         }
+        setInitializing(false);
     }
-  }, [isAdmin, loading, toast]);
+  }, [isAdmin, userLoading, toast]);
   
   const handleImpersonate = (userId: string) => {
     if(!userId) return;
@@ -79,7 +84,7 @@ export default function AdminPage() {
   }
 
 
-  if (loading) {
+  if (userLoading || initializing) {
     return (
         <div className="flex flex-col gap-8">
             <PageHeader
