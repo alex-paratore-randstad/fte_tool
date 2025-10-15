@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TeamMember } from '@/types';
+import { SelectSearch } from '../ui/select-search';
 
 type UpdatedTitle = {
   'Updated Market Facing Title': string;
@@ -21,6 +22,9 @@ export function TitleManagementContent() {
   const [selectedEmployeeName, setSelectedEmployeeName] = useState<string>('');
   const [selectedTitle, setSelectedTitle] = useState<string>('');
   
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+  const [titleSearchTerm, setTitleSearchTerm] = useState('');
+
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -61,6 +65,21 @@ export function TitleManagementContent() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const filteredEmployees = useMemo(() => {
+    if (!employeeSearchTerm) {
+      return employees;
+    }
+    return employees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
+  }, [employees, employeeSearchTerm]);
+  
+  const filteredTitles = useMemo(() => {
+    if (!titleSearchTerm) {
+      return titles;
+    }
+    return titles.filter(t => t['Updated Market Facing Title'].toLowerCase().includes(titleSearchTerm.toLowerCase()));
+  }, [titles, titleSearchTerm]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,11 +182,17 @@ export function TitleManagementContent() {
                       <SelectValue placeholder="Select an employee..." />
                   </SelectTrigger>
                   <SelectContent>
-                      {employees.map(emp => (
+                      <SelectSearch placeholder="Search employee..." onChange={setEmployeeSearchTerm} />
+                      {filteredEmployees.map(emp => (
                           <SelectItem key={emp.Person_Number} value={emp.Full_Name}>
                               {emp.Full_Name}
                           </SelectItem>
                       ))}
+                      {filteredEmployees.length === 0 && (
+                        <div className="p-4 text-sm text-center text-muted-foreground">
+                            No employees found.
+                        </div>
+                      )}
                   </SelectContent>
               </Select>
             </div>
@@ -178,11 +203,17 @@ export function TitleManagementContent() {
                       <SelectValue placeholder="Select a new title..." />
                   </SelectTrigger>
                   <SelectContent>
-                      {titles.map(t => (
+                      <SelectSearch placeholder="Search title..." onChange={setTitleSearchTerm} />
+                      {filteredTitles.map(t => (
                           <SelectItem key={t['Updated Market Facing Title']} value={t['Updated Market Facing Title']}>
                               {t['Updated Market Facing Title']}
                           </SelectItem>
                       ))}
+                      {filteredTitles.length === 0 && (
+                        <div className="p-4 text-sm text-center text-muted-foreground">
+                            No titles found.
+                        </div>
+                      )}
                   </SelectContent>
               </Select>
             </div>
