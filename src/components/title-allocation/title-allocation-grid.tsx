@@ -31,7 +31,7 @@ import { Skeleton } from '../ui/skeleton';
 import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth } from '@/lib/fiscal-calendar';
 
 type UpdatedTitle = {
-  title: string;
+  'Updated Market Facing Title': string;
 };
 
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -85,7 +85,7 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
       }
       
       const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name) : [];
-      const titleData: UpdatedTitle[] = titleResponse.ok ? (await titleResponse.json()).filter((t: UpdatedTitle) => t.title) : [];
+      const titleData: UpdatedTitle[] = titleResponse.ok ? (await titleResponse.json()).filter((t: UpdatedTitle) => t['Updated Market Facing Title']) : [];
       
       setAllEmployees(empData);
       setTitles(titleData);
@@ -350,8 +350,8 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
                               </SelectTrigger>
                               <SelectContent>
                                 {titles.map(t => (
-                                    <SelectItem key={t.title} value={t.title}>
-                                        {t.title}
+                                    <SelectItem key={t['Updated Market Facing Title']} value={t['Updated Market Facing Title']}>
+                                        {t['Updated Market Facing Title']}
                                     </SelectItem>
                                 ))}
                               </SelectContent>
@@ -374,5 +374,7 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
     </Card>
   );
 }
+
+    
 
     

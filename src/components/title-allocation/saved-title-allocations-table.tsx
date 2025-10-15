@@ -56,7 +56,7 @@ export function SavedTitleAllocationsTable({ currentDate, refreshKey }: SavedTit
       const weekKeys = weeks.map(formatDateKey);
       
       const allocationRequests = weekKeys.map(async weekKey => {
-        const response = await fetch(`/domo/datastores/v1/collections/title_allocations/documents?q=content.allocation_date='${weekKey}'`);
+        const response = await fetch(`/domo/datastores/v1/collections/title_allocations/documents?filter=content.allocation_date='${weekKey}'`);
         if (!response.ok) {
             console.warn(`Failed to fetch title allocations for ${weekKey}.`);
             return [];
