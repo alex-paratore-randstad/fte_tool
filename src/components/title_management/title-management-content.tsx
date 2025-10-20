@@ -12,7 +12,7 @@ import { TeamMember } from '@/types';
 import { SelectSearch } from '../ui/select-search';
 
 type UpdatedTitle = {
-  'Updated Market Facing Title': string;
+  updated_titles: string;
 };
 
 export function TitleManagementContent() {
@@ -48,7 +48,7 @@ export function TitleManagementContent() {
       const titleData: UpdatedTitle[] = await titleResponse.json();
       
       setEmployees(empData.filter(e => e && e.Full_Name));
-      setTitles(titleData.filter(t => t && t['Updated Market Facing Title']));
+      setTitles(titleData.filter(t => t && t.updated_titles));
 
     } catch (error: any) {
       console.error('Error fetching data:', error);
@@ -77,7 +77,7 @@ export function TitleManagementContent() {
     if (!titleSearchTerm) {
       return titles;
     }
-    return titles.filter(t => t['Updated Market Facing Title'].toLowerCase().includes(titleSearchTerm.toLowerCase()));
+    return titles.filter(t => t.updated_titles.toLowerCase().includes(titleSearchTerm.toLowerCase()));
   }, [titles, titleSearchTerm]);
 
 
@@ -205,8 +205,8 @@ export function TitleManagementContent() {
                   <SelectContent>
                       <SelectSearch placeholder="Search title..." onChange={setTitleSearchTerm} />
                       {filteredTitles.map(t => (
-                          <SelectItem key={t['Updated Market Facing Title']} value={t['Updated Market Facing Title']}>
-                              {t['Updated Market Facing Title']}
+                          <SelectItem key={t.updated_titles} value={t.updated_titles}>
+                              {t.updated_titles}
                           </SelectItem>
                       ))}
                       {filteredTitles.length === 0 && (
@@ -227,4 +227,3 @@ export function TitleManagementContent() {
     </Card>
   );
 }
-
