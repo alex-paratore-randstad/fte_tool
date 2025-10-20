@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { addMonths, subMonths, startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember } from '@/types';
 import { cn } from '@/lib/utils';
@@ -31,7 +31,7 @@ import { Skeleton } from '../ui/skeleton';
 import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth } from '@/lib/fiscal-calendar';
 
 type UpdatedTitle = {
-  'Updated Market Facing Title': string;
+  title: string;
 };
 
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -54,10 +54,11 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
   const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [titles, setTitles] = useState<UpdatedTitle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+  const [titleSearchTerm, setTitleSearchTerm] = useState('');
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
 
-  const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
+  const { currentUser, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -77,15 +78,15 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
     try {
       const [empResponse, titleResponse] = await Promise.all([
         fetch(`/data/v1/gbs_ind_hr_fte_report`),
-        fetch(`/data/v1/mst_fte_updated_titles`),
+        fetch(`/data/v1/updated_titles`),
       ]);
 
       if (!empResponse.ok || !titleResponse.ok) {
         console.warn("Could not fetch initial data. This may be expected in local dev.");
       }
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name) : [];
-      const titleData: UpdatedTitle[] = titleResponse.ok ? (await titleResponse.json()).filter((t: UpdatedTitle) => t['Updated Market Facing Title']) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e && e.Full_Name) : [];
+      const titleData: UpdatedTitle[] = titleResponse.ok ? (await titleResponse.json()).filter((t: UpdatedTitle) => t && t.title) : [];
       
       setAllEmployees(empData);
       setTitles(titleData);
@@ -119,11 +120,19 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
   const availableEmployees = useMemo(() => {
     const activeEmployeeIds = new Set(activeEmployees.map(a => a.employee.Person_Number));
     const unallocatedEmployees = allEmployees.filter(e => !activeEmployeeIds.has(e.Person_Number));
-    if (!searchTerm) {
+    if (!employeeSearchTerm) {
         return unallocatedEmployees;
     }
-    return unallocatedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [allEmployees, activeEmployees, searchTerm]);
+    return unallocatedEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
+  }, [allEmployees, activeEmployees, employeeSearchTerm]);
+  
+  const filteredTitles = useMemo(() => {
+    if (!titleSearchTerm) {
+      return titles;
+    }
+    return titles.filter(t => t.title.toLowerCase().includes(titleSearchTerm.toLowerCase()));
+  }, [titles, titleSearchTerm]);
+
 
   const handlePrevMonth = () => setCurrentDate(getPreviousFiscalMonth(currentDate));
   const handleNextMonth = () => setCurrentDate(getNextFiscalMonth(currentDate));
@@ -256,7 +265,7 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
                     <SelectValue placeholder="Add Employee..." />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
+                    <SelectSearch placeholder="Search employee..." onChange={setEmployeeSearchTerm} />
                     {availableEmployees.map(e => (
                         <SelectItem key={e.Person_Number} value={e.Person_Number}>
                             {e.Full_Name}
@@ -349,11 +358,17 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
                                 <SelectValue placeholder="Select Title..." />
                               </SelectTrigger>
                               <SelectContent>
-                                {titles.map(t => (
-                                    <SelectItem key={t['Updated Market Facing Title']} value={t['Updated Market Facing Title']}>
-                                        {t['Updated Market Facing Title']}
+                                <SelectSearch placeholder="Search title..." onChange={setTitleSearchTerm} />
+                                {filteredTitles.map(t => (
+                                    <SelectItem key={t.title} value={t.title}>
+                                        {t.title}
                                     </SelectItem>
                                 ))}
+                                {filteredTitles.length === 0 && (
+                                    <div className="p-4 text-sm text-center text-muted-foreground">
+                                        No titles found.
+                                    </div>
+                                )}
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -374,7 +389,3 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
     </Card>
   );
 }
-
-    
-
-    
