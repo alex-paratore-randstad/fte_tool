@@ -15,7 +15,11 @@ type UpdatedTitle = {
   updated_titles: string;
 };
 
-export function TitleManagementContent() {
+type TitleManagementContentProps = {
+  onSaveSuccess: () => void;
+};
+
+export function TitleManagementContent({ onSaveSuccess }: TitleManagementContentProps) {
   const [employees, setEmployees] = useState<TeamMember[]>([]);
   const [titles, setTitles] = useState<UpdatedTitle[]>([]);
   
@@ -45,7 +49,7 @@ export function TitleManagementContent() {
       }
 
       const empData: TeamMember[] = await empResponse.json();
-      const titleData: UpdatedTitle[] = await titleResponse.json();
+      const titleData: any[] = await titleResponse.json();
       
       setEmployees(empData.filter(e => e && e.Full_Name));
       setTitles(titleData.filter(t => t && t.updated_titles));
@@ -129,6 +133,7 @@ export function TitleManagementContent() {
       // Reset form
       setSelectedEmployeeName('');
       setSelectedTitle('');
+      onSaveSuccess(); // Trigger refresh
     } catch (error) {
       console.error('Error submitting data:', error);
       toast({
@@ -171,7 +176,7 @@ export function TitleManagementContent() {
         <CardHeader>
           <CardTitle>Update Employee Title</CardTitle>
           <CardDescription>
-            Select an employee and choose their new market-facing title.
+            Select an employee and choose their new market-facing title. This change is permanent.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6">
