@@ -31,7 +31,7 @@ import { Skeleton } from '../ui/skeleton';
 import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth } from '@/lib/fiscal-calendar';
 
 type UpdatedTitle = {
-  title: string;
+  updated_titles: string;
 };
 
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -78,7 +78,7 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
     try {
       const [empResponse, titleResponse] = await Promise.all([
         fetch(`/data/v1/gbs_ind_hr_fte_report`),
-        fetch(`/data/v1/updated_titles`),
+        fetch(`/data/v1/mst_fte_updated_titles`),
       ]);
 
       if (!empResponse.ok || !titleResponse.ok) {
@@ -86,7 +86,7 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
       }
       
       const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e && e.Full_Name) : [];
-      const titleData: UpdatedTitle[] = titleResponse.ok ? (await titleResponse.json()).filter((t: UpdatedTitle) => t && t.title) : [];
+      const titleData: UpdatedTitle[] = titleResponse.ok ? (await titleResponse.json()).filter((t: UpdatedTitle) => t && t.updated_titles) : [];
       
       setAllEmployees(empData);
       setTitles(titleData);
@@ -130,7 +130,7 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
     if (!titleSearchTerm) {
       return titles;
     }
-    return titles.filter(t => t.title.toLowerCase().includes(titleSearchTerm.toLowerCase()));
+    return titles.filter(t => t.updated_titles.toLowerCase().includes(titleSearchTerm.toLowerCase()));
   }, [titles, titleSearchTerm]);
 
 
@@ -360,8 +360,8 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
                               <SelectContent>
                                 <SelectSearch placeholder="Search title..." onChange={setTitleSearchTerm} />
                                 {filteredTitles.map(t => (
-                                    <SelectItem key={t.title} value={t.title}>
-                                        {t.title}
+                                    <SelectItem key={t.updated_titles} value={t.updated_titles}>
+                                        {t.updated_titles}
                                     </SelectItem>
                                 ))}
                                 {filteredTitles.length === 0 && (
