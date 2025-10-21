@@ -209,7 +209,7 @@ export default function DashboardPage() {
          <Card>
             <CardHeader>
                 <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-                 <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
+                 <div className="text-sm text-muted-foreground"><Skeleton className="h-4 w-1/2" /></div>
             </CardHeader>
             <CardContent>
                 <Skeleton className="h-[300px] w-full" />
