@@ -7,9 +7,7 @@ import {
   LayoutDashboard,
   CalendarClock,
   Users,
-  Settings,
   Building,
-  Shield,
   FlaskConical,
   CaseUpper,
 } from 'lucide-react';
@@ -29,8 +27,6 @@ const navItems = [
   { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
   { href: '/title_management', label: 'Title Management', icon: FlaskConical, roles: ['admin', 'manager'] },
   { href: '/title-allocation', label: 'Title Allocation', icon: CaseUpper, roles: ['admin', 'manager'], devOnly: true },
-  { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'vp'], devOnly: true },
-  { href: '/admin', label: 'Admin', icon: Shield, roles: ['admin'], devOnly: true },
 ];
 
 export function SidebarNav() {
