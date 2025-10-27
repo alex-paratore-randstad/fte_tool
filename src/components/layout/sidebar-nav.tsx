@@ -28,14 +28,14 @@ const navItems = [
   { href: '/team', label: 'Team Management', icon: Users, roles: ['admin', 'manager', 'vp'] },
   { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
   { href: '/title_management', label: 'Title Management', icon: FlaskConical, roles: ['admin', 'manager'] },
-  { href: '/title-allocation', label: 'Title Allocation', icon: CaseUpper, roles: ['admin', 'manager'] },
-  { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'vp'] },
-  { href: '/admin', label: 'Admin', icon: Shield, roles: ['admin'] },
+  { href: '/title-allocation', label: 'Title Allocation', icon: CaseUpper, roles: ['admin', 'manager'], devOnly: true },
+  { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'manager', 'vp'], devOnly: true },
+  { href: '/admin', label: 'Admin', icon: Shield, roles: ['admin'], devOnly: true },
 ];
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const { currentUser, loading } = useCurrentUser();
+  const { currentUser, isAdmin, loading } = useCurrentUser();
 
   if (loading) {
     return (
@@ -58,7 +58,16 @@ export function SidebarNav() {
 
   const filteredNavItems = navItems.filter(item => {
     if (!currentUser || !currentUser.role) return false;
-    return item.roles.includes(currentUser.role)
+    
+    const hasRole = item.roles.includes(currentUser.role);
+    if (!hasRole) return false;
+
+    // Hide items marked as devOnly in production unless the user is an admin
+    if (item.devOnly && process.env.NODE_ENV === 'production' && !isAdmin) {
+      return false;
+    }
+
+    return true;
   });
 
   const getHref = (href: string) => {
