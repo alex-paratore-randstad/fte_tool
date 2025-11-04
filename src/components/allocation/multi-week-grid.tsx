@@ -48,7 +48,7 @@ type EmployeeAllocation = {
 };
 
 type MultiWeekGridProps = {
-  currentDate: Date;
+  currentDate: Date | null;
   setCurrentDate: (date: Date) => void;
   onSaveSuccess: () => void;
 };
@@ -142,8 +142,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     );
   }, [costCenters, costCenterSearchTerm]);
 
-  const handlePrevMonth = () => setCurrentDate(getPreviousFiscalMonth(currentDate));
-  const handleNextMonth = () => setCurrentDate(getNextFiscalMonth(currentDate));
+  const handlePrevMonth = () => {
+    if (currentDate) setCurrentDate(getPreviousFiscalMonth(currentDate));
+  };
+  const handleNextMonth = () => {
+    if (currentDate) setCurrentDate(getNextFiscalMonth(currentDate));
+  };
   
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
@@ -343,7 +347,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     }
   };
 
-  if (loading || userLoading || !startOfCurrentWeek) {
+  if (loading || userLoading || !currentDate || !startOfCurrentWeek) {
     return (
       <Card>
         <CardHeader>
@@ -353,8 +357,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
         <CardContent>
           <div className="space-y-4">
             <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-64 w-full" />
           </div>
         </CardContent>
       </Card>
@@ -551,7 +554,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     </Card>
   );
 }
-
-    
-
-    

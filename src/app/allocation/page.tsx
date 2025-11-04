@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { MultiWeekGrid } from '@/components/allocation/multi-week-grid';
 import { WeeklyAllocationTable } from '@/components/allocation/weekly-allocation-table';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AllocationPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
@@ -19,21 +18,6 @@ export default function AllocationPage() {
   const handleRefresh = () => {
     setRefreshKey(prevKey => prevKey + 1);
   };
-  
-  if (!currentDate) {
-      return (
-         <div className="flex flex-col gap-8">
-           <PageHeader
-            title="Monthly Allocation"
-            description="Allocate FTEs for the current month."
-          />
-          <div className="space-y-4">
-             <Skeleton className="h-48 w-full" />
-             <Skeleton className="h-48 w-full" />
-          </div>
-        </div>
-      )
-  }
 
   return (
     <div className="flex flex-col gap-8">

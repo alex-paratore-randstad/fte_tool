@@ -22,4 +22,6 @@ This application is built to run on the Domo platform and has specific configura
 
 3.  **`package.json`**: Do not add, remove, or change dependencies unless the user specifically requests it. The existing stack is configured for the Domo environment.
 
+4.  **`public/thumbnail.png`**: This file is a user-provided image asset that serves as the application's thumbnail in the Domo Appstore. It has been added manually by the user. **Do not** modify, move, or delete this file.
+
 By adhering to these rules, you will avoid breaking the application's connection to the Domo platform.

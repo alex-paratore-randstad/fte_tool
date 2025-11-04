@@ -42,7 +42,7 @@ type EmployeeTitleAllocation = {
 };
 
 type TitleAllocationGridProps = {
-  currentDate: Date;
+  currentDate: Date | null;
   setCurrentDate: (date: Date) => void;
   onSaveSuccess: () => void;
 };
@@ -134,8 +134,12 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
   }, [titles, titleSearchTerm]);
 
 
-  const handlePrevMonth = () => setCurrentDate(getPreviousFiscalMonth(currentDate));
-  const handleNextMonth = () => setCurrentDate(getNextFiscalMonth(currentDate));
+  const handlePrevMonth = () => {
+    if (currentDate) setCurrentDate(getPreviousFiscalMonth(currentDate));
+  };
+  const handleNextMonth = () => {
+    if (currentDate) setCurrentDate(getNextFiscalMonth(currentDate));
+  };
   
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
@@ -233,7 +237,7 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
     }
   };
 
-  if (loading || userLoading || !startOfCurrentWeek) {
+  if (loading || userLoading || !startOfCurrentWeek || !currentDate) {
     return (
       <Card>
         <CardHeader>
@@ -243,8 +247,7 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
         <CardContent>
           <div className="space-y-4">
             <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-64 w-full" />
           </div>
         </CardContent>
       </Card>

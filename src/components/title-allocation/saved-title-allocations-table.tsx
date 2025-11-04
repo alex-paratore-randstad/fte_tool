@@ -30,7 +30,7 @@ type EmployeeTitleAllocation = {
 };
 
 type SavedTitleAllocationsTableProps = {
-  currentDate: Date;
+  currentDate: Date | null;
   refreshKey: number;
 };
 
@@ -46,11 +46,15 @@ export function SavedTitleAllocationsTable({ currentDate, refreshKey }: SavedTit
   }, []);
 
   const weeks = useMemo(() => {
+    if (!currentDate) return [];
     return getWeeksForFiscalMonth(currentDate);
   }, [currentDate]);
 
   const fetchData = useCallback(async () => {
-    if (weeks.length === 0) return;
+    if (weeks.length === 0) {
+        setLoading(false);
+        return;
+    };
     setLoading(true);
     try {
       const weekKeys = weeks.map(formatDateKey);
@@ -94,10 +98,12 @@ export function SavedTitleAllocationsTable({ currentDate, refreshKey }: SavedTit
   }, [weeks, toast]);
   
   useEffect(() => {
-    fetchData();
-  }, [fetchData, refreshKey]);
+    if (currentDate) {
+        fetchData();
+    }
+  }, [currentDate, fetchData, refreshKey]);
 
-  if (loading || !startOfCurrentWeek) {
+  if (loading || !startOfCurrentWeek || !currentDate) {
     return (
       <Card>
         <CardHeader>
@@ -107,8 +113,7 @@ export function SavedTitleAllocationsTable({ currentDate, refreshKey }: SavedTit
         <CardContent>
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-40 w-full" />
           </div>
         </CardContent>
       </Card>
@@ -175,5 +180,3 @@ export function SavedTitleAllocationsTable({ currentDate, refreshKey }: SavedTit
     </Card>
   );
 }
-
-    
