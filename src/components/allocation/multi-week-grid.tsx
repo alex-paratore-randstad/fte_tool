@@ -96,7 +96,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
       const ccData: CostCenterData[] = ccResponse.ok ? (await ccResponse.json()).filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name) : [];
       
       setAllEmployees(empData);
-      setCostCenters(ccData);
+      
+      const staticCostCenters: CostCenterData[] = [
+        { cost_center_number: 'UNALLOCATED', cost_center_name: 'Unallocated' },
+        { cost_center_number: 'PTO', cost_center_name: 'PTO' },
+      ];
+      setCostCenters([...staticCostCenters, ...ccData]);
       
       const managerMap = new Map<string, string>();
       empData.forEach(emp => {
@@ -554,3 +559,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     </Card>
   );
 }
+
+    
