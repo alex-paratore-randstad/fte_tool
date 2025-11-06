@@ -26,7 +26,6 @@ const navItems = [
   { href: '/team', label: 'Team Management', icon: Users, roles: ['admin', 'manager', 'vp'] },
   { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
   { href: '/title_management', label: 'Title Management', icon: FlaskConical, roles: ['admin', 'manager'] },
-  { href: '/title-allocation', label: 'Title Allocation', icon: CaseUpper, roles: ['admin', 'manager'], devOnly: true },
 ];
 
 export function SidebarNav() {
@@ -57,11 +56,6 @@ export function SidebarNav() {
     
     const hasRole = item.roles.includes(currentUser.role);
     if (!hasRole) return false;
-
-    // Hide items marked as devOnly in production unless the user is an admin
-    if (item.devOnly && process.env.NODE_ENV === 'production' && !isAdmin) {
-      return false;
-    }
 
     return true;
   });
