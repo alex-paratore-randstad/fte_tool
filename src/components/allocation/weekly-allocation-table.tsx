@@ -6,12 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { addWeeks, startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
+import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { getWeeksForFiscalMonth } from '@/lib/fiscal-calendar';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
 
 type WeeklyAllocationDoc = {
   id: string;
@@ -26,10 +28,15 @@ type WeeklyAllocationDoc = {
 
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
+type AllocationFTE = {
+  fte: number;
+  docId: string | null;
+};
+
 type AllocationRow = {
   costCenterId: string;
   costCenterName: string;
-  weeklyFtes: { [weekKey: string]: number };
+  weeklyFtes: { [weekKey: string]: AllocationFTE };
 };
 
 type EmployeeAllocation = {
@@ -43,14 +50,15 @@ type WeeklyAllocationTableProps = {
 };
 
 export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocationTableProps) {
-  const [allocations, setAllocations] = useState<EmployeeAllocation[]>([]);
+  const [originalAllocations, setOriginalAllocations] = useState<EmployeeAllocation[]>([]);
+  const [editableAllocations, setEditableAllocations] = useState<EmployeeAllocation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const { toast } = useToast();
   const { isAdmin } = useCurrentUser();
 
   useEffect(() => {
-    // Set the date only on the client side to avoid hydration errors
     setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   }, []);
 
@@ -72,7 +80,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
         const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?filter=content.allocation_date='${weekKey}'`);
         if (!response.ok) {
             console.warn(`Failed to fetch allocations for ${weekKey}. This may be expected in local dev.`);
-            return []; // Return empty array on failure
+            return [];
         };
         return response.json();
       });
@@ -93,7 +101,10 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                 weeklyFtes: {},
             };
         }
-        acc[allocation_name][cost_center_number].weeklyFtes[allocation_date] = parseFloat(allocation_amount);
+        acc[allocation_name][cost_center_number].weeklyFtes[allocation_date] = {
+          fte: parseFloat(allocation_amount) || 0,
+          docId: current.id,
+        };
         return acc;
       }, {} as Record<string, Record<string, AllocationRow>>);
 
@@ -102,7 +113,8 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
         allocations: Object.values(costCenterGroup),
       }));
 
-      setAllocations(structuredAllocations);
+      setOriginalAllocations(structuredAllocations);
+      setEditableAllocations(JSON.parse(JSON.stringify(structuredAllocations))); // Deep copy for editing
     } catch (error) {
       console.error('Error fetching allocation data:', error);
       toast({
@@ -120,6 +132,84 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
         fetchData();
     }
   }, [currentDate, fetchData, refreshKey]);
+
+  const handleFteChange = (employeeName: string, costCenterId: string, weekKey: string, newFteValue: string) => {
+    const newFte = parseFloat(newFteValue) || 0;
+    setEditableAllocations(prev => prev.map(empAlloc => {
+      if (empAlloc.employeeName === employeeName) {
+        const newAllocations = empAlloc.allocations.map(alloc => {
+          if (alloc.costCenterId === costCenterId) {
+            const updatedFtes = { ...alloc.weeklyFtes };
+            if (updatedFtes[weekKey]) {
+              updatedFtes[weekKey].fte = newFte;
+            }
+            return { ...alloc, weeklyFtes: updatedFtes };
+          }
+          return alloc;
+        });
+        return { ...empAlloc, allocations: newAllocations };
+      }
+      return empAlloc;
+    }));
+  };
+
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    const updates = [];
+
+    for (const empIdx in editableAllocations) {
+      const empAlloc = editableAllocations[empIdx];
+      for (const allocIdx in empAlloc.allocations) {
+        const alloc = empAlloc.allocations[allocIdx];
+        for (const weekKey in alloc.weeklyFtes) {
+          const editable = alloc.weeklyFtes[weekKey];
+          // Add a guard to prevent accessing undefined properties
+          const originalEmp = originalAllocations[parseInt(empIdx, 10)];
+          const originalAlloc = originalEmp?.allocations[parseInt(allocIdx, 10)];
+          const original = originalAlloc?.weeklyFtes[weekKey];
+
+          if (editable && original && editable.fte !== original.fte && editable.docId) {
+            updates.push({
+              docId: editable.docId,
+              content: {
+                allocation_date: weekKey,
+                allocation_name: empAlloc.employeeName,
+                cost_center_name: alloc.costCenterName,
+                cost_center_number: alloc.costCenterId,
+                allocation_amount: editable.fte.toString(),
+              },
+            });
+          }
+        }
+      }
+    }
+
+    if (updates.length === 0) {
+      toast({ title: 'No changes to save.' });
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      await Promise.all(updates.map(update =>
+        fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${update.docId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: update.content }),
+        }).then(res => {
+          if (!res.ok) throw new Error(`Failed to update allocation for ${update.content.allocation_name}`);
+          return res.json();
+        })
+      ));
+      toast({ title: 'Success', description: `${updates.length} allocation(s) updated.` });
+      fetchData(); // Refresh data
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
 
   if (loading || !startOfCurrentWeek || !currentDate) {
     return (
@@ -140,9 +230,14 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Saved Allocations for this Period</CardTitle>
-        <CardDescription>Records from the weekly_allocation collection for the displayed weeks.</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Saved Allocations for this Period</CardTitle>
+          <CardDescription>Records from the weekly_allocation collection. You can edit values and save.</CardDescription>
+        </div>
+        <Button onClick={handleSaveChanges} disabled={isSaving}>
+          {isSaving ? 'Saving...' : 'Save Changes'}
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -167,17 +262,17 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {allocations.length === 0 ? (
+                {editableAllocations.length === 0 ? (
                     <TableRow>
                         <TableCell colSpan={weeks.length + 1} className="text-center h-24 text-muted-foreground">
                             No saved allocation data found for this period.
                         </TableCell>
                     </TableRow>
                 ) : (
-                    allocations.map(({ employeeName, allocations: empAllocations }) => {
+                    editableAllocations.map(({ employeeName, allocations: empAllocations }) => {
                         const weeklyTotals = weeks.map(week => {
                             const weekKey = formatDateKey(week);
-                            return empAllocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
+                            return empAllocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey]?.fte || 0), 0);
                         });
 
                         return (
@@ -196,11 +291,23 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                                         {weeks.map(week => {
                                             const weekKey = formatDateKey(week);
                                             const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                                             const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                                            const fte = alloc.weeklyFtes[weekKey] || 0;
+                                            const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                                            const isLockedForUser = isPast && !isAdmin;
+                                            const fteData = alloc.weeklyFtes[weekKey];
+
                                             return (
                                                 <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
-                                                    {fte > 0 ? fte.toFixed(2) : '-'}
+                                                    {fteData ? (
+                                                        <Input
+                                                          type="number" step="0.05" min="0" placeholder="0.00"
+                                                          className={cn("w-24 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
+                                                          value={fteData.fte || ''}
+                                                          onChange={(e) => handleFteChange(employeeName, alloc.costCenterId, weekKey, e.target.value)}
+                                                          disabled={isLockedForUser || isSaving} readOnly={isLockedForUser}
+                                                        />
+                                                    ) : (
+                                                      <div className="w-24 text-center mx-auto text-muted-foreground">-</div>
+                                                    )}
                                                 </TableCell>
                                             )
                                         })}
