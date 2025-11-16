@@ -31,13 +31,13 @@ type SummaryDoc = {
     bulk_allocation_id: string;
     cost_center_name: string;
     allocation_percentage: string;
-    creation_date: string;
+    bulk_allocation_date: string;
   };
 };
 
 type ProcessedAllocation = {
   id: string;
-  creationDate: string;
+  allocationDate: string;
   employees: string[];
   summaries: { name: string; percentage: string }[];
 };
@@ -67,12 +67,12 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
       const summaries: SummaryDoc[] = summaryResponse.ok ? await summaryResponse.json() : [];
 
       const grouped = summaries.reduce((acc, summary) => {
-        const { bulk_allocation_id, cost_center_name, allocation_percentage, creation_date } = summary.content;
+        const { bulk_allocation_id, cost_center_name, allocation_percentage, bulk_allocation_date } = summary.content;
         
         if (!acc[bulk_allocation_id]) {
           acc[bulk_allocation_id] = {
             id: bulk_allocation_id,
-            creationDate: creation_date,
+            allocationDate: bulk_allocation_date,
             employees: [],
             summaries: [],
           };
@@ -92,7 +92,7 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
         }
       });
       
-      const processed = Object.values(grouped).sort((a, b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime());
+      const processed = Object.values(grouped).sort((a, b) => new Date(b.allocationDate).getTime() - new Date(a.allocationDate).getTime());
       setAllocations(processed);
 
     } catch (error) {
@@ -144,7 +144,7 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
                         <span className="font-mono text-sm text-primary">{alloc.id.substring(0,8)}...</span>
                         <Badge variant="secondary">{alloc.employees.length} Employees</Badge>
                         <span className="text-sm text-muted-foreground hidden sm:inline">
-                            Created: {new Date(alloc.creationDate).toLocaleDateString()}
+                            Created: {new Date(alloc.allocationDate).toLocaleDateString()}
                         </span>
                     </div>
                 </AccordionTrigger>
@@ -187,3 +187,5 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
     </Card>
   );
 }
+
+    

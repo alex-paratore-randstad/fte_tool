@@ -276,6 +276,10 @@
                         "type": "STRING"
                     },
                     {
+                        "name": "bulk_allocation_date",
+                        "type": "STRING"
+                    },
+                    {
                         "name": "employee_id",
                         "type": "STRING"
                     },

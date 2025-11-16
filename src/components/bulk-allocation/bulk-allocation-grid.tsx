@@ -149,7 +149,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
 
     setIsSubmitting(true);
     const bulkAllocationId = uuidv4();
-    const creationDate = new Date().toISOString();
+    const allocationDate = new Date().toISOString();
 
     const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
       const employee = allEmployees.find(e => e.Person_Number === employeeId);
@@ -161,6 +161,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
             bulk_allocation_id: bulkAllocationId,
             employee_id: employeeId,
             employee_name: employee?.Full_Name || 'Unknown',
+            bulk_allocation_date: allocationDate,
           }
         }),
       });
@@ -177,7 +178,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
             cost_center_number: cc?.cost_center_number || 'Unknown',
             cost_center_name: row.costCenterName,
             allocation_percentage: row.percentage.toString(),
-            creation_date: creationDate,
+            bulk_allocation_date: allocationDate,
           }
         }),
       });
@@ -314,3 +315,5 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
     </div>
   );
 }
+
+    
