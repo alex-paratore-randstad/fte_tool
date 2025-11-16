@@ -266,6 +266,50 @@
                 ]
             },
             "syncEnabled": false
+        },
+        {
+            "name": "bulk_allocation_fte",
+            "schema": {
+                "columns": [
+                    {
+                        "name": "bulk_allocation_id",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "employee_id",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "employee_name",
+                        "type": "STRING"
+                    }
+                ]
+            },
+            "syncEnabled": false
+        },
+        {
+            "name": "bulk_allocation_summary",
+            "schema": {
+                "columns": [
+                    {
+                        "name": "bulk_allocation_id",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "cost_center_number",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "cost_center_name",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "allocation_percentage",
+                        "type": "STRING"
+                    }
+                ]
+            },
+            "syncEnabled": false
         }
     ],
     "fileName": "manifest.json",

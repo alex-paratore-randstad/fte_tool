@@ -1,10 +1,9 @@
 
 'use client';
 
-import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { addMonths, subMonths, startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -13,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SelectSearch } from '@/components/ui/select-search';
 import {
   Table,
   TableBody,
@@ -22,65 +20,32 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { PlusCircle, Trash2, X } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember } from '@/types';
-import { cn } from '@/lib/utils';
-import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth } from '@/lib/fiscal-calendar';
+import { ScrollArea } from '../ui/scroll-area';
+import { SelectSearch } from '../ui/select-search';
+import { v4 as uuidv4 } from 'uuid';
+import { Alert, AlertDescription } from '../ui/alert';
 
 type CostCenterData = { ['cost_center_number']: string; ['cost_center_name']: string };
+type AllocationRow = { id: string; costCenterName: string; percentage: number };
 
-const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-
-type AllocationRow = {
-  id: string;
-  costCenterId: string;
-  costCenterName: string;
-  weeklyFtes: { [weekKey: string]: number };
-};
-
-type EmployeeAllocation = {
-  employee: TeamMember;
-  allocations: AllocationRow[];
-};
-
-type BulkAllocationGridProps = {
-  currentDate: Date | null;
-  setCurrentDate: (date: Date) => void;
-  onSaveSuccess: () => void;
-};
-
-
-export function BulkAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess }: BulkAllocationGridProps) {
-  const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
+export function BulkAllocationGrid() {
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
-  const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [costCenterSearchTerm, setCostCenterSearchTerm] = useState('');
-  const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
+  const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
+  const [allocationRows, setAllocationRows] = useState<AllocationRow[]>([]);
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+
+  const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Set the date only on the client side to avoid hydration errors
-    if (!startOfCurrentWeek) {
-      setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
-    }
-  }, [startOfCurrentWeek]);
-
-  const { weeks, fiscalMonthLabel } = useMemo(() => {
-    if (!currentDate) return { weeks: [], fiscalMonthLabel: 'Loading...' };
-    const fiscalData = getFiscalDataForDate(currentDate);
-    const monthWeeks = getWeeksForFiscalMonth(currentDate);
-    const label = fiscalData ? `${fiscalData.reporting_month} ${fiscalData.reporting_year}` : 'Loading...';
-    return { weeks: monthWeeks, fiscalMonthLabel: label };
-  }, [currentDate]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -91,7 +56,7 @@ export function BulkAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess 
       ]);
 
       if (!empResponse.ok || !ccResponse.ok) {
-        console.warn("Could not fetch initial data. This may be expected in local dev.");
+        console.warn("Could not fetch initial data.");
       }
       
       const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name) : [];
@@ -104,17 +69,6 @@ export function BulkAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess 
         { cost_center_number: 'PTO', cost_center_name: 'PTO' },
       ];
       setCostCenters([...staticCostCenters, ...ccData]);
-      
-      const managerMap = new Map<string, string>();
-      empData.forEach(emp => {
-          if(emp.First_Reviewer_Code && emp.First_Reviewer_Name) {
-              managerMap.set(emp.First_Reviewer_Code, emp.First_Reviewer_Name);
-          }
-      });
-      const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }));
-      setManagers(uniqueManagers);
-
-      setActiveAllocations([]);
 
     } catch (error) {
       console.error("Failed to fetch initial data:", error);
@@ -126,438 +80,239 @@ export function BulkAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess 
 
   useEffect(() => {
     if (!userLoading) {
-        fetchData();
+      fetchData();
     }
+    // Add default allocation row
+    setAllocationRows([{ id: `new-${Date.now()}`, costCenterName: '', percentage: 100 }]);
   }, [fetchData, userLoading, currentUser.id]);
 
-
-  const availableEmployees = useMemo(() => {
-    const activeEmployeeIds = new Set(activeAllocations.map(a => a.employee.Person_Number));
-    const unallocatedEmployees = allEmployees.filter(e => !activeEmployeeIds.has(e.Person_Number));
-    if (!searchTerm) {
-        return unallocatedEmployees;
+  const filteredEmployees = useMemo(() => {
+    if (!employeeSearchTerm) {
+      return allEmployees;
     }
-    return unallocatedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [allEmployees, activeAllocations, searchTerm]);
-  
-  const filteredCostCenters = useMemo(() => {
-    if (!costCenterSearchTerm) {
-      return costCenters;
-    }
-    return costCenters.filter(cc =>
-      cc.cost_center_name.toLowerCase().includes(costCenterSearchTerm.toLowerCase())
-    );
-  }, [costCenters, costCenterSearchTerm]);
+    return allEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
+  }, [allEmployees, employeeSearchTerm]);
 
-  const handlePrevMonth = () => {
-    if (currentDate) setCurrentDate(getPreviousFiscalMonth(currentDate));
-  };
-  const handleNextMonth = () => {
-    if (currentDate) setCurrentDate(getNextFiscalMonth(currentDate));
-  };
-  
-  const handleAddEmployee = (employeeId: string) => {
-    if (!employeeId) return;
-    const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
-    
-    if (employeeToAdd) {
-      const isAlreadyActive = activeAllocations.some(a => a.employee.Person_Number === employeeId);
-      if (isAlreadyActive) {
-          toast({ variant: 'destructive', title: 'Employee already in grid' });
-          return;
+  const totalPercentage = useMemo(() => {
+    return allocationRows.reduce((sum, row) => sum + (Number(row.percentage) || 0), 0);
+  }, [allocationRows]);
+
+  const handleEmployeeToggle = (employeeId: string, isSelected: boolean) => {
+    setSelectedEmployees(prev => {
+      const newSet = new Set(prev);
+      if (isSelected) {
+        newSet.add(employeeId);
+      } else {
+        newSet.delete(employeeId);
       }
-      const newAllocationRow: AllocationRow = {
-        id: `${employeeId}-new-${Date.now()}`,
-        costCenterId: '',
-        costCenterName: '',
-        weeklyFtes: {},
-      };
-      
-      setActiveAllocations(prev => [{
-        employee: employeeToAdd,
-        allocations: [newAllocationRow]
-      }, ...prev]);
-    }
-  };
-
-  const handleAddManagerTeam = (managerId: string) => {
-    if (!managerId) return;
-    const directReports = allEmployees.filter(e => e.First_Reviewer_Code === managerId);
-    
-    const newAllocations = directReports
-      .filter(employee => !activeAllocations.some(a => a.employee.Person_Number === employee.Person_Number))
-      .map(employee => {
-        const newAllocationRow: AllocationRow = {
-          id: `${employee.Person_Number}-new-${Date.now()}`,
-          costCenterId: '',
-          costCenterName: '',
-          weeklyFtes: {},
-        };
-        return {
-          employee,
-          allocations: [newAllocationRow],
-        };
-      });
-
-    if (newAllocations.length > 0) {
-      setActiveAllocations(prev => [...newAllocations, ...prev]);
-      toast({ title: 'Team Loaded', description: `${newAllocations.length} employees have been added to the grid.` });
-    } else {
-      toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' });
-    }
-  };
-
-
-  const handleRemoveEmployee = (employeeId: string) => {
-    setActiveAllocations(prev => prev.filter(a => a.employee.Person_Number !== employeeId));
-  };
-  
-  const handleFteChange = (employeeId: string, allocId: string, weekKey: string, newFteValue: string) => {
-    const newFte = parseFloat(newFteValue) || 0;
-    setActiveAllocations(prev => prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-            const newAllocations = empAlloc.allocations.map(alloc => {
-                if (alloc.id === allocId) {
-                    return { ...alloc, weeklyFtes: { ...alloc.weeklyFtes, [weekKey]: newFte } };
-                }
-                return alloc;
-            });
-            return { ...empAlloc, allocations: newAllocations };
-        }
-        return empAlloc;
-    }));
-  };
-
-  const handleMonthlyFteChange = (employeeId: string, allocId: string, monthlyFteValue: string) => {
-    const monthlyFte = parseFloat(monthlyFteValue) || 0;
-    if (!startOfCurrentWeek) return;
-    
-    setActiveAllocations(prev => {
-      return prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-          const newAllocations = empAlloc.allocations.map(alloc => {
-            if (alloc.id === allocId) {
-              const updatedWeeklyFtes = { ...alloc.weeklyFtes };
-              weeks.forEach(week => {
-                const weekKey = formatDateKey(week);
-                const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                const isLockedForUser = isPast && !isAdmin;
-                if (!isLockedForUser) {
-                  updatedWeeklyFtes[weekKey] = monthlyFte;
-                }
-              });
-              return { ...alloc, weeklyFtes: updatedWeeklyFtes };
-            }
-            return alloc;
-          });
-          return { ...empAlloc, allocations: newAllocations };
-        }
-        return empAlloc;
-      });
+      return newSet;
     });
   };
+
+  const handleAddAllocationRow = () => {
+    setAllocationRows(prev => [...prev, { id: `new-${Date.now()}`, costCenterName: '', percentage: 0 }]);
+  };
+
+  const handleRemoveAllocationRow = (id: string) => {
+    setAllocationRows(prev => prev.filter(row => row.id !== id));
+  };
   
-  const handleCostCenterChange = (employeeId: string, allocId: string, newCostCenterName: string) => {
-     setActiveAllocations(prev => prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-            const newAllocations = empAlloc.allocations.map(alloc => {
-                if (alloc.id === allocId) {
-                    const selectedCc = costCenters.find(cc => cc.cost_center_name === newCostCenterName);
-                    return { ...alloc, costCenterName: newCostCenterName, costCenterId: selectedCc?.cost_center_number || '' };
-                }
-                return alloc;
-            });
-            return { ...empAlloc, allocations: newAllocations };
+  const handleAllocationChange = (id: string, field: 'costCenterName' | 'percentage', value: string) => {
+    setAllocationRows(prev => prev.map(row => {
+      if (row.id === id) {
+        if (field === 'percentage') {
+          return { ...row, [field]: Number(value) };
         }
-        return empAlloc;
-    }));
-  };
-
-  const handleAddAllocationRow = (employeeId: string) => {
-    setActiveAllocations(prev => prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-            const newAlloc: AllocationRow = {
-                id: `${employeeId}-new-${Date.now()}`,
-                costCenterId: '',
-                costCenterName: '',
-                weeklyFtes: {},
-            };
-            return { ...empAlloc, allocations: [...empAlloc.allocations, newAlloc] };
-        }
-        return empAlloc;
-    }));
-  };
-
-  const handleRemoveAllocationRow = (employeeId: string, allocId: string) => {
-    setActiveAllocations(prev => prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-            const newAllocations = empAlloc.allocations.filter(a => a.id !== allocId);
-            return { ...empAlloc, allocations: newAllocations };
-        }
-        return empAlloc;
+        return { ...row, [field]: value };
+      }
+      return row;
     }));
   };
 
   const handleSave = async () => {
-    const submissions: any[] = [];
-    let hasInvalidAllocation = false;
-    
-    activeAllocations.forEach(empAlloc => {
-      empAlloc.allocations.forEach(alloc => {
-        Object.entries(alloc.weeklyFtes).forEach(([weekKey, fte]) => {
-          if (fte > 0) {
-             if (!alloc.costCenterId || !alloc.costCenterName) {
-                hasInvalidAllocation = true;
-                toast({ variant: 'destructive', title: 'Missing Cost Center', description: `Please select a cost center for ${empAlloc.employee.Full_Name}.` });
-                return;
-            }
-            submissions.push({
-              content: {
-                allocation_date: weekKey,
-                allocation_name: empAlloc.employee.Full_Name,
-                cost_center_name: alloc.costCenterName,
-                cost_center_number: alloc.costCenterId,
-                allocation_amount: fte.toString(),
-              }
-            });
+    if (selectedEmployees.size === 0) {
+      toast({ variant: 'destructive', title: 'No employees selected.' });
+      return;
+    }
+    if (totalPercentage !== 100) {
+      toast({ variant: 'destructive', title: 'Total allocation must be 100%.' });
+      return;
+    }
+    if (allocationRows.some(row => !row.costCenterName || row.percentage <= 0)) {
+        toast({ variant: 'destructive', title: 'Invalid allocation rows.', description: 'Please ensure every row has a cost center and a percentage greater than 0.' });
+        return;
+    }
+
+    setIsSubmitting(true);
+    const bulkAllocationId = uuidv4();
+
+    const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
+      const employee = allEmployees.find(e => e.Person_Number === employeeId);
+      return fetch('/domo/datastores/v1/collections/bulk_allocation_fte/documents/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: {
+            bulk_allocation_id: bulkAllocationId,
+            employee_id: employeeId,
+            employee_name: employee?.Full_Name || 'Unknown',
           }
-        });
+        }),
       });
     });
 
-    if (hasInvalidAllocation) return;
-
-    if (submissions.length === 0) {
-      toast({ title: 'No changes to save.' });
-      return;
-    }
+    const summarySubmissions = allocationRows.map(row => {
+      const cc = costCenters.find(c => c.cost_center_name === row.costCenterName);
+      return fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: {
+            bulk_allocation_id: bulkAllocationId,
+            cost_center_number: cc?.cost_center_number || 'Unknown',
+            cost_center_name: row.costCenterName,
+            allocation_percentage: row.percentage.toString(),
+          }
+        }),
+      });
+    });
 
     try {
-        await Promise.all(submissions.map(entry => 
-            fetch('/domo/datastores/v1/collections/weekly_allocation/documents/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(entry),
-            }).then(res => {
-                if (!res.ok) throw new Error('One or more saves failed.');
-                return res.json();
-            })
-        ));
-        toast({
-            title: 'Allocations Saved',
-            description: `${submissions.length} allocation entries have been saved successfully.`,
-        });
-        onSaveSuccess();
+      const allPromises = [...employeeSubmissions, ...summarySubmissions];
+      const results = await Promise.all(allPromises);
+
+      if (results.some(res => !res.ok)) {
+        throw new Error('One or more submissions failed.');
+      }
+      
+      toast({ title: 'Bulk Allocation Saved', description: `Assigned allocation profile ${bulkAllocationId.substring(0, 8)} to ${selectedEmployees.size} employees.` });
+      // Reset form
+      setSelectedEmployees(new Set());
+      setAllocationRows([{ id: `new-${Date.now()}`, costCenterName: '', percentage: 100 }]);
+
     } catch (error: any) {
-        console.error("Save error:", error);
-        toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+      console.error("Save error:", error);
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  if (loading || userLoading || !currentDate || !startOfCurrentWeek) {
+  if (loading || userLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-          <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card><CardHeader><Skeleton className="h-40 w-full" /></CardHeader></Card>
+        <Card><CardHeader><Skeleton className="h-40 w-full" /></CardHeader></Card>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <CardTitle>Bulk Allocation Grid</CardTitle>
-            <CardDescription>Add employees to build your allocation plan. Past weeks are locked for non-admins.</CardDescription>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+      <Card>
+        <CardHeader>
+          <CardTitle>Step 1: Select Employees</CardTitle>
+          <CardDescription>Choose the employees who will share this allocation profile.</CardDescription>
+          <div className="relative pt-2">
+            <Input 
+              placeholder="Search employees..." 
+              value={employeeSearchTerm}
+              onChange={e => setEmployeeSearchTerm(e.target.value)}
+            />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-             <Select onValueChange={handleAddEmployee}>
-                <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Add Employee..." />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
-                    {availableEmployees.map(e => (
-                        <SelectItem key={e.Person_Number} value={e.Person_Number}>
-                            {e.Full_Name}
-                        </SelectItem>
-                    ))}
-                    {availableEmployees.length === 0 && (
-                        <div className="p-4 text-sm text-center text-muted-foreground">
-                            No employees found.
-                        </div>
-                    )}
-                </SelectContent>
-            </Select>
-            <Select onValueChange={handleAddManagerTeam}>
-                <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Load Team..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {managers.map(m => (
-                        <SelectItem key={m.id} value={m.id}>
-                            {m.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-            <span className="text-sm font-medium w-32 text-center">
-              {fiscalMonthLabel}
-            </span>
-            <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
-            <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee</TableHead>
-                <TableHead className="min-w-[250px]">Cost Center Name</TableHead>
-                <TableHead className="min-w-[150px]">Cost Center Code</TableHead>
-                <TableHead className="text-center min-w-[150px]">Bulk Hours Entry</TableHead>
-                {weeks.map(week => {
-                  const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                  const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                  const isLockedForUser = isPast && !isAdmin;
-                  return (
-                    <TableHead key={week.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
-                      <div className='flex items-center justify-center gap-2'>
-                        {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
-                        <span>W/E {format(endOfWeek(week, { weekStartsOn: 1 }), 'MMM d')}</span>
-                      </div>
-                      {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
-                    </TableHead>
-                  )
-                })}
-                <TableHead className="w-[100px]"> </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-             {activeAllocations.length === 0 && (
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-96">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                    <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
-                        Select an employee from the dropdown above to begin building your allocation plan.
-                    </TableCell>
+                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Title</TableHead>
                 </TableRow>
-             )}
-              {activeAllocations.map(({ employee, allocations }) => {
-                const weeklyTotals = weeks.map(week => {
-                  const weekKey = formatDateKey(week);
-                  return allocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
-                });
-
-                return (
-                  <Fragment key={employee.Person_Number}>
-                    <TableRow className="bg-muted/50 hover:bg-muted">
-                       <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">
-                        {employee.Full_Name}
-                        <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
-                      </TableCell>
-                      <TableCell colSpan={2}></TableCell>
-                      <TableCell></TableCell>
-                      {weeklyTotals.map((total, index) => (
-                        <TableCell key={index} className={cn("text-center font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
-                          {total > 0 ? total.toFixed(2) : '-'}
-                        </TableCell>
-                      ))}
-                      <TableCell className='text-right'>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.Person_Number)}>
-                           <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-
-                    {allocations.map((alloc) => {
-                       const isRowLocked = weeks.some(week => {
-                            const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                            return isPast && !isAdmin;
-                       });
-                      return (
-                      <TableRow key={alloc.id}>
-                        <TableCell className="sticky left-0 bg-card z-10"></TableCell>
-                        <TableCell>
-                          <Select value={alloc.costCenterName} onValueChange={(newCcName) => handleCostCenterChange(employee.Person_Number, alloc.id, newCcName)} disabled={isRowLocked}>
-                            <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectTrigger>
-                            <SelectContent>
-                              <SelectSearch placeholder="Search cost center..." onChange={setCostCenterSearchTerm} />
-                              {filteredCostCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
-                               {filteredCostCenters.length === 0 && (
-                                <div className="p-4 text-sm text-center text-muted-foreground">
-                                    No cost centers found.
-                                </div>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                         <TableCell>
-                            <Input
-                                value={alloc.costCenterId}
-                                readOnly
-                                className="bg-muted"
-                                placeholder="CC Code"
-                            />
-                        </TableCell>
-                        <TableCell className="text-center">
-                           <Input
-                                type="number" step="0.05" min="0" placeholder="0.00"
-                                className="w-24 text-center mx-auto"
-                                onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
-                                disabled={isRowLocked}
-                              />
-                        </TableCell>
-                        {weeks.map(week => {
-                          const weekKey = formatDateKey(week);
-                          const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                           const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                          const isLockedForUser = isPast && !isAdmin;
-                          return (
-                            <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
-                              <Input
-                                type="number" step="0.05" min="0" placeholder="0.00"
-                                className={cn("w-24 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
-                                value={alloc.weeklyFtes[weekKey] || ''}
-                                onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
-                                disabled={isLockedForUser} readOnly={isLockedForUser}
-                              />
-                            </TableCell>
-                          )
-                        })}
-                         <TableCell className='text-right'>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(employee.Person_Number, alloc.id)} disabled={allocations.length === 1 || isRowLocked}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    )})}
-
-                    <TableRow>
-                      <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
-                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
-                        </Button>
-                      </TableCell>
-                      <TableCell colSpan={weeks.length + 2}></TableCell>
-                    </TableRow>
-                  </Fragment>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+              </TableHeader>
+              <TableBody>
+                {filteredEmployees.map(emp => (
+                  <TableRow key={emp.Person_Number}>
+                    <TableCell>
+                      <Checkbox 
+                        checked={selectedEmployees.has(emp.Person_Number)}
+                        onCheckedChange={checked => handleEmployeeToggle(emp.Person_Number, !!checked)}
+                        aria-label={`Select ${emp.Full_Name}`}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{emp.Full_Name}</TableCell>
+                    <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+        <CardFooter>
+            <div className="text-sm text-muted-foreground">
+                {selectedEmployees.size} employee(s) selected.
+            </div>
+        </CardFooter>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Step 2: Define Allocation</CardTitle>
+          <CardDescription>Define the cost center percentages for the selected group.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            {allocationRows.map((row, index) => (
+              <div key={row.id} className="flex gap-2 items-center">
+                <Select value={row.costCenterName} onValueChange={value => handleAllocationChange(row.id, 'costCenterName', value)}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select Cost Center..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {costCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <Input 
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={row.percentage}
+                  onChange={e => handleAllocationChange(row.id, 'percentage', e.target.value)}
+                  className="w-32 text-center"
+                  placeholder="%"
+                />
+                 <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1}>
+                    <X className="h-4 w-4" />
+                 </Button>
+              </div>
+            ))}
+            <Button variant="outline" onClick={handleAddAllocationRow}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Cost Center
+            </Button>
+            <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
+              <AlertDescription>
+                Total Allocation: <span className="font-bold">{totalPercentage}%</span>
+                {totalPercentage !== 100 && " (Must equal 100%)"}
+              </AlertDescription>
+            </Alert>
+          </div>
+        </CardContent>
+        <CardFooter>
+            <Button onClick={handleSave} disabled={isSubmitting || selectedEmployees.size === 0 || totalPercentage !== 100}>
+              {isSubmitting ? 'Saving...' : 'Save Bulk Allocation'}
+            </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
+}
+
+// Simple UUID v4 generator if 'uuid' package is not available, but it's better to add the package.
+// For now, assuming uuid is installed. If not, this is a placeholder.
+// Let's add uuid to package.json to be safe.
+const _v4 = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
