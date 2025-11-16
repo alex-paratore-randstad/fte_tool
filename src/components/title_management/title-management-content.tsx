@@ -52,7 +52,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       const titleData: any[] = await titleResponse.json();
       
       setEmployees(empData.filter(e => e && e.Full_Name));
-      setTitles(titleData.filter(t => t && t.updated_titles));
+      setTitles(titleData.filter(t => t && t['updated_titles']));
 
     } catch (error: any) {
       console.error('Error fetching data:', error);

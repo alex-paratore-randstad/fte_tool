@@ -34,7 +34,11 @@ import { Alert, AlertDescription } from '../ui/alert';
 type CostCenterData = { ['cost_center_number']: string; ['cost_center_name']: string };
 type AllocationRow = { id: string; costCenterName: string; percentage: number };
 
-export function BulkAllocationGrid() {
+type BulkAllocationGridProps = {
+  onSaveSuccess: () => void;
+};
+
+export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,6 +149,7 @@ export function BulkAllocationGrid() {
 
     setIsSubmitting(true);
     const bulkAllocationId = uuidv4();
+    const creationDate = new Date().toISOString();
 
     const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
       const employee = allEmployees.find(e => e.Person_Number === employeeId);
@@ -172,6 +177,7 @@ export function BulkAllocationGrid() {
             cost_center_number: cc?.cost_center_number || 'Unknown',
             cost_center_name: row.costCenterName,
             allocation_percentage: row.percentage.toString(),
+            creation_date: creationDate,
           }
         }),
       });
@@ -185,10 +191,12 @@ export function BulkAllocationGrid() {
         throw new Error('One or more submissions failed.');
       }
       
-      toast({ title: 'Bulk Allocation Saved', description: `Assigned allocation profile ${bulkAllocationId.substring(0, 8)} to ${selectedEmployees.size} employees.` });
+      toast({ title: 'Bulk Allocation Saved', description: `Assigned allocation profile to ${selectedEmployees.size} employees.` });
+      
       // Reset form
       setSelectedEmployees(new Set());
       setAllocationRows([{ id: `new-${Date.now()}`, costCenterName: '', percentage: 100 }]);
+      onSaveSuccess();
 
     } catch (error: any) {
       console.error("Save error:", error);
@@ -305,14 +313,4 @@ export function BulkAllocationGrid() {
       </Card>
     </div>
   );
-}
-
-// Simple UUID v4 generator if 'uuid' package is not available, but it's better to add the package.
-// For now, assuming uuid is installed. If not, this is a placeholder.
-// Let's add uuid to package.json to be safe.
-const _v4 = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
 }
