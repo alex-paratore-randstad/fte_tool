@@ -47,6 +47,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [allocationRows, setAllocationRows] = useState<AllocationRow[]>([]);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+  const [costCenterSearchTerm, setCostCenterSearchTerm] = useState('');
 
   const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
@@ -96,6 +97,15 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
     }
     return allEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
   }, [allEmployees, employeeSearchTerm]);
+  
+  const filteredCostCenters = useMemo(() => {
+    if (!costCenterSearchTerm) {
+      return costCenters;
+    }
+    return costCenters.filter(cc =>
+      cc.cost_center_name.toLowerCase().includes(costCenterSearchTerm.toLowerCase())
+    );
+  }, [costCenters, costCenterSearchTerm]);
 
   const totalPercentage = useMemo(() => {
     return allocationRows.reduce((sum, row) => sum + (Number(row.percentage) || 0), 0);
@@ -278,7 +288,13 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
                         <SelectValue placeholder="Select Cost Center..." />
                     </SelectTrigger>
                     <SelectContent>
-                        {costCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
+                        <SelectSearch placeholder="Search cost center..." onChange={setCostCenterSearchTerm} />
+                        {filteredCostCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
+                        {filteredCostCenters.length === 0 && (
+                            <div className="p-4 text-sm text-center text-muted-foreground">
+                                No cost centers found.
+                            </div>
+                        )}
                     </SelectContent>
                 </Select>
                 <Input 
@@ -315,5 +331,3 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
     </div>
   );
 }
-
-    

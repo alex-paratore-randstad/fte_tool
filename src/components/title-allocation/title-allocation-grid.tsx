@@ -86,7 +86,7 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
       }
       
       const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e && e.Full_Name) : [];
-      const titleData: UpdatedTitle[] = titleResponse.ok ? (await titleResponse.json()).filter((t: UpdatedTitle) => t && t.updated_titles) : [];
+      const titleData: UpdatedTitle[] = titleResponse.ok ? (await titleResponse.json()).filter((t: any) => t && t.updated_titles) : [];
       
       setAllEmployees(empData);
       setTitles(titleData);
