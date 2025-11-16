@@ -23,7 +23,11 @@ import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 
 type FteDoc = {
-  content: { bulk_allocation_id: string; employee_name: string; };
+  content: { 
+    bulk_allocation_id: string; 
+    employee_name: string; 
+    allocation_monthyear?: string;
+  };
 };
 
 type SummaryDoc = {
@@ -38,6 +42,7 @@ type SummaryDoc = {
 type ProcessedAllocation = {
   id: string;
   allocationDate: string;
+  allocationMonthYear?: string;
   employees: string[];
   summaries: { name: string; percentage: string }[];
 };
@@ -86,9 +91,12 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
       }, {} as Record<string, ProcessedAllocation>);
 
       ftes.forEach(fte => {
-        const { bulk_allocation_id, employee_name } = fte.content;
+        const { bulk_allocation_id, employee_name, allocation_monthyear } = fte.content;
         if (grouped[bulk_allocation_id]) {
           grouped[bulk_allocation_id].employees.push(employee_name);
+          if (allocation_monthyear && !grouped[bulk_allocation_id].allocationMonthYear) {
+            grouped[bulk_allocation_id].allocationMonthYear = allocation_monthyear;
+          }
         }
       });
       
@@ -140,8 +148,9 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
             {allocations.map(alloc => (
               <AccordionItem value={alloc.id} key={alloc.id}>
                 <AccordionTrigger>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <span className="font-mono text-sm text-primary">{alloc.id.substring(0,8)}...</span>
+                        {alloc.allocationMonthYear && <Badge>{alloc.allocationMonthYear}</Badge>}
                         <Badge variant="secondary">{alloc.employees.length} Employees</Badge>
                         <span className="text-sm text-muted-foreground hidden sm:inline">
                             Created: {new Date(alloc.allocationDate).toLocaleDateString()}
@@ -187,5 +196,3 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
     </Card>
   );
 }
-
-    

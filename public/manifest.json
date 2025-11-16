@@ -280,6 +280,10 @@
                         "type": "STRING"
                     },
                     {
+                        "name": "allocation_monthyear",
+                        "type": "STRING"
+                    },
+                    {
                         "name": "employee_id",
                         "type": "STRING"
                     },

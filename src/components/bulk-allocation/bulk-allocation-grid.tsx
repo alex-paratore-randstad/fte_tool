@@ -30,6 +30,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { SelectSearch } from '../ui/select-search';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '../ui/alert';
+import { Label } from '../ui/label';
 
 type CostCenterData = { ['cost_center_number']: string; ['cost_center_name']: string };
 type AllocationRow = { id: string; costCenterName: string; percentage: number };
@@ -37,6 +38,13 @@ type AllocationRow = { id: string; costCenterName: string; percentage: number };
 type BulkAllocationGridProps = {
   onSaveSuccess: () => void;
 };
+
+const months = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+];
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
 
 export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
@@ -48,9 +56,20 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
   const [allocationRows, setAllocationRows] = useState<AllocationRow[]>([]);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
   const [costCenterSearchTerm, setCostCenterSearchTerm] = useState('');
+  
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
+
 
   const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Set date state on client to avoid hydration mismatch
+    const now = new Date();
+    setSelectedMonth(months[now.getMonth()]);
+    setSelectedYear(now.getFullYear().toString());
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -156,10 +175,16 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
         toast({ variant: 'destructive', title: 'Invalid allocation rows.', description: 'Please ensure every row has a cost center and a percentage greater than 0.' });
         return;
     }
+    if (!selectedMonth || !selectedYear) {
+      toast({ variant: 'destructive', title: 'Please select a month and year.' });
+      return;
+    }
+
 
     setIsSubmitting(true);
     const bulkAllocationId = uuidv4();
     const allocationDate = new Date().toISOString();
+    const allocationMonthYear = `${selectedMonth} ${selectedYear}`;
 
     const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
       const employee = allEmployees.find(e => e.Person_Number === employeeId);
@@ -172,6 +197,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
             employee_id: employeeId,
             employee_name: employee?.Full_Name || 'Unknown',
             bulk_allocation_date: allocationDate,
+            allocation_monthyear: allocationMonthYear,
           }
         }),
       });
@@ -202,7 +228,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
         throw new Error('One or more submissions failed.');
       }
       
-      toast({ title: 'Bulk Allocation Saved', description: `Assigned allocation profile to ${selectedEmployees.size} employees.` });
+      toast({ title: 'Bulk Allocation Saved', description: `Assigned allocation profile to ${selectedEmployees.size} employees for ${allocationMonthYear}.` });
       
       // Reset form
       setSelectedEmployees(new Set());
@@ -217,11 +243,17 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
     }
   };
 
-  if (loading || userLoading) {
+  if (loading || userLoading || !selectedMonth || !selectedYear) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card><CardHeader><Skeleton className="h-40 w-full" /></CardHeader></Card>
-        <Card><CardHeader><Skeleton className="h-40 w-full" /></CardHeader></Card>
+        <Card>
+          <CardHeader><Skeleton className="h-10 w-full" /></CardHeader>
+          <CardContent><Skeleton className="h-96 w-full" /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><Skeleton className="h-10 w-full" /></CardHeader>
+          <CardContent><Skeleton className="h-96 w-full" /></CardContent>
+        </Card>
       </div>
     );
   }
@@ -280,46 +312,72 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
           <CardDescription>Define the cost center percentages for the selected group.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4">
-            {allocationRows.map((row, index) => (
-              <div key={row.id} className="flex gap-2 items-center">
-                <Select value={row.costCenterName} onValueChange={value => handleAllocationChange(row.id, 'costCenterName', value)}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select Cost Center..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectSearch placeholder="Search cost center..." onChange={setCostCenterSearchTerm} />
-                        {filteredCostCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
-                        {filteredCostCenters.length === 0 && (
-                            <div className="p-4 text-sm text-center text-muted-foreground">
-                                No cost centers found.
-                            </div>
-                        )}
-                    </SelectContent>
-                </Select>
-                <Input 
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={row.percentage}
-                  onChange={e => handleAllocationChange(row.id, 'percentage', e.target.value)}
-                  className="w-32 text-center"
-                  placeholder="%"
-                />
-                 <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1}>
-                    <X className="h-4 w-4" />
-                 </Button>
-              </div>
-            ))}
-            <Button variant="outline" onClick={handleAddAllocationRow}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Cost Center
-            </Button>
-            <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
-              <AlertDescription>
-                Total Allocation: <span className="font-bold">{totalPercentage}%</span>
-                {totalPercentage !== 100 && " (Must equal 100%)"}
-              </AlertDescription>
-            </Alert>
+          <div className="grid gap-6">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="month">Month</Label>
+                    <Select value={selectedMonth} onValueChange={(value) => setSelectedMonth(value)}>
+                        <SelectTrigger id="month">
+                            <SelectValue placeholder="Select Month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="year">Year</Label>
+                    <Select value={selectedYear} onValueChange={(value) => setSelectedYear(value)}>
+                        <SelectTrigger id="year">
+                            <SelectValue placeholder="Select Year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <div className="grid gap-4">
+              {allocationRows.map((row, index) => (
+                <div key={row.id} className="flex gap-2 items-center">
+                  <Select value={row.costCenterName} onValueChange={value => handleAllocationChange(row.id, 'costCenterName', value)}>
+                      <SelectTrigger>
+                          <SelectValue placeholder="Select Cost Center..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectSearch placeholder="Search cost center..." onChange={setCostCenterSearchTerm} />
+                          {filteredCostCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
+                          {filteredCostCenters.length === 0 && (
+                              <div className="p-4 text-sm text-center text-muted-foreground">
+                                  No cost centers found.
+                              </div>
+                          )}
+                      </SelectContent>
+                  </Select>
+                  <Input 
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={row.percentage}
+                    onChange={e => handleAllocationChange(row.id, 'percentage', e.target.value)}
+                    className="w-32 text-center"
+                    placeholder="%"
+                  />
+                  <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1}>
+                      <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button variant="outline" onClick={handleAddAllocationRow}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Cost Center
+              </Button>
+              <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
+                <AlertDescription>
+                  Total Allocation: <span className="font-bold">{totalPercentage}%</span>
+                  {totalPercentage !== 100 && " (Must equal 100%)"}
+                </AlertDescription>
+              </Alert>
+            </div>
           </div>
         </CardContent>
         <CardFooter>
