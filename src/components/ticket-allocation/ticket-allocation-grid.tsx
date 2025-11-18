@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, X } from 'lucide-react';
+import { PlusCircle, X } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -182,21 +182,21 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
 
 
     setIsSubmitting(true);
-    const bulkAllocationId = uuidv4();
+    const ticketAllocationId = uuidv4();
     const allocationDate = new Date().toISOString();
     const allocationMonthYear = `${selectedMonth} ${selectedYear}`;
 
     const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
       const employee = allEmployees.find(e => e.Person_Number === employeeId);
-      return fetch('/domo/datastores/v1/collections/bulk_allocation_fte/documents/', {
+      return fetch('/domo/datastores/v1/collections/ticket_allocation_fte/documents/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: {
-            bulk_allocation_id: bulkAllocationId,
+            ticket_allocation_id: ticketAllocationId,
             employee_id: employeeId,
             employee_name: employee?.Full_Name || 'Unknown',
-            bulk_allocation_date: allocationDate,
+            ticket_allocation_date: allocationDate,
             allocation_monthyear: allocationMonthYear,
           }
         }),
@@ -205,16 +205,15 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
 
     const summarySubmissions = allocationRows.map(row => {
       const cc = costCenters.find(c => c.cost_center_name === row.costCenterName);
-      return fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/', {
+      return fetch('/domo/datastores/v1/collections/ticket_allocation_summary/documents/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: {
-            bulk_allocation_id: bulkAllocationId,
+            ticket_allocation_id: ticketAllocationId,
             cost_center_number: cc?.cost_center_number || 'Unknown',
             cost_center_name: row.costCenterName,
             allocation_percentage: row.percentage.toString(),
-            bulk_allocation_date: allocationDate,
           }
         }),
       });

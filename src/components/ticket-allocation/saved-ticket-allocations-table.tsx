@@ -28,21 +28,20 @@ import { Alert, AlertDescription } from '../ui/alert';
 type FteDoc = {
   id: string;
   content: { 
-    bulk_allocation_id: string; 
+    ticket_allocation_id: string; 
     employee_name: string; 
     allocation_monthyear?: string;
-    bulk_allocation_date: string;
+    ticket_allocation_date: string;
   };
 };
 
 type SummaryDoc = {
   id: string;
   content: {
-    bulk_allocation_id: string;
+    ticket_allocation_id: string;
     cost_center_name: string;
     cost_center_number: string;
     allocation_percentage: string;
-    bulk_allocation_date: string;
   };
 };
 
@@ -76,29 +75,30 @@ export function SavedTicketAllocationsTable({ refreshKey }: SavedTicketAllocatio
     setLoading(true);
     try {
       const [fteResponse, summaryResponse] = await Promise.all([
-        fetch('/domo/datastores/v1/collections/bulk_allocation_fte/documents/'),
-        fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/'),
+        fetch('/domo/datastores/v1/collections/ticket_allocation_fte/documents/'),
+        fetch('/domo/datastores/v1/collections/ticket_allocation_summary/documents/'),
       ]);
 
       if (!fteResponse.ok || !summaryResponse.ok) {
-        console.warn('Could not fetch bulk allocation data.');
+        console.warn('Could not fetch ticket allocation data.');
       }
 
       const ftes: FteDoc[] = fteResponse.ok ? await fteResponse.json() : [];
       const summaries: SummaryDoc[] = summaryResponse.ok ? await summaryResponse.json() : [];
 
       const grouped = summaries.reduce((acc, summary) => {
-        const { bulk_allocation_id, cost_center_name, cost_center_number, allocation_percentage, bulk_allocation_date } = summary.content;
+        const { ticket_allocation_id, cost_center_name, cost_center_number, allocation_percentage } = summary.content;
         
-        if (!acc[bulk_allocation_id]) {
-          acc[bulk_allocation_id] = {
-            id: bulk_allocation_id,
-            allocationDate: bulk_allocation_date,
+        if (!acc[ticket_allocation_id]) {
+          // This entry will be incomplete until the FTE data provides the date
+          acc[ticket_allocation_id] = {
+            id: ticket_allocation_id,
+            allocationDate: '', // Placeholder
             employees: [],
             summaries: [],
           };
         }
-        acc[bulk_allocation_id].summaries.push({
+        acc[ticket_allocation_id].summaries.push({
           id: summary.id,
           name: cost_center_name,
           number: cost_center_number,
@@ -107,24 +107,31 @@ export function SavedTicketAllocationsTable({ refreshKey }: SavedTicketAllocatio
 
         return acc;
       }, {} as Record<string, ProcessedAllocation>);
-
+      
       ftes.forEach(fte => {
-        const { bulk_allocation_id, employee_name, allocation_monthyear } = fte.content;
-        if (grouped[bulk_allocation_id]) {
-          grouped[bulk_allocation_id].employees.push(employee_name);
-          if (allocation_monthyear && !grouped[bulk_allocation_id].allocationMonthYear) {
-            grouped[bulk_allocation_id].allocationMonthYear = allocation_monthyear;
+        const { ticket_allocation_id, employee_name, allocation_monthyear, ticket_allocation_date } = fte.content;
+        if (grouped[ticket_allocation_id]) {
+          if(!grouped[ticket_allocation_id].allocationDate){
+             grouped[ticket_allocation_id].allocationDate = ticket_allocation_date;
+          }
+          if (!grouped[ticket_allocation_id].employees.includes(employee_name)) {
+            grouped[ticket_allocation_id].employees.push(employee_name);
+          }
+          if (allocation_monthyear && !grouped[ticket_allocation_id].allocationMonthYear) {
+            grouped[ticket_allocation_id].allocationMonthYear = allocation_monthyear;
           }
         }
       });
       
-      const processed = Object.values(grouped).sort((a, b) => new Date(b.allocationDate).getTime() - new Date(a.allocationDate).getTime());
+      const processed = Object.values(grouped)
+        .filter(g => g.allocationDate) // Ensure we have a valid date before sorting/rendering
+        .sort((a, b) => new Date(b.allocationDate).getTime() - new Date(a.allocationDate).getTime());
       
       setOriginalAllocations(processed);
       setEditableAllocations(JSON.parse(JSON.stringify(processed)));
 
     } catch (error) {
-      console.error('Error fetching bulk allocation data:', error);
+      console.error('Error fetching ticket allocation data:', error);
       toast({
         variant: 'destructive',
         title: 'Failed to fetch saved allocations',
@@ -180,11 +187,10 @@ export function SavedTicketAllocationsTable({ refreshKey }: SavedTicketAllocatio
       .map(summary => ({
           docId: summary.id,
           content: {
-              bulk_allocation_id: allocId,
+              ticket_allocation_id: allocId,
               cost_center_number: summary.number,
               cost_center_name: summary.name,
               allocation_percentage: summary.percentage.toString(),
-              bulk_allocation_date: editableAlloc.allocationDate,
           }
       }));
 
@@ -196,7 +202,7 @@ export function SavedTicketAllocationsTable({ refreshKey }: SavedTicketAllocatio
 
     try {
         await Promise.all(updates.map(update =>
-            fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/${update.docId}`, {
+            fetch(`/domo/datastores/v1/collections/ticket_allocation_summary/documents/${update.docId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content: update.content }),
@@ -253,7 +259,7 @@ export function SavedTicketAllocationsTable({ refreshKey }: SavedTicketAllocatio
                         {alloc.allocationMonthYear && <Badge>{alloc.allocationMonthYear}</Badge>}
                         <Badge variant="secondary">{alloc.employees.length} Employees</Badge>
                         <span className="text-sm text-muted-foreground hidden sm:inline">
-                            Created: {new Date(alloc.allocationDate).toLocaleDateString()}
+                           Created: {alloc.allocationDate ? new Date(alloc.allocationDate).toLocaleDateString() : 'N/A'}
                         </span>
                     </div>
                 </AccordionTrigger>
