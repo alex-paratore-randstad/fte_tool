@@ -31,9 +31,9 @@ type TicketAllocationData = {
   agent_group_name: string;
   reporting_month: string;
   reporting_year: string;
-  tickets: number;
-  total_monthly_tickets: number;
-  monthly_ticket_ratio: number;
+  tickets: string;
+  total_monthly_tickets: string;
+  monthly_ticket_ratio: string;
 };
 
 type AllocationRow = {
@@ -78,8 +78,8 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       
       if (!response.ok) {
         console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
-        setActiveAllocations([]); // Clear data on failure
-        throw new Error('Failed to load ticket data');
+        setActiveAllocations([]);
+        return;
       }
       const ticketData: TicketAllocationData[] = await response.json();
       
@@ -97,7 +97,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
           allocations: agentData.map((d) => ({
             id: `${agentName}-${d.agent_group_name}-${Date.now()}`,
             agentGroupName: d.agent_group_name,
-            fte: d.monthly_ticket_ratio,
+            fte: parseFloat(d.monthly_ticket_ratio) || 0,
           })),
         })
       );
@@ -117,7 +117,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     if (selectedMonth && selectedYear) {
       fetchDataAndPrepopulate();
     }
-  }, [fetchDataAndPrepopulate, selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, fetchDataAndPrepopulate]);
 
   const handleFteChange = (agentName: string, allocId: string, newFteValue: string) => {
     const newFte = parseFloat(newFteValue) || 0;
