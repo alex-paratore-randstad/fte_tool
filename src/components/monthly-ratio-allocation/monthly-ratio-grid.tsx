@@ -47,7 +47,7 @@ type EmployeeAllocation = {
   allocations: AllocationRow[];
 };
 
-type TicketAllocationGridProps = {
+type MonthlyRatioGridProps = {
   onSaveSuccess: () => void;
 };
 
@@ -55,7 +55,7 @@ const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
 
-export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProps) {
+export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
@@ -113,8 +113,10 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
   }, [selectedMonth, selectedYear, toast]);
 
   useEffect(() => {
-    fetchDataAndPrepopulate();
-  }, [fetchDataAndPrepopulate]);
+    if (selectedMonth && selectedYear) {
+      fetchDataAndPrepopulate();
+    }
+  }, [fetchDataAndPrepopulate, selectedMonth, selectedYear]);
 
   const handleFteChange = (agentName: string, allocId: string, newFteValue: string) => {
     const newFte = parseFloat(newFteValue) || 0;
@@ -167,6 +169,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     
     const submissions: any[] = [];
     let hasValidationError = false;
+
     activeAllocations.forEach(empAlloc => {
       const totalFte = empAlloc.allocations.reduce((sum, alloc) => sum + alloc.fte, 0);
       if (Math.abs(totalFte - 1.0) > 0.01) { // Allow for small floating point inaccuracies

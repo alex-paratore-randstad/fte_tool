@@ -11,6 +11,7 @@ import {
   FlaskConical,
   CaseUpper,
   Layers,
+  TicketPercent,
 } from 'lucide-react';
 
 import {
@@ -25,7 +26,7 @@ const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'vp'] },
   { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock, roles: ['admin', 'manager', 'vp'] },
   { href: '/bulk-allocation', label: 'Bulk Allocation', icon: Layers, roles: ['admin', 'manager', 'vp'] },
-  { href: '/ticket-allocation', label: 'Ticket Allocation', icon: Layers, roles: ['admin', 'manager', 'vp'] },
+  { href: '/monthly-ratio-allocation', label: 'Monthly Ratio Allocation', icon: TicketPercent, roles: ['admin', 'manager', 'vp'] },
   { href: '/team', label: 'Team Management', icon: Users, roles: ['admin', 'manager', 'vp'] },
   { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
   { href: '/title_management', label: 'Title Management', icon: FlaskConical, roles: ['admin', 'manager'] },
@@ -58,11 +59,6 @@ export function SidebarNav() {
   const filteredNavItems = navItems.filter(item => {
     if (!currentUser || !currentUser.role) return false;
     
-    // Hide 'Title Allocation' in all environments for now
-    if (item.href === '/title-allocation') {
-      return false;
-    }
-
     // Role-based access
     const hasRole = item.roles.includes(currentUser.role);
     if (!hasRole) return false;
