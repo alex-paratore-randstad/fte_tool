@@ -23,7 +23,6 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { PlusCircle, X } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import type { TeamMember } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { ScrollArea } from '../ui/scroll-area';
@@ -34,6 +33,8 @@ import { Label } from '../ui/label';
 
 type CostCenterData = { ['cost_center_number']: string; ['cost_center_name']: string };
 type AllocationRow = { id: string; costCenterName: string; percentage: number };
+type Agent = { id: string; name: string };
+type TicketData = { agent_name: string };
 
 type TicketAllocationGridProps = {
   onSaveSuccess: () => void;
@@ -47,12 +48,12 @@ const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
 
 export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProps) {
-  const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
+  const [allAgents, setAllAgents] = useState<Agent[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
+  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
   const [allocationRows, setAllocationRows] = useState<AllocationRow[]>([]);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
   const [costCenterSearchTerm, setCostCenterSearchTerm] = useState('');
@@ -65,7 +66,6 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set date state on client to avoid hydration mismatch
     const now = new Date();
     setSelectedMonth(months[now.getMonth()]);
     setSelectedYear(now.getFullYear().toString());
@@ -74,19 +74,24 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [empResponse, ccResponse] = await Promise.all([
-        fetch(`/data/v1/gbs_ind_hr_fte_report`),
+      const [ticketDataResponse, ccResponse] = await Promise.all([
+        fetch(`/data/v1/fte_tickets_grouped_monthly`),
         fetch(`/data/v1/gbs_ind_finance_cc_report`),
       ]);
 
-      if (!empResponse.ok || !ccResponse.ok) {
-        console.warn("Could not fetch initial data.");
+      if (!ticketDataResponse.ok) {
+        console.warn("Could not fetch ticket data for agent list.");
+      }
+      if (!ccResponse.ok) {
+        console.warn("Could not fetch cost center data.");
       }
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name) : [];
+      const ticketData: TicketData[] = ticketDataResponse.ok ? await ticketDataResponse.json() : [];
+      const uniqueAgentNames = Array.from(new Set(ticketData.map(d => d.agent_name).filter(Boolean)));
+      const agentList: Agent[] = uniqueAgentNames.map(name => ({ id: name, name: name }));
+      setAllAgents(agentList);
+
       const ccData: CostCenterData[] = ccResponse.ok ? (await ccResponse.json()).filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name) : [];
-      
-      setAllEmployees(empData);
       
       const staticCostCenters: CostCenterData[] = [
         { cost_center_number: 'UNALLOCATED', cost_center_name: 'Unallocated' },
@@ -106,16 +111,15 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     if (!userLoading) {
       fetchData();
     }
-    // Add default allocation row
     setAllocationRows([{ id: `new-${Date.now()}`, costCenterName: '', percentage: 100 }]);
   }, [fetchData, userLoading, currentUser.id]);
 
-  const filteredEmployees = useMemo(() => {
+  const filteredAgents = useMemo(() => {
     if (!employeeSearchTerm) {
-      return allEmployees;
+      return allAgents;
     }
-    return allEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
-  }, [allEmployees, employeeSearchTerm]);
+    return allAgents.filter(e => e.name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
+  }, [allAgents, employeeSearchTerm]);
   
   const filteredCostCenters = useMemo(() => {
     if (!costCenterSearchTerm) {
@@ -130,13 +134,13 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     return allocationRows.reduce((sum, row) => sum + (Number(row.percentage) || 0), 0);
   }, [allocationRows]);
 
-  const handleEmployeeToggle = (employeeId: string, isSelected: boolean) => {
-    setSelectedEmployees(prev => {
+  const handleAgentToggle = (agentId: string, isSelected: boolean) => {
+    setSelectedAgents(prev => {
       const newSet = new Set(prev);
       if (isSelected) {
-        newSet.add(employeeId);
+        newSet.add(agentId);
       } else {
-        newSet.delete(employeeId);
+        newSet.delete(agentId);
       }
       return newSet;
     });
@@ -163,8 +167,8 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
   };
 
   const handleSave = async () => {
-    if (selectedEmployees.size === 0) {
-      toast({ variant: 'destructive', title: 'No employees selected.' });
+    if (selectedAgents.size === 0) {
+      toast({ variant: 'destructive', title: 'No agents selected.' });
       return;
     }
     if (totalPercentage !== 100) {
@@ -186,16 +190,15 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     const allocationDate = new Date().toISOString();
     const allocationMonthYear = `${selectedMonth} ${selectedYear}`;
 
-    const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
-      const employee = allEmployees.find(e => e.Person_Number === employeeId);
+    const agentSubmissions = Array.from(selectedAgents).map(agentName => {
       return fetch('/domo/datastores/v1/collections/ticket_allocation_fte/documents/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: {
             ticket_allocation_id: ticketAllocationId,
-            employee_id: employeeId,
-            employee_name: employee?.Full_Name || 'Unknown',
+            employee_id: agentName,
+            employee_name: agentName,
             ticket_allocation_date: allocationDate,
             allocation_monthyear: allocationMonthYear,
           }
@@ -214,23 +217,23 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
             cost_center_number: cc?.cost_center_number || 'Unknown',
             cost_center_name: row.costCenterName,
             allocation_percentage: row.percentage.toString(),
+            ticket_allocation_date: allocationDate,
           }
         }),
       });
     });
 
     try {
-      const allPromises = [...employeeSubmissions, ...summarySubmissions];
+      const allPromises = [...agentSubmissions, ...summarySubmissions];
       const results = await Promise.all(allPromises);
 
       if (results.some(res => !res.ok)) {
         throw new Error('One or more submissions failed.');
       }
       
-      toast({ title: 'Ticket Allocation Saved', description: `Assigned allocation profile to ${selectedEmployees.size} employees for ${allocationMonthYear}.` });
+      toast({ title: 'Ticket Allocation Saved', description: `Assigned allocation profile to ${selectedAgents.size} agents for ${allocationMonthYear}.` });
       
-      // Reset form
-      setSelectedEmployees(new Set());
+      setSelectedAgents(new Set());
       setAllocationRows([{ id: `new-${Date.now()}`, costCenterName: '', percentage: 100 }]);
       onSaveSuccess();
 
@@ -261,11 +264,11 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
       <Card>
         <CardHeader>
-          <CardTitle>Step 1: Select Employees</CardTitle>
-          <CardDescription>Choose the employees who will share this allocation profile.</CardDescription>
+          <CardTitle>Step 1: Select Agents</CardTitle>
+          <CardDescription>Choose the agents who will share this allocation profile.</CardDescription>
           <div className="relative pt-2">
             <Input 
-              placeholder="Search employees..." 
+              placeholder="Search agents..." 
               value={employeeSearchTerm}
               onChange={e => setEmployeeSearchTerm(e.target.value)}
             />
@@ -278,30 +281,35 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
                 <TableRow>
                   <TableHead className="w-[50px]"></TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead>Title</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEmployees.map(emp => (
-                  <TableRow key={emp.Person_Number}>
+                {filteredAgents.map(agent => (
+                  <TableRow key={agent.id}>
                     <TableCell>
                       <Checkbox 
-                        checked={selectedEmployees.has(emp.Person_Number)}
-                        onCheckedChange={checked => handleEmployeeToggle(emp.Person_Number, !!checked)}
-                        aria-label={`Select ${emp.Full_Name}`}
+                        checked={selectedAgents.has(agent.id)}
+                        onCheckedChange={checked => handleAgentToggle(agent.id, !!checked)}
+                        aria-label={`Select ${agent.name}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{emp.Full_Name}</TableCell>
-                    <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
+                    <TableCell className="font-medium">{agent.name}</TableCell>
                   </TableRow>
                 ))}
+                {filteredAgents.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
+                            No agents found in the ticket dataset.
+                        </TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
           </ScrollArea>
         </CardContent>
         <CardFooter>
             <div className="text-sm text-muted-foreground">
-                {selectedEmployees.size} employee(s) selected.
+                {selectedAgents.size} agent(s) selected.
             </div>
         </CardFooter>
       </Card>
@@ -337,7 +345,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
                 </div>
             </div>
             <div className="grid gap-4">
-              {allocationRows.map((row, index) => (
+              {allocationRows.map((row) => (
                 <div key={row.id} className="flex gap-2 items-center">
                   <Select value={row.costCenterName} onValueChange={value => handleAllocationChange(row.id, 'costCenterName', value)}>
                       <SelectTrigger>
@@ -380,7 +388,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
           </div>
         </CardContent>
         <CardFooter>
-            <Button onClick={handleSave} disabled={isSubmitting || selectedEmployees.size === 0 || totalPercentage !== 100}>
+            <Button onClick={handleSave} disabled={isSubmitting || selectedAgents.size === 0 || totalPercentage !== 100}>
               {isSubmitting ? 'Saving...' : 'Save Ticket Allocation'}
             </Button>
         </CardFooter>
