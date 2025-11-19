@@ -73,17 +73,17 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     if (!selectedMonth || !selectedYear) return;
     setLoading(true);
     try {
-      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
+      const query = `?q=SELECT * FROM table WHERE \`reporting_month\` = '${selectedMonth}' AND \`reporting_year\` = '${selectedYear}'`;
+      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly${query}`);
+      
       if (!response.ok) {
+        console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
+        setActiveAllocations([]); // Clear data on failure
         throw new Error('Failed to load ticket data');
       }
       const ticketData: TicketAllocationData[] = await response.json();
       
-      const filteredData = ticketData.filter(
-        (d) => d.reporting_month === selectedMonth && d.reporting_year === selectedYear
-      );
-
-      const groupedByAgent = filteredData.reduce((acc, item) => {
+      const groupedByAgent = ticketData.reduce((acc, item) => {
         if (!acc[item.agent_name]) {
           acc[item.agent_name] = [];
         }
@@ -107,6 +107,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     } catch (error) {
       console.error("Failed to fetch and process ticket data:", error);
       toast({ variant: 'destructive', title: 'Failed to process data' });
+      setActiveAllocations([]);
     } finally {
       setLoading(false);
     }

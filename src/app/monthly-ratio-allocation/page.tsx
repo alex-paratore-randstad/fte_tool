@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { MonthlyRatioGrid } from '@/components/monthly-ratio-allocation/monthly-ratio-grid';
 import { SavedTicketAllocationsTable } from '@/components/monthly-ratio-allocation/saved-ticket-allocations-table';
+import { MonthlyTicketSummaryTable } from '@/components/monthly-ratio-allocation/monthly-ticket-summary-table';
 
 export default function MonthlyRatioAllocationPage() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -21,6 +22,7 @@ export default function MonthlyRatioAllocationPage() {
       />
       <MonthlyRatioGrid onSaveSuccess={handleRefresh} />
       <SavedTicketAllocationsTable refreshKey={refreshKey} />
+      <MonthlyTicketSummaryTable />
     </div>
   );
 }
