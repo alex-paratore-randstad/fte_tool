@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { addMonths, subMonths, startOfWeek, endOfWeek, format, isBefore, isSameDay, parse } from 'date-fns';
+import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -76,16 +76,21 @@ export function TicketAllocationGrid({ currentDate, setCurrentDate, onSaveSucces
     }
     setLoading(true);
     try {
-      const response = await fetch(`/data/v1/fte_tickets_grouped`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch ticket data');
-      }
-      const ticketData: TicketData[] = await response.json();
-
-      const weekKeysInScope = new Set(weeks.map(formatDateKey));
+      const weekKeys = weeks.map(formatDateKey);
       
-      const relevantTickets = ticketData.filter(t => weekKeysInScope.has(t.reporting_week_date));
+      const ticketRequests = weekKeys.map(async weekKey => {
+        const query = `SELECT * FROM table WHERE \`reporting_week_date\` = '${weekKey}'`;
+        const response = await fetch(`/data/v1/fte_tickets_grouped?q=${encodeURIComponent(query)}`);
+        if (!response.ok) {
+            console.warn(`Failed to fetch ticket data for ${weekKey}.`);
+            return [];
+        };
+        return response.json();
+      });
 
+      const results = await Promise.all(ticketRequests);
+      const relevantTickets: TicketData[] = results.flat();
+      
       const weeklyTotalsPerAgent: { [weekKey: string]: { [agentName: string]: number } } = {};
       
       relevantTickets.forEach(ticket => {
@@ -96,7 +101,7 @@ export function TicketAllocationGrid({ currentDate, setCurrentDate, onSaveSucces
         if (!weeklyTotalsPerAgent[weekKey][ticket.agent_name]) {
           weeklyTotalsPerAgent[weekKey][ticket.agent_name] = 0;
         }
-        weeklyTotalsPerAgent[weekKey][ticket.agent_name] += ticket.tickets;
+        weeklyTotalsPerAgent[weekKey][ticket.agent_name] += Number(ticket.tickets) || 0;
       });
 
       const groupedByAgent: { [agentName: string]: { [weekKey: string]: { [groupName: string]: number } } } = {};
@@ -108,7 +113,7 @@ export function TicketAllocationGrid({ currentDate, setCurrentDate, onSaveSucces
         if (!groupedByAgent[ticket.agent_name][weekKey]) {
           groupedByAgent[ticket.agent_name][weekKey] = {};
         }
-        groupedByAgent[ticket.agent_name][weekKey][ticket.agent_group_name] = ticket.tickets;
+        groupedByAgent[ticket.agent_name][weekKey][ticket.agent_group_name] = Number(ticket.tickets) || 0;
       });
       
       const calculatedAllocations: EmployeeAllocation[] = Object.entries(groupedByAgent).map(([agentName, weeklyData]) => {
@@ -152,10 +157,10 @@ export function TicketAllocationGrid({ currentDate, setCurrentDate, onSaveSucces
   }, [weeks, toast]);
 
   useEffect(() => {
-    if (!userLoading) {
+    if (!userLoading && currentDate) {
       fetchDataAndCalculate();
     }
-  }, [fetchDataAndCalculate, userLoading]);
+  }, [fetchDataAndCalculate, userLoading, currentDate]);
 
 
   const handlePrevMonth = () => {
