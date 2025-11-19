@@ -4,7 +4,8 @@
 import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { TicketAllocationGrid } from '@/components/ticket-allocation/ticket-allocation-grid';
-import { MonthlyTicketSummaryTable } from '@/components/ticket-allocation/monthly-ticket-summary-table';
+import { SavedTicketAllocationsTable } from '@/components/ticket-allocation/saved-ticket-allocations-table';
+
 
 export default function TicketAllocationPage() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -20,7 +21,7 @@ export default function TicketAllocationPage() {
         description="Create an allocation profile and assign it to multiple agents at once."
       />
       <TicketAllocationGrid onSaveSuccess={handleRefresh} />
-      <MonthlyTicketSummaryTable />
+      <SavedTicketAllocationsTable refreshKey={refreshKey} />
     </div>
   );
 }
