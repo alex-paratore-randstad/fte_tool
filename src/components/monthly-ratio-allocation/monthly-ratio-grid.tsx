@@ -222,7 +222,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     }
   };
 
-  if (loading) {
+  if (loading || !selectedMonth || !selectedYear) {
     return (
       <Card>
         <CardHeader><Skeleton className="h-6 w-1/4" /></CardHeader>
