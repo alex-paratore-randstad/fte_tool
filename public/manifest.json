@@ -1,6 +1,6 @@
 {
     "name": "Randstad FTE Prototype",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "fullpage": true,
     "size": {
         "width": 5,
@@ -254,6 +254,14 @@
                 {
                     "alias": "tickets",
                     "columnName": "tickets"
+                },
+                {
+                    "alias": "total_monthly_tickets",
+                    "columnName": "total_monthly_tickets"
+                },
+                {
+                    "alias": "monthly_ticket_ratio",
+                    "columnName": "monthly_ticket_ratio"
                 }
             ]
         }

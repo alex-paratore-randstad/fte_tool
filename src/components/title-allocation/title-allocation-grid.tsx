@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
+import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SelectSearch } from '@/components/ui/select-search';
 import {
   Table,
   TableBody,
@@ -21,189 +20,168 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, Trash2, Lock } from 'lucide-react';
-import { useCurrentUser } from '@/hooks/use-current-user';
+import { PlusCircle, Trash2 } from 'lucide-react';
 import type { TeamMember } from '@/types';
 import { cn } from '@/lib/utils';
-import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth } from '@/lib/fiscal-calendar';
+import { format, startOfMonth } from 'date-fns';
 
-type UpdatedTitle = {
-  updated_titles: string;
+type TicketAllocationData = {
+  agent_name: string;
+  agent_group_name: string;
+  reporting_month: string;
+  reporting_year: string;
+  tickets: number;
+  total_monthly_tickets: number;
+  monthly_ticket_ratio: number;
 };
 
-const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+type AllocationRow = {
+  id: string;
+  agentGroupName: string;
+  fte: number;
+};
 
-type EmployeeTitleAllocation = {
-  employee: TeamMember;
-  weeklyTitles: { [weekKey: string]: string };
+type EmployeeAllocation = {
+  agentName: string;
+  allocations: AllocationRow[];
 };
 
 type TitleAllocationGridProps = {
-  currentDate: Date | null;
-  setCurrentDate: (date: Date) => void;
   onSaveSuccess: () => void;
 };
 
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
 
-export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess }: TitleAllocationGridProps) {
-  const [activeEmployees, setActiveEmployees] = useState<EmployeeTitleAllocation[]>([]);
-  const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
-  const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
-  const [titles, setTitles] = useState<UpdatedTitle[]>([]);
+export function TitleAllocationGrid({ onSaveSuccess }: TitleAllocationGridProps) {
+  const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
-  const [titleSearchTerm, setTitleSearchTerm] = useState('');
-  const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
 
-  const { currentUser, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
-
+  
   useEffect(() => {
-    setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    const now = new Date();
+    setSelectedMonth(months[now.getMonth()]);
+    setSelectedYear(now.getFullYear().toString());
   }, []);
 
-  const { weeks, fiscalMonthLabel } = useMemo(() => {
-    if (!currentDate) return { weeks: [], fiscalMonthLabel: 'Loading...' };
-    const fiscalData = getFiscalDataForDate(currentDate);
-    const monthWeeks = getWeeksForFiscalMonth(currentDate);
-    const label = fiscalData ? `${fiscalData.reporting_month} ${fiscalData.reporting_year}` : 'Loading...';
-    return { weeks: monthWeeks, fiscalMonthLabel: label };
-  }, [currentDate]);
-
-  const fetchData = useCallback(async () => {
+  const fetchDataAndPrepopulate = useCallback(async () => {
+    if (!selectedMonth || !selectedYear) return;
     setLoading(true);
     try {
-      const [empResponse, titleResponse] = await Promise.all([
-        fetch(`/data/v1/gbs_ind_hr_fte_report`),
-        fetch(`/data/v1/mst_fte_updated_titles`),
-      ]);
-
-      if (!empResponse.ok || !titleResponse.ok) {
-        console.warn("Could not fetch initial data. This may be expected in local dev.");
+      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
+      if (!response.ok) {
+        throw new Error('Failed to load ticket data');
       }
+      const ticketData: TicketAllocationData[] = await response.json();
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e && e.Full_Name) : [];
-      const titleData: UpdatedTitle[] = titleResponse.ok ? (await titleResponse.json()).filter((t: any) => t && t.updated_titles) : [];
-      
-      setAllEmployees(empData);
-      setTitles(titleData);
-      
-      const managerMap = new Map<string, string>();
-      empData.forEach(emp => {
-          if(emp.First_Reviewer_Code && emp.First_Reviewer_Name) {
-              managerMap.set(emp.First_Reviewer_Code, emp.First_Reviewer_Name);
-          }
-      });
-      const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }));
-      setManagers(uniqueManagers);
+      const filteredData = ticketData.filter(
+        (d) => d.reporting_month === selectedMonth && d.reporting_year === selectedYear
+      );
 
-      setActiveEmployees([]);
+      const groupedByAgent = filteredData.reduce((acc, item) => {
+        if (!acc[item.agent_name]) {
+          acc[item.agent_name] = [];
+        }
+        acc[item.agent_name].push(item);
+        return acc;
+      }, {} as Record<string, TicketAllocationData[]>);
+
+      const prepopulatedAllocations: EmployeeAllocation[] = Object.entries(groupedByAgent).map(
+        ([agentName, agentData]) => ({
+          agentName,
+          allocations: agentData.map((d) => ({
+            id: `${agentName}-${d.agent_group_name}-${Date.now()}`,
+            agentGroupName: d.agent_group_name,
+            fte: d.monthly_ticket_ratio,
+          })),
+        })
+      );
+
+      setActiveAllocations(prepopulatedAllocations);
 
     } catch (error) {
-      console.error("Failed to fetch initial data:", error);
-      toast({ variant: 'destructive', title: 'Failed to fetch data' });
+      console.error("Failed to fetch and process ticket data:", error);
+      toast({ variant: 'destructive', title: 'Failed to process data' });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [selectedMonth, selectedYear, toast]);
 
   useEffect(() => {
-    if (!userLoading) {
-        fetchData();
-    }
-  }, [fetchData, userLoading, currentUser.id]);
+    fetchDataAndPrepopulate();
+  }, [fetchDataAndPrepopulate]);
 
-
-  const availableEmployees = useMemo(() => {
-    const activeEmployeeIds = new Set(activeEmployees.map(a => a.employee.Person_Number));
-    const unallocatedEmployees = allEmployees.filter(e => !activeEmployeeIds.has(e.Person_Number));
-    if (!employeeSearchTerm) {
-        return unallocatedEmployees;
-    }
-    return unallocatedEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
-  }, [allEmployees, activeEmployees, employeeSearchTerm]);
-  
-  const filteredTitles = useMemo(() => {
-    if (!titleSearchTerm) {
-      return titles;
-    }
-    return titles.filter(t => t.updated_titles.toLowerCase().includes(titleSearchTerm.toLowerCase()));
-  }, [titles, titleSearchTerm]);
-
-
-  const handlePrevMonth = () => {
-    if (currentDate) setCurrentDate(getPreviousFiscalMonth(currentDate));
-  };
-  const handleNextMonth = () => {
-    if (currentDate) setCurrentDate(getNextFiscalMonth(currentDate));
-  };
-  
-  const handleAddEmployee = (employeeId: string) => {
-    if (!employeeId) return;
-    const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
-    
-    if (employeeToAdd) {
-      const isAlreadyActive = activeEmployees.some(a => a.employee.Person_Number === employeeId);
-      if (isAlreadyActive) {
-          toast({ variant: 'destructive', title: 'Employee already in grid' });
-          return;
+  const handleFteChange = (agentName: string, allocId: string, newFteValue: string) => {
+    const newFte = parseFloat(newFteValue) || 0;
+    setActiveAllocations(prev => prev.map(empAlloc => {
+      if (empAlloc.agentName === agentName) {
+        const newAllocations = empAlloc.allocations.map(alloc => {
+          if (alloc.id === allocId) {
+            return { ...alloc, fte: newFte };
+          }
+          return alloc;
+        });
+        return { ...empAlloc, allocations: newAllocations };
       }
-      
-      setActiveEmployees(prev => [{
-        employee: employeeToAdd,
-        weeklyTitles: {}
-      }, ...prev]);
-    }
+      return empAlloc;
+    }));
   };
 
-  const handleAddManagerTeam = (managerId: string) => {
-    if (!managerId) return;
-    const directReports = allEmployees.filter(e => e.First_Reviewer_Code === managerId);
-    
-    const newEmployees = directReports
-      .filter(employee => !activeEmployees.some(a => a.employee.Person_Number === employee.Person_Number))
-      .map(employee => ({
-          employee,
-          weeklyTitles: {},
-        }));
-
-    if (newEmployees.length > 0) {
-      setActiveEmployees(prev => [...newEmployees, ...prev]);
-      toast({ title: 'Team Loaded', description: `${newEmployees.length} employees have been added to the grid.` });
-    } else {
-      toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' });
-    }
+  const handleAddAllocationRow = (agentName: string) => {
+    setActiveAllocations(prev => prev.map(empAlloc => {
+      if (empAlloc.agentName === agentName) {
+        const newAlloc: AllocationRow = {
+          id: `${agentName}-new-${Date.now()}`,
+          agentGroupName: 'MANUAL ENTRY',
+          fte: 0,
+        };
+        return { ...empAlloc, allocations: [...empAlloc.allocations, newAlloc] };
+      }
+      return empAlloc;
+    }));
   };
 
-
-  const handleRemoveEmployee = (employeeId: string) => {
-    setActiveEmployees(prev => prev.filter(a => a.employee.Person_Number !== employeeId));
-  };
-  
-  const handleTitleChange = (employeeId: string, weekKey: string, newTitle: string) => {
-    setActiveEmployees(prev => prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-            return { ...empAlloc, weeklyTitles: { ...empAlloc.weeklyTitles, [weekKey]: newTitle } };
-        }
-        return empAlloc;
+  const handleRemoveAllocationRow = (agentName: string, allocId: string) => {
+    setActiveAllocations(prev => prev.map(empAlloc => {
+      if (empAlloc.agentName === agentName) {
+        const newAllocations = empAlloc.allocations.filter(a => a.id !== allocId);
+        return { ...empAlloc, allocations: newAllocations };
+      }
+      return empAlloc;
     }));
   };
 
   const handleSave = async () => {
-    const submissions: any[] = [];
+    if (!selectedMonth || !selectedYear) {
+        toast({ variant: 'destructive', title: 'Invalid Date', description: 'Please select a valid month and year.' });
+        return;
+    }
     
-    activeEmployees.forEach(empAlloc => {
-      Object.entries(empAlloc.weeklyTitles).forEach(([weekKey, title]) => {
-        if (title) {
+    const monthIndex = months.indexOf(selectedMonth);
+    const allocationDate = format(startOfMonth(new Date(parseInt(selectedYear), monthIndex)), 'yyyy-MM-dd');
+    
+    const submissions: any[] = [];
+    activeAllocations.forEach(empAlloc => {
+      const totalFte = empAlloc.allocations.reduce((sum, alloc) => sum + alloc.fte, 0);
+      if (Math.abs(totalFte - 1.0) > 0.01) { // Allow for small floating point inaccuracies
+          toast({ variant: 'destructive', title: `Validation Error for ${empAlloc.agentName}`, description: `Total allocation must be 1.0, but it is ${totalFte.toFixed(2)}.` });
+          return;
+      }
+      empAlloc.allocations.forEach(alloc => {
+        if (alloc.fte > 0) {
           submissions.push({
             content: {
-              allocation_date: weekKey,
-              employee_id: empAlloc.employee.Person_Number,
-              employee_name: empAlloc.employee.Full_Name,
-              updated_title: title,
+              allocation_date: allocationDate,
+              allocation_name: empAlloc.agentName,
+              cost_center_name: alloc.agentGroupName,
+              cost_center_number: alloc.agentGroupName, // Using name as number for simplicity
+              allocation_amount: alloc.fte.toString(),
             }
           });
         }
@@ -216,8 +194,8 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
     }
 
     try {
-        await Promise.all(submissions.map(entry => 
-            fetch('/domo/datastores/v1/collections/title_allocations/documents/', {
+        await Promise.all(submissions.map(entry =>
+            fetch('/domo/datastores/v1/collections/weekly_allocation/documents/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(entry),
@@ -227,8 +205,8 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
             })
         ));
         toast({
-            title: 'Title Allocations Saved',
-            description: `${submissions.length} title assignments have been saved successfully.`,
+            title: 'Allocations Saved',
+            description: `${submissions.length} allocation entries for ${selectedMonth} ${selectedYear} have been saved successfully.`,
         });
         onSaveSuccess();
     } catch (error: any) {
@@ -237,19 +215,11 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
     }
   };
 
-  if (loading || userLoading || !startOfCurrentWeek || !currentDate) {
+  if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-          <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </CardContent>
+        <CardHeader><Skeleton className="h-6 w-1/4" /></CardHeader>
+        <CardContent><Skeleton className="h-64 w-full" /></CardContent>
       </Card>
     );
   }
@@ -259,46 +229,19 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle>Title Allocation Grid</CardTitle>
-            <CardDescription>Add employees to assign titles for each week. Past weeks are locked.</CardDescription>
+            <CardTitle>Allocation Grid</CardTitle>
+            <CardDescription>Allocations are pre-populated from monthly ticket ratios.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-             <Select onValueChange={handleAddEmployee}>
-                <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Add Employee..." />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectSearch placeholder="Search employee..." onChange={setEmployeeSearchTerm} />
-                    {availableEmployees.map(e => (
-                        <SelectItem key={e.Person_Number} value={e.Person_Number}>
-                            {e.Full_Name}
-                        </SelectItem>
-                    ))}
-                    {availableEmployees.length === 0 && (
-                        <div className="p-4 text-sm text-center text-muted-foreground">
-                            No employees found.
-                        </div>
-                    )}
-                </SelectContent>
+            <Select value={selectedMonth || ''} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[120px]"><SelectValue placeholder="Month" /></SelectTrigger>
+              <SelectContent>{months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
             </Select>
-            <Select onValueChange={handleAddManagerTeam}>
-                <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Load Team..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {managers.map(m => (
-                        <SelectItem key={m.id} value={m.id}>
-                            {m.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
+            <Select value={selectedYear || ''} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-[100px]"><SelectValue placeholder="Year" /></SelectTrigger>
+              <SelectContent>{years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
             </Select>
-            <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-            <span className="text-sm font-medium w-32 text-center">
-              {fiscalMonthLabel}
-            </span>
-            <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
-            <Button onClick={handleSave} disabled={activeEmployees.length === 0}>Save All</Button>
+            <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
           </div>
         </div>
       </CardHeader>
@@ -307,82 +250,64 @@ export function TitleAllocationGrid({ currentDate, setCurrentDate, onSaveSuccess
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee</TableHead>
-                {weeks.map(week => {
-                  const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                  const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                  const isLockedForUser = isPast && !isAdmin;
-                  return (
-                    <TableHead key={week.toISOString()} className={cn("text-center min-w-[250px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
-                      <div className='flex items-center justify-center gap-2'>
-                        {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
-                        <span>W/E {format(endOfWeek(week, { weekStartsOn: 1 }), 'MMM d')}</span>
-                      </div>
-                      {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
-                    </TableHead>
-                  )
-                })}
+                <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Agent Name</TableHead>
+                <TableHead className="min-w-[250px]">Agent Group (Cost Center)</TableHead>
+                <TableHead className="text-center min-w-[150px]">FTE</TableHead>
                 <TableHead className="w-[100px]"> </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-             {activeEmployees.length === 0 && (
+              {activeAllocations.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={weeks.length + 2} className="text-center h-24 text-muted-foreground">
-                        Select an employee to begin assigning titles.
-                    </TableCell>
+                  <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                    No ticket data found for the selected period.
+                  </TableCell>
                 </TableRow>
-             )}
-              {activeEmployees.map(({ employee, weeklyTitles }) => {
-                const isRowLocked = weeks.some(week => {
-                    const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                    return isPast && !isAdmin;
-                });
+              )}
+              {activeAllocations.map(({ agentName, allocations }) => {
+                const totalFte = allocations.reduce((total, alloc) => total + (alloc.fte || 0), 0);
                 return (
-                    <TableRow key={employee.Person_Number}>
-                       <TableCell className="font-semibold sticky left-0 bg-card z-10">
-                        {employee.Full_Name}
-                        <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
+                  <Fragment key={agentName}>
+                    <TableRow className="bg-muted/50 hover:bg-muted">
+                      <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{agentName}</TableCell>
+                      <TableCell></TableCell>
+                      <TableCell className={cn("text-center font-semibold", Math.abs(totalFte - 1.0) > 0.01 ? "text-destructive" : "text-muted-foreground")}>
+                        {totalFte > 0 ? totalFte.toFixed(3) : '-'}
                       </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
 
-                      {weeks.map(week => {
-                        const weekKey = formatDateKey(week);
-                        const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                        const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                        const isLockedForUser = isPast && !isAdmin;
-                        return (
-                          <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
-                            <Select 
-                              value={weeklyTitles[weekKey] || ''} 
-                              onValueChange={(newTitle) => handleTitleChange(employee.Person_Number, weekKey, newTitle)}
-                              disabled={isLockedForUser}
-                            >
-                              <SelectTrigger className={cn("w-full", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}>
-                                <SelectValue placeholder="Select Title..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectSearch placeholder="Search title..." onChange={setTitleSearchTerm} />
-                                {filteredTitles.map(t => (
-                                    <SelectItem key={t.updated_titles} value={t.updated_titles}>
-                                        {t.updated_titles}
-                                    </SelectItem>
-                                ))}
-                                {filteredTitles.length === 0 && (
-                                    <div className="p-4 text-sm text-center text-muted-foreground">
-                                        No titles found.
-                                    </div>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                        )
-                      })}
-                      <TableCell className='text-right'>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.Person_Number)}>
-                           <Trash2 className="h-4 w-4 text-destructive" />
+                    {allocations.map((alloc) => (
+                      <TableRow key={alloc.id}>
+                        <TableCell className="sticky left-0 bg-card z-10"></TableCell>
+                        <TableCell>
+                           <Input value={alloc.agentGroupName} readOnly className="bg-muted" />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number" step="0.01" min="0" placeholder="0.00"
+                            className="w-32 text-center mx-auto"
+                            value={alloc.fte}
+                            onChange={(e) => handleFteChange(agentName, alloc.id, e.target.value)}
+                          />
+                        </TableCell>
+                        <TableCell className='text-right'>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(agentName, alloc.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+
+                    <TableRow>
+                      <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
+                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(agentName)}>
+                          <PlusCircle className="mr-2 h-4 w-4" /> Add Manual Allocation
                         </Button>
                       </TableCell>
+                      <TableCell colSpan={2}></TableCell>
                     </TableRow>
+                  </Fragment>
                 );
               })}
             </TableBody>
