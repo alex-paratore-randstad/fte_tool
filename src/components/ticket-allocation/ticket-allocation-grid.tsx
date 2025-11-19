@@ -31,9 +31,9 @@ type TicketAllocationData = {
   agent_group_name: string;
   reporting_month: string;
   reporting_year: string;
-  tickets: number;
-  total_monthly_tickets: number;
-  monthly_ticket_ratio: number;
+  tickets: string;
+  total_monthly_tickets: string;
+  monthly_ticket_ratio: string;
 };
 
 type AllocationRow = {
@@ -73,17 +73,18 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     if (!selectedMonth || !selectedYear) return;
     setLoading(true);
     try {
-      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
+      const query = `?q=SELECT \`agent_name\`, \`agent_group_name\`, \`monthly_ticket_ratio\` FROM table WHERE \`reporting_month\` = '${selectedMonth}' AND \`reporting_year\` = '${selectedYear}'`;
+      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly${query}`);
+      
       if (!response.ok) {
-        throw new Error('Failed to load ticket data');
+        console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
+        setActiveAllocations([]);
+        setLoading(false);
+        return;
       }
       const ticketData: TicketAllocationData[] = await response.json();
       
-      const filteredData = ticketData.filter(
-        (d) => d.reporting_month === selectedMonth && d.reporting_year === selectedYear
-      );
-
-      const groupedByAgent = filteredData.reduce((acc, item) => {
+      const groupedByAgent = ticketData.reduce((acc, item) => {
         if (!acc[item.agent_name]) {
           acc[item.agent_name] = [];
         }
@@ -97,7 +98,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
           allocations: agentData.map((d) => ({
             id: `${agentName}-${d.agent_group_name}-${Date.now()}`,
             agentGroupName: d.agent_group_name,
-            fte: d.monthly_ticket_ratio,
+            fte: parseFloat(d.monthly_ticket_ratio) || 0,
           })),
         })
       );
@@ -107,14 +108,17 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     } catch (error) {
       console.error("Failed to fetch and process ticket data:", error);
       toast({ variant: 'destructive', title: 'Failed to process data' });
+      setActiveAllocations([]);
     } finally {
       setLoading(false);
     }
   }, [selectedMonth, selectedYear, toast]);
 
   useEffect(() => {
-    fetchDataAndPrepopulate();
-  }, [fetchDataAndPrepopulate]);
+    if (selectedMonth && selectedYear) {
+      fetchDataAndPrepopulate();
+    }
+  }, [selectedMonth, selectedYear, fetchDataAndPrepopulate]);
 
   const handleFteChange = (agentName: string, allocId: string, newFteValue: string) => {
     const newFte = parseFloat(newFteValue) || 0;
@@ -167,6 +171,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     
     const submissions: any[] = [];
     let hasValidationError = false;
+
     activeAllocations.forEach(empAlloc => {
       const totalFte = empAlloc.allocations.reduce((sum, alloc) => sum + alloc.fte, 0);
       if (Math.abs(totalFte - 1.0) > 0.01) { // Allow for small floating point inaccuracies
@@ -218,7 +223,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     }
   };
 
-  if (loading) {
+  if (loading || !selectedMonth || !selectedYear) {
     return (
       <Card>
         <CardHeader><Skeleton className="h-6 w-1/4" /></CardHeader>
