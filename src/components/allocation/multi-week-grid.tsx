@@ -99,7 +99,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
 
   const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
@@ -170,11 +170,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const availableEmployees = useMemo(() => {
     const activeEmployeeIds = new Set(activeAllocations.map(a => a.employee.Person_Number));
     const unallocatedEmployees = allEmployees.filter(e => !activeEmployeeIds.has(e.Person_Number));
-    if (!searchTerm) {
+    if (!employeeSearchTerm) {
         return unallocatedEmployees;
     }
-    return unallocatedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [allEmployees, activeAllocations, searchTerm]);
+    return unallocatedEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
+  }, [allEmployees, activeAllocations, employeeSearchTerm]);
 
   const handlePrevMonth = () => {
     if (currentDate) setCurrentDate(getPreviousFiscalMonth(currentDate));
@@ -412,7 +412,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                     <SelectValue placeholder="Add Employee..." />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
+                    <SelectSearch placeholder="Search employee..." onChange={setEmployeeSearchTerm} />
                     {availableEmployees.map(e => (
                         <SelectItem key={e.Person_Number} value={e.Person_Number}>
                             {e.Full_Name}
