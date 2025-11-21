@@ -53,6 +53,45 @@ type MultiWeekGridProps = {
   onSaveSuccess: () => void;
 };
 
+// New component to handle its own search state
+const CostCenterSelect = ({ 
+  costCenters, 
+  value, 
+  onValueChange,
+  disabled
+}: { 
+  costCenters: CostCenterData[], 
+  value: string, 
+  onValueChange: (value: string) => void,
+  disabled?: boolean 
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const filteredCostCenters = useMemo(() => {
+    if (!searchTerm) {
+      return costCenters;
+    }
+    return costCenters.filter(cc =>
+      cc.cost_center_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [costCenters, searchTerm]);
+
+  return (
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectTrigger>
+      <SelectContent>
+        <SelectSearch placeholder="Search cost center..." onChange={setSearchTerm} />
+        {filteredCostCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
+         {filteredCostCenters.length === 0 && (
+          <div className="p-4 text-sm text-center text-muted-foreground">
+              No cost centers found.
+          </div>
+        )}
+      </SelectContent>
+    </Select>
+  );
+};
+
 
 export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: MultiWeekGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
@@ -61,7 +100,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [costCenterSearchTerm, setCostCenterSearchTerm] = useState('');
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
 
   const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
@@ -137,15 +175,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     }
     return unallocatedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [allEmployees, activeAllocations, searchTerm]);
-  
-  const filteredCostCenters = useMemo(() => {
-    if (!costCenterSearchTerm) {
-      return costCenters;
-    }
-    return costCenters.filter(cc =>
-      cc.cost_center_name.toLowerCase().includes(costCenterSearchTerm.toLowerCase())
-    );
-  }, [costCenters, costCenterSearchTerm]);
 
   const handlePrevMonth = () => {
     if (currentDate) setCurrentDate(getPreviousFiscalMonth(currentDate));
@@ -487,18 +516,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                       <TableRow key={alloc.id}>
                         <TableCell className="sticky left-0 bg-card z-10"></TableCell>
                         <TableCell>
-                          <Select value={alloc.costCenterName} onValueChange={(newCcName) => handleCostCenterChange(employee.Person_Number, alloc.id, newCcName)} disabled={isRowLocked}>
-                            <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectTrigger>
-                            <SelectContent>
-                              <SelectSearch placeholder="Search cost center..." onChange={setCostCenterSearchTerm} />
-                              {filteredCostCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
-                               {filteredCostCenters.length === 0 && (
-                                <div className="p-4 text-sm text-center text-muted-foreground">
-                                    No cost centers found.
-                                </div>
-                              )}
-                            </SelectContent>
-                          </Select>
+                          <CostCenterSelect
+                              costCenters={costCenters}
+                              value={alloc.costCenterName}
+                              onValueChange={(newCcName) => handleCostCenterChange(employee.Person_Number, alloc.id, newCcName)}
+                              disabled={isRowLocked}
+                          />
                         </TableCell>
                          <TableCell>
                             <Input
