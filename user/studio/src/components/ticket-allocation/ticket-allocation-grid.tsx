@@ -31,7 +31,7 @@ type TicketAllocationData = {
 
 type AllocationRow = {
   id: string;
-  agentGroupName: string;
+  clientName: string;
   fte: number;
 };
 
@@ -44,6 +44,37 @@ type TicketAllocationGridProps = {
   onSaveSuccess: () => void;
 };
 
+const AgentSelect = ({
+  agents,
+  onValueChange,
+  value
+}: {
+  agents: string[],
+  onValueChange: (value: string) => void,
+  value: string
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredAgents = useMemo(() => {
+    if (!searchTerm) return agents;
+    return agents.filter(agent => agent.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [agents, searchTerm]);
+
+  return (
+    <Select onValueChange={onValueChange} value={value}>
+      <SelectTrigger className="w-[250px]">
+        <SelectValue placeholder="Select an Agent..." />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectSearch placeholder="Search agent..." onChange={setSearchTerm} />
+        {filteredAgents.map(agent => <SelectItem key={agent} value={agent}>{agent}</SelectItem>)}
+        {filteredAgents.length === 0 && <div className="p-2 text-sm text-center">No agents found</div>}
+      </SelectContent>
+    </Select>
+  );
+};
+
+
 export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProps) {
   const [activeAllocation, setActiveAllocation] = useState<EmployeeAllocation | null>(null);
   const [allTicketData, setAllTicketData] = useState<TicketAllocationData[]>([]);
@@ -52,7 +83,6 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string>('');
-  const [agentSearchTerm, setAgentSearchTerm] = useState('');
 
   const { toast } = useToast();
 
@@ -75,7 +105,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
       const data: TicketAllocationData[] = await response.json();
       setAllTicketData(data);
       
-      const uniqueAgents = Array.from(new Set(data.map(d => d.agent_name))).sort();
+      const uniqueAgents = Array.from(new Set(data.map(d => d.agent_name))).sort((a,b) => a.localeCompare(b));
       setAvailableAgents(uniqueAgents);
 
     } catch (error) {
@@ -110,7 +140,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
         agentName: selectedAgent,
         allocations: agentDataForMonth.map((d) => ({
           id: `${selectedAgent}-${d.agent_group_name}-${Date.now()}`,
-          agentGroupName: d.agent_group_name,
+          clientName: d.agent_group_name,
           fte: parseFloat(d.monthly_ticket_ratio) || 0,
         })),
       };
@@ -119,7 +149,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
        // If no data for this month, start with a clean slate for the agent
       setActiveAllocation({
         agentName: selectedAgent,
-        allocations: [{ id: `${selectedAgent}-manual-${Date.now()}`, agentGroupName: '', fte: 0 }]
+        allocations: [{ id: `${selectedAgent}-manual-${Date.now()}`, clientName: '', fte: 0 }]
       });
     }
   }, [selectedAgent, currentDate, allTicketData]);
@@ -151,12 +181,12 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     setActiveAllocation({ ...activeAllocation, allocations: newAllocations });
   };
   
-  const handleAgentGroupChange = (allocId: string, newValue: string) => {
+  const handleClientNameChange = (allocId: string, newValue: string) => {
     if (!activeAllocation) return;
 
     const newAllocations = activeAllocation.allocations.map(alloc => {
         if (alloc.id === allocId) {
-            return { ...alloc, agentGroupName: newValue };
+            return { ...alloc, clientName: newValue };
         }
         return alloc;
     });
@@ -167,7 +197,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     if (!activeAllocation) return;
     const newAlloc: AllocationRow = {
       id: `${activeAllocation.agentName}-new-${Date.now()}`,
-      agentGroupName: '',
+      clientName: '',
       fte: 0,
     };
     setActiveAllocation({ ...activeAllocation, allocations: [...activeAllocation.allocations, newAlloc] });
@@ -200,8 +230,8 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     if (!hasValidationError) {
       activeAllocation.allocations.forEach(alloc => {
           if (alloc.fte > 0) {
-              if (!alloc.agentGroupName) {
-                  validationMessage = `Please enter an agent group name.`;
+              if (!alloc.clientName) {
+                  validationMessage = `Please enter a client name.`;
                   hasValidationError = true;
                   return;
               }
@@ -209,8 +239,8 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
               content: {
                 allocation_date: allocationDate,
                 allocation_name: activeAllocation.agentName,
-                cost_center_name: alloc.agentGroupName,
-                cost_center_number: alloc.agentGroupName, // Using name as number for this use case
+                cost_center_name: alloc.clientName,
+                cost_center_number: alloc.clientName, // Using name as number for this use case
                 allocation_amount: alloc.fte.toString(),
               }
             });
@@ -250,11 +280,6 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     }
   };
 
-  const filteredAgents = useMemo(() => {
-    if (!agentSearchTerm) return availableAgents;
-    return availableAgents.filter(agent => agent.toLowerCase().includes(agentSearchTerm.toLowerCase()));
-  }, [availableAgents, agentSearchTerm]);
-
   if (loading || !currentDate) {
     return (
       <Card>
@@ -275,16 +300,11 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
             <CardDescription>Select an agent to review and adjust their ticket-based allocations.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Select onValueChange={setSelectedAgent} value={selectedAgent}>
-              <SelectTrigger className="w-[250px]">
-                <SelectValue placeholder="Select an Agent..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectSearch placeholder="Search agent..." onChange={setAgentSearchTerm} />
-                {filteredAgents.map(agent => <SelectItem key={agent} value={agent}>{agent}</SelectItem>)}
-                {filteredAgents.length === 0 && <div className="p-2 text-sm text-center">No agents found</div>}
-              </SelectContent>
-            </Select>
+            <AgentSelect 
+              agents={availableAgents}
+              value={selectedAgent}
+              onValueChange={setSelectedAgent}
+            />
             <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium w-32 text-center">
               {format(currentDate, 'MMM yyyy')}
@@ -299,7 +319,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[250px]">Agent Group (Cost Center)</TableHead>
+                <TableHead className="min-w-[250px]">Client</TableHead>
                 <TableHead className="text-center min-w-[150px]">FTE</TableHead>
                 <TableHead className="w-[100px]"> </TableHead>
               </TableRow>
@@ -320,14 +340,14 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
               ) : (
                 <>
                 {activeAllocation.allocations.map((alloc) => {
-                  const isPrePopulated = allTicketData.some(d => d.agent_group_name === alloc.agentGroupName);
+                  const isPrePopulated = allTicketData.some(d => d.agent_group_name === alloc.clientName && d.agent_name === selectedAgent);
                   return (
                     <TableRow key={alloc.id}>
                       <TableCell>
                          <Input 
-                           value={alloc.agentGroupName}
-                           onChange={(e) => handleAgentGroupChange(alloc.id, e.target.value)}
-                           placeholder="Enter Agent Group..."
+                           value={alloc.clientName}
+                           onChange={(e) => handleClientNameChange(alloc.id, e.target.value)}
+                           placeholder="Enter Client Name..."
                            className={cn({ "bg-muted cursor-not-allowed": isPrePopulated })}
                            readOnly={isPrePopulated}
                          />
@@ -377,5 +397,3 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     </Card>
   );
 }
-
-    

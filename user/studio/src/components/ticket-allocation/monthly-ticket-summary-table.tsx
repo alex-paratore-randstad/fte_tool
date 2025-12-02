@@ -13,9 +13,9 @@ type MonthlyTicketData = {
   agent_group_name: string;
   reporting_month: string;
   reporting_year: string;
-  tickets: number;
-  total_monthly_tickets: number;
-  monthly_ticket_ratio: number;
+  tickets: string;
+  total_monthly_tickets: string;
+  monthly_ticket_ratio: string;
 };
 
 export function MonthlyTicketSummaryTable() {
@@ -31,7 +31,7 @@ export function MonthlyTicketSummaryTable() {
         throw new Error('Failed to fetch monthly ticket summary');
       }
       const result: MonthlyTicketData[] = await response.json();
-      setData(result.sort((a,b) => b.tickets - a.tickets));
+      setData(result.sort((a,b) => Number(b.tickets) - Number(a.tickets)));
     } catch (error) {
       console.error("Failed to fetch summary data:", error);
       toast({
@@ -77,7 +77,7 @@ export function MonthlyTicketSummaryTable() {
             <TableHeader>
               <TableRow>
                 <TableHead>Agent</TableHead>
-                <TableHead>Agent Group</TableHead>
+                <TableHead>Client</TableHead>
                 <TableHead>Month</TableHead>
                 <TableHead>Year</TableHead>
                 <TableHead>Tickets</TableHead>
@@ -101,7 +101,7 @@ export function MonthlyTicketSummaryTable() {
                     <TableCell>{row.reporting_year}</TableCell>
                     <TableCell>{row.tickets}</TableCell>
                     <TableCell>{row.total_monthly_tickets}</TableCell>
-                    <TableCell>{(row.monthly_ticket_ratio || 0).toFixed(4)}</TableCell>
+                    <TableCell>{(Number(row.monthly_ticket_ratio) || 0).toFixed(4)}</TableCell>
                   </TableRow>
                 ))
               )}
