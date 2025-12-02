@@ -286,6 +286,52 @@
                     "columnName": "RollsUpTo"
                 }
             ]
+        },
+        {
+            "dataSetId": "1e7b3e27-2594-4c66-ae83-fe34369f01be",
+            "alias": "global_445_calendar",
+            "fields": [
+                {
+                    "alias": "Day",
+                    "columnName": "Day"
+                },
+                {
+                    "alias": "Date",
+                    "columnName": "Date"
+                },
+                {
+                    "alias": "Week_Number",
+                    "columnName": "Week #"
+                },
+                {
+                    "alias": "Reporting_Week",
+                    "columnName": "Reporting Week"
+                },
+                {
+                    "alias": "Reporting_Month",
+                    "columnName": "Reporting Month"
+                },
+                {
+                    "alias": "4-4-5_Month",
+                    "columnName": "4-4-5 Month"
+                },
+                {
+                    "alias": "Reporting_Quarter",
+                    "columnName": "Reporting Quarter"
+                },
+                {
+                    "alias": "Reporting_Year",
+                    "columnName": "Reporting Year"
+                },
+                {
+                    "alias": "4-4-5_Year",
+                    "columnName": "4-4-5 Year"
+                },
+                {
+                    "alias": "Reporting_Week_Date",
+                    "columnName": "Reporting Week Date"
+                }
+            ]
         }
     ],
     "collectionsMapping": [

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { addMonths, subMonths, startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
+import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -74,12 +74,23 @@ const ClientSelect = ({
   
   const filteredClients = useMemo(() => {
     const specialClients = ['PTO', 'Unallocated'];
-    const topItems = clients.filter(c => specialClients.includes(c.DisplayName));
-    const regularItems = clients
-      .filter(c => !specialClients.includes(c.DisplayName))
-      .sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
+    
+    // Create a stable sort: special clients first, then alphabetical.
+    const sorted = [...clients].sort((a, b) => {
+      const aIsSpecial = specialClients.includes(a.DisplayName);
+      const bIsSpecial = specialClients.includes(b.DisplayName);
 
-    const sorted = [...topItems, ...regularItems];
+      if (aIsSpecial && !bIsSpecial) return -1;
+      if (!aIsSpecial && bIsSpecial) return 1;
+      
+      // If both are special or both are not, sort by name.
+      // Give 'Unallocated' a slight edge over 'PTO' if both present
+      if (aIsSpecial && bIsSpecial) {
+          return a.DisplayName === 'Unallocated' ? -1 : 1;
+      }
+      
+      return a.DisplayName.localeCompare(b.DisplayName);
+    });
 
     if (!searchTerm) {
       return sorted;
@@ -206,7 +217,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     if (!currentDate) return { weeks: [], fiscalMonthLabel: 'Loading...' };
     const fiscalData = getFiscalDataForDate(currentDate);
     const monthWeeks = getWeeksForFiscalMonth(currentDate);
-    const label = fiscalData ? `${fiscalData.reporting_month} ${fiscalData.reporting_year}` : 'Loading...';
+    const label = fiscalData ? `${fiscalData.Reporting_Month} ${fiscalData.Reporting_Year}` : 'Loading...';
     return { weeks: monthWeeks, fiscalMonthLabel: label };
   }, [currentDate]);
 
