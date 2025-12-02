@@ -13,11 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { format, startOfMonth, addMonths, subMonths } from 'date-fns';
+import { SelectSearch } from '../ui/select-search';
 
 type TicketAllocationData = {
   agent_name: string;
@@ -42,10 +44,45 @@ type TicketAllocationGridProps = {
   onSaveSuccess: () => void;
 };
 
+const AgentSelect = ({
+  agents,
+  onValueChange,
+  value
+}: {
+  agents: string[],
+  onValueChange: (value: string) => void,
+  value: string
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredAgents = useMemo(() => {
+    if (!searchTerm) return agents;
+    return agents.filter(agent => agent.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [agents, searchTerm]);
+
+  return (
+    <Select onValueChange={onValueChange} value={value}>
+      <SelectTrigger className="w-[250px]">
+        <SelectValue placeholder="Select an Agent..." />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectSearch placeholder="Search agent..." onChange={setSearchTerm} />
+        {filteredAgents.map(agent => <SelectItem key={agent} value={agent}>{agent}</SelectItem>)}
+        {filteredAgents.length === 0 && <div className="p-2 text-sm text-center">No agents found</div>}
+      </SelectContent>
+    </Select>
+  );
+};
+
+
 export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProps) {
-  const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
+  const [activeAllocation, setActiveAllocation] = useState<EmployeeAllocation | null>(null);
+  const [allTicketData, setAllTicketData] = useState<TicketAllocationData[]>([]);
+  const [availableAgents, setAvailableAgents] = useState<string[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<string>('');
 
   const { toast } = useToast();
 
@@ -54,58 +91,73 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     setCurrentDate(new Date());
   }, []);
 
-  const selectedMonth = useMemo(() => currentDate ? format(currentDate, 'MMM') : '', [currentDate]);
-  const selectedYear = useMemo(() => currentDate ? format(currentDate, 'yyyy') : '', [currentDate]);
-
-  const fetchDataAndPrepopulate = useCallback(async () => {
-    if (!selectedMonth || !selectedYear) return;
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
-      const query = `?q=SELECT * FROM table WHERE \`reporting_month\` = '${selectedMonth}' AND \`reporting_year\` = '${selectedYear}'`;
-      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly${query}`);
+      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
 
       if (!response.ok) {
-        console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
-        setActiveAllocations([]); // Clear previous data
+        console.warn(`Failed to fetch ticket data.`);
+        setAllTicketData([]);
+        setAvailableAgents([]);
         return;
       }
-      const ticketData: TicketAllocationData[] = await response.json();
+      const data: TicketAllocationData[] = await response.json();
+      setAllTicketData(data);
       
-      const groupedByAgent = ticketData.reduce((acc, item) => {
-        if (!acc[item.agent_name]) {
-          acc[item.agent_name] = [];
-        }
-        acc[item.agent_name].push(item);
-        return acc;
-      }, {} as Record<string, TicketAllocationData[]>);
-
-      const prepopulatedAllocations: EmployeeAllocation[] = Object.entries(groupedByAgent).map(
-        ([agentName, agentData]) => ({
-          agentName,
-          allocations: agentData.map((d) => ({
-            id: `${agentName}-${d.agent_group_name}-${Date.now()}`,
-            agentGroupName: d.agent_group_name,
-            fte: parseFloat(d.monthly_ticket_ratio) || 0,
-          })),
-        })
-      );
-      
-      setActiveAllocations(prepopulatedAllocations);
+      const uniqueAgents = Array.from(new Set(data.map(d => d.agent_name))).sort();
+      setAvailableAgents(uniqueAgents);
 
     } catch (error) {
       console.error("Failed to fetch and process ticket data:", error);
       toast({ variant: 'destructive', title: 'Failed to process data' });
-      setActiveAllocations([]);
+      setAllTicketData([]);
+      setAvailableAgents([]);
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth, selectedYear, toast]);
+  }, [toast]);
+  
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
+  
+  const populateGridForAgentAndMonth = useCallback(() => {
+    if (!selectedAgent || !currentDate || allTicketData.length === 0) {
+      setActiveAllocation(null);
+      return;
+    }
+
+    const selectedMonth = format(currentDate, 'MMM');
+    const selectedYear = format(currentDate, 'yyyy');
+
+    const agentDataForMonth = allTicketData.filter(
+      d => d.agent_name === selectedAgent && d.reporting_month === selectedMonth && d.reporting_year === selectedYear
+    );
+
+    if (agentDataForMonth.length > 0) {
+      const prepopulated: EmployeeAllocation = {
+        agentName: selectedAgent,
+        allocations: agentDataForMonth.map((d) => ({
+          id: `${selectedAgent}-${d.agent_group_name}-${Date.now()}`,
+          agentGroupName: d.agent_group_name,
+          fte: parseFloat(d.monthly_ticket_ratio) || 0,
+        })),
+      };
+      setActiveAllocation(prepopulated);
+    } else {
+       // If no data for this month, start with a clean slate for the agent
+      setActiveAllocation({
+        agentName: selectedAgent,
+        allocations: [{ id: `${selectedAgent}-manual-${Date.now()}`, agentGroupName: '', fte: 0 }]
+      });
+    }
+  }, [selectedAgent, currentDate, allTicketData]);
 
   useEffect(() => {
-    if (currentDate) {
-      fetchDataAndPrepopulate();
-    }
-  }, [currentDate, fetchDataAndPrepopulate]);
+    populateGridForAgentAndMonth();
+  }, [selectedAgent, currentDate, populateGridForAgentAndMonth]);
+
 
   const handlePrevMonth = () => {
     if (currentDate) setCurrentDate(subMonths(currentDate, 1));
@@ -115,49 +167,51 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     if (currentDate) setCurrentDate(addMonths(currentDate, 1));
   };
 
-  const handleFteChange = (agentName: string, allocId: string, newFteValue: string) => {
+  const handleFteChange = (allocId: string, newFteValue: string) => {
+    if (!activeAllocation) return;
     const newFte = parseFloat(newFteValue) || 0;
-    setActiveAllocations(prev => prev.map(empAlloc => {
-      if (empAlloc.agentName === agentName) {
-        const newAllocations = empAlloc.allocations.map(alloc => {
-          if (alloc.id === allocId) {
-            return { ...alloc, fte: newFte };
-          }
-          return alloc;
-        });
-        return { ...empAlloc, allocations: newAllocations };
+    
+    const newAllocations = activeAllocation.allocations.map(alloc => {
+      if (alloc.id === allocId) {
+        return { ...alloc, fte: newFte };
       }
-      return empAlloc;
-    }));
+      return alloc;
+    });
+
+    setActiveAllocation({ ...activeAllocation, allocations: newAllocations });
+  };
+  
+  const handleAgentGroupChange = (allocId: string, newValue: string) => {
+    if (!activeAllocation) return;
+
+    const newAllocations = activeAllocation.allocations.map(alloc => {
+        if (alloc.id === allocId) {
+            return { ...alloc, agentGroupName: newValue };
+        }
+        return alloc;
+    });
+    setActiveAllocation({ ...activeAllocation, allocations: newAllocations });
   };
 
-  const handleAddAllocationRow = (agentName: string) => {
-    setActiveAllocations(prev => prev.map(empAlloc => {
-      if (empAlloc.agentName === agentName) {
-        const newAlloc: AllocationRow = {
-          id: `${agentName}-new-${Date.now()}`,
-          agentGroupName: 'MANUAL ENTRY',
-          fte: 0,
-        };
-        return { ...empAlloc, allocations: [...empAlloc.allocations, newAlloc] };
-      }
-      return empAlloc;
-    }));
+  const handleAddAllocationRow = () => {
+    if (!activeAllocation) return;
+    const newAlloc: AllocationRow = {
+      id: `${activeAllocation.agentName}-new-${Date.now()}`,
+      agentGroupName: '',
+      fte: 0,
+    };
+    setActiveAllocation({ ...activeAllocation, allocations: [...activeAllocation.allocations, newAlloc] });
   };
 
-  const handleRemoveAllocationRow = (agentName: string, allocId: string) => {
-    setActiveAllocations(prev => prev.map(empAlloc => {
-      if (empAlloc.agentName === agentName) {
-        const newAllocations = empAlloc.allocations.filter(a => a.id !== allocId);
-        return { ...empAlloc, allocations: newAllocations };
-      }
-      return empAlloc;
-    }));
+  const handleRemoveAllocationRow = (allocId: string) => {
+     if (!activeAllocation) return;
+    const newAllocations = activeAllocation.allocations.filter(a => a.id !== allocId);
+    setActiveAllocation({ ...activeAllocation, allocations: newAllocations });
   };
 
   const handleSave = async () => {
-    if (!currentDate) {
-        toast({ variant: 'destructive', title: 'Invalid Date', description: 'Please select a valid month and year.' });
+    if (!currentDate || !activeAllocation) {
+        toast({ variant: 'destructive', title: 'Invalid State', description: 'Please select an agent and a valid month.' });
         return;
     }
     
@@ -165,33 +219,42 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     
     const submissions: any[] = [];
     let hasValidationError = false;
+    let validationMessage = '';
+    
+    const totalFte = activeAllocation.allocations.reduce((sum, alloc) => sum + alloc.fte, 0);
+    if (Math.abs(totalFte - 1.0) > 0.01) { // Allow for small floating point inaccuracies
+        validationMessage = `Total allocation must be 1.0, but it is ${totalFte.toFixed(3)}.`;
+        hasValidationError = true;
+    }
 
-    activeAllocations.forEach(empAlloc => {
-      const totalFte = empAlloc.allocations.reduce((sum, alloc) => sum + alloc.fte, 0);
-      if (Math.abs(totalFte - 1.0) > 0.01) { // Allow for small floating point inaccuracies
-          toast({ variant: 'destructive', title: `Validation Error for ${empAlloc.agentName}`, description: `Total allocation must be 1.0, but it is ${totalFte.toFixed(3)}.` });
-          hasValidationError = true;
-          return;
-      }
-      empAlloc.allocations.forEach(alloc => {
-        if (alloc.fte > 0) {
-          submissions.push({
-            content: {
-              allocation_date: allocationDate,
-              allocation_name: empAlloc.agentName,
-              cost_center_name: alloc.agentGroupName,
-              cost_center_number: alloc.agentGroupName, // Using name as number for this use case
-              allocation_amount: alloc.fte.toString(),
-            }
-          });
-        }
+    if (!hasValidationError) {
+      activeAllocation.allocations.forEach(alloc => {
+          if (alloc.fte > 0) {
+              if (!alloc.agentGroupName) {
+                  validationMessage = `Please enter an agent group name.`;
+                  hasValidationError = true;
+                  return;
+              }
+            submissions.push({
+              content: {
+                allocation_date: allocationDate,
+                allocation_name: activeAllocation.agentName,
+                cost_center_name: alloc.agentGroupName,
+                cost_center_number: alloc.agentGroupName, // Using name as number for this use case
+                allocation_amount: alloc.fte.toString(),
+              }
+            });
+          }
       });
-    });
-
-    if (hasValidationError) return;
+    }
+    
+    if (hasValidationError) {
+      toast({ variant: 'destructive', title: `Validation Error for ${activeAllocation.agentName}`, description: validationMessage });
+      return;
+    }
 
     if (submissions.length === 0) {
-      toast({ title: 'No changes to save.' });
+      toast({ title: 'No allocation entries to save with FTE > 0.' });
       return;
     }
 
@@ -208,7 +271,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
         ));
         toast({
             title: 'Allocations Saved',
-            description: `${submissions.length} allocation entries for ${selectedMonth} ${selectedYear} have been saved successfully.`,
+            description: `${submissions.length} allocation entries for ${activeAllocation.agentName} in ${format(currentDate, 'MMM yyyy')} have been saved successfully.`,
         });
         onSaveSuccess();
     } catch (error: any) {
@@ -225,6 +288,8 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
       </Card>
     );
   }
+  
+  const totalFte = activeAllocation?.allocations.reduce((total, alloc) => total + (alloc.fte || 0), 0) ?? 0;
 
   return (
     <Card>
@@ -232,15 +297,20 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <CardTitle>Allocation Grid</CardTitle>
-            <CardDescription>Allocations are pre-populated from monthly ticket ratios. Adjust as needed.</CardDescription>
+            <CardDescription>Select an agent to review and adjust their ticket-based allocations.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <AgentSelect 
+              agents={availableAgents}
+              value={selectedAgent}
+              onValueChange={setSelectedAgent}
+            />
             <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium w-32 text-center">
               {format(currentDate, 'MMM yyyy')}
             </span>
             <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
-            <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
+            <Button onClick={handleSave} disabled={!activeAllocation}>Save</Button>
           </div>
         </div>
       </CardHeader>
@@ -249,66 +319,77 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Agent Name</TableHead>
                 <TableHead className="min-w-[250px]">Agent Group (Cost Center)</TableHead>
                 <TableHead className="text-center min-w-[150px]">FTE</TableHead>
                 <TableHead className="w-[100px]"> </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {activeAllocations.length === 0 && (
+              {!selectedAgent ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                    No ticket data found for the selected period.
+                  <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
+                    Please select an agent to view their allocation.
                   </TableCell>
                 </TableRow>
-              )}
-              {activeAllocations.map(({ agentName, allocations }) => {
-                const totalFte = allocations.reduce((total, alloc) => total + (alloc.fte || 0), 0);
-                return (
-                  <Fragment key={agentName}>
-                    <TableRow className="bg-muted/50 hover:bg-muted">
-                      <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{agentName}</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell className={cn("text-center font-semibold", Math.abs(totalFte - 1.0) > 0.01 ? "text-destructive" : "text-muted-foreground")}>
-                        {totalFte > 0 ? totalFte.toFixed(3) : '-'}
+              ) : !activeAllocation || activeAllocation.allocations.length === 0 ? (
+                 <TableRow>
+                  <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
+                    No ticket data found for {selectedAgent} in {format(currentDate, 'MMM yyyy')}. You can add a manual entry.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                <>
+                {activeAllocation.allocations.map((alloc) => {
+                  const isPrePopulated = allTicketData.some(d => d.agent_group_name === alloc.agentGroupName && d.agent_name === selectedAgent);
+                  return (
+                    <TableRow key={alloc.id}>
+                      <TableCell>
+                         <Input 
+                           value={alloc.agentGroupName}
+                           onChange={(e) => handleAgentGroupChange(alloc.id, e.target.value)}
+                           placeholder="Enter Agent Group..."
+                           className={cn({ "bg-muted cursor-not-allowed": isPrePopulated })}
+                           readOnly={isPrePopulated}
+                         />
                       </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-
-                    {allocations.map((alloc) => (
-                      <TableRow key={alloc.id}>
-                        <TableCell className="sticky left-0 bg-card z-10"></TableCell>
-                        <TableCell>
-                           <Input value={alloc.agentGroupName} readOnly className="bg-muted" />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number" step="0.01" min="0" placeholder="0.00"
-                            className="w-32 text-center mx-auto"
-                            value={alloc.fte}
-                            onChange={(e) => handleFteChange(agentName, alloc.id, e.target.value)}
-                          />
-                        </TableCell>
-                        <TableCell className='text-right'>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(agentName, alloc.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-
-                    <TableRow>
-                      <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
-                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(agentName)}>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Add Manual Allocation
+                      <TableCell>
+                        <Input
+                          type="number" step="0.01" min="0" placeholder="0.00"
+                          className="w-32 text-center mx-auto"
+                          value={alloc.fte}
+                          onChange={(e) => handleFteChange(alloc.id, e.target.value)}
+                        />
+                      </TableCell>
+                      <TableCell className='text-right'>
+                        <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(alloc.id)} disabled={activeAllocation.allocations.length <= 1 && !isPrePopulated}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </TableCell>
-                      <TableCell colSpan={2}></TableCell>
                     </TableRow>
-                  </Fragment>
-                );
-              })}
+                  );
+                })}
+                </>
+              )}
+               {selectedAgent && (
+                <>
+                  <TableRow>
+                    <TableCell className="py-2" colSpan={3}>
+                      <Button variant="outline" size="sm" className="w-full justify-start" onClick={handleAddAllocationRow}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Manual Allocation
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  {activeAllocation && activeAllocation.allocations.length > 0 && (
+                   <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell>Total FTE</TableCell>
+                      <TableCell className={cn("text-center", Math.abs(totalFte - 1.0) > 0.01 ? "text-destructive" : "")}>
+                          {totalFte.toFixed(3)}
+                      </TableCell>
+                      <TableCell></TableCell>
+                   </TableRow>
+                  )}
+                </>
+               )}
             </TableBody>
           </Table>
         </div>
@@ -316,3 +397,5 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
     </Card>
   );
 }
+
+    
