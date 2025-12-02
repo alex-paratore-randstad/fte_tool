@@ -265,7 +265,7 @@
                 }
             ]
         },
-        **{
+        {
             "dataSetId": "67add794-68a2-4938-9ffb-2a89e5d16864",
             "alias": "ai_report",
             "fields": [
@@ -286,7 +286,7 @@
                     "columnName": "RollsUpTo"
                 }
             ]
-        }**
+        }
     ],
     "collectionsMapping": [
         {

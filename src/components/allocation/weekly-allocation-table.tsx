@@ -59,6 +59,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
   const { isAdmin } = useCurrentUser();
 
   useEffect(() => {
+    // Set date only on client to avoid hydration mismatch
     setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   }, []);
 
@@ -77,7 +78,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
       const weekKeys = weeks.map(formatDateKey);
       
       const allocationRequests = weekKeys.map(async weekKey => {
-        const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?filter=content.allocation_date='${weekKey}'`);
+        const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
         if (!response.ok) {
             console.warn(`Failed to fetch allocations for ${weekKey}. This may be expected in local dev.`);
             return [];
@@ -324,3 +325,5 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
     </Card>
   );
 }
+
+    
