@@ -73,10 +73,11 @@ const CostCenterSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredCostCenters = useMemo(() => {
+    const sorted = costCenters.sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
     if (!searchTerm) {
-      return costCenters;
+      return sorted;
     }
-    return costCenters.filter(cc =>
+    return sorted.filter(cc =>
       cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [costCenters, searchTerm]);
@@ -152,7 +153,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
               managerMap.set(emp.First_Reviewer_Code, emp.First_Reviewer_Name);
           }
       });
-      const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }));
+      const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
       setManagers(uniqueManagers);
 
       setActiveAllocations([]);
@@ -174,7 +176,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
 
   const availableEmployees = useMemo(() => {
     const activeEmployeeIds = new Set(activeAllocations.map(a => a.employee.Person_Number));
-    const unallocatedEmployees = allEmployees.filter(e => !activeEmployeeIds.has(e.Person_Number));
+    const unallocatedEmployees = allEmployees
+      .filter(e => !activeEmployeeIds.has(e.Person_Number))
+      .sort((a, b) => a.Full_Name.localeCompare(b.Full_Name));
+
     if (!employeeSearchTerm) {
         return unallocatedEmployees;
     }
@@ -587,5 +592,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     </Card>
   );
 }
+
+    
 
     
