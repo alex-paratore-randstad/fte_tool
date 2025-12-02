@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, X } from 'lucide-react';
+import { PlusCircle, X } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -46,6 +46,46 @@ const months = [
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
 
+// New self-contained component for the Cost Center dropdown
+const CostCenterSelect = ({
+  costCenters,
+  value,
+  onValueChange
+}: {
+  costCenters: CostCenterData[],
+  value: string,
+  onValueChange: (value: string) => void
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const filteredCostCenters = useMemo(() => {
+    if (!searchTerm) {
+      return costCenters;
+    }
+    return costCenters.filter(cc =>
+      cc.cost_center_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [costCenters, searchTerm]);
+
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger>
+          <SelectValue placeholder="Select Cost Center..." />
+      </SelectTrigger>
+      <SelectContent>
+          <SelectSearch placeholder="Search cost center..." onChange={setSearchTerm} />
+          {filteredCostCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
+          {filteredCostCenters.length === 0 && (
+              <div className="p-4 text-sm text-center text-muted-foreground">
+                  No cost centers found.
+              </div>
+          )}
+      </SelectContent>
+    </Select>
+  );
+};
+
+
 export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
@@ -55,7 +95,6 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [allocationRows, setAllocationRows] = useState<AllocationRow[]>([]);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
-  const [costCenterSearchTerm, setCostCenterSearchTerm] = useState('');
   
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
@@ -117,15 +156,6 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
     return allEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
   }, [allEmployees, employeeSearchTerm]);
   
-  const filteredCostCenters = useMemo(() => {
-    if (!costCenterSearchTerm) {
-      return costCenters;
-    }
-    return costCenters.filter(cc =>
-      cc.cost_center_name.toLowerCase().includes(costCenterSearchTerm.toLowerCase())
-    );
-  }, [costCenters, costCenterSearchTerm]);
-
   const totalPercentage = useMemo(() => {
     return allocationRows.reduce((sum, row) => sum + (Number(row.percentage) || 0), 0);
   }, [allocationRows]);
@@ -340,20 +370,11 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
             <div className="grid gap-4">
               {allocationRows.map((row, index) => (
                 <div key={row.id} className="flex gap-2 items-center">
-                  <Select value={row.costCenterName} onValueChange={value => handleAllocationChange(row.id, 'costCenterName', value)}>
-                      <SelectTrigger>
-                          <SelectValue placeholder="Select Cost Center..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                          <SelectSearch placeholder="Search cost center..." onChange={setCostCenterSearchTerm} />
-                          {filteredCostCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
-                          {filteredCostCenters.length === 0 && (
-                              <div className="p-4 text-sm text-center text-muted-foreground">
-                                  No cost centers found.
-                              </div>
-                          )}
-                      </SelectContent>
-                  </Select>
+                  <CostCenterSelect
+                    costCenters={costCenters}
+                    value={row.costCenterName}
+                    onValueChange={value => handleAllocationChange(row.id, 'costCenterName', value)}
+                  />
                   <Input 
                     type="number"
                     min="0"
