@@ -34,8 +34,8 @@ type AllocationFTE = {
 };
 
 type AllocationRow = {
-  costCenterId: string;
-  costCenterName: string;
+  clientId: string;
+  clientName: string;
   weeklyFtes: { [weekKey: string]: AllocationFTE };
 };
 
@@ -97,8 +97,8 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
         }
         if (!acc[allocation_name][cost_center_number]) {
             acc[allocation_name][cost_center_number] = {
-                costCenterId: cost_center_number,
-                costCenterName: cost_center_name,
+                clientId: cost_center_number,
+                clientName: cost_center_name,
                 weeklyFtes: {},
             };
         }
@@ -109,9 +109,9 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
         return acc;
       }, {} as Record<string, Record<string, AllocationRow>>);
 
-      const structuredAllocations: EmployeeAllocation[] = Object.entries(groupedByEmployee).map(([employeeName, costCenterGroup]) => ({
+      const structuredAllocations: EmployeeAllocation[] = Object.entries(groupedByEmployee).map(([employeeName, clientGroup]) => ({
         employeeName,
-        allocations: Object.values(costCenterGroup),
+        allocations: Object.values(clientGroup),
       }));
 
       setOriginalAllocations(structuredAllocations);
@@ -134,12 +134,12 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
     }
   }, [currentDate, fetchData, refreshKey]);
 
-  const handleFteChange = (employeeName: string, costCenterId: string, weekKey: string, newFteValue: string) => {
+  const handleFteChange = (employeeName: string, clientId: string, weekKey: string, newFteValue: string) => {
     const newFte = parseFloat(newFteValue) || 0;
     setEditableAllocations(prev => prev.map(empAlloc => {
       if (empAlloc.employeeName === employeeName) {
         const newAllocations = empAlloc.allocations.map(alloc => {
-          if (alloc.costCenterId === costCenterId) {
+          if (alloc.clientId === clientId) {
             const updatedFtes = { ...alloc.weeklyFtes };
             if (updatedFtes[weekKey]) {
               updatedFtes[weekKey].fte = newFte;
@@ -165,21 +165,23 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
         for (const weekKey in alloc.weeklyFtes) {
           const editable = alloc.weeklyFtes[weekKey];
           // Add a guard to prevent accessing undefined properties
-          const originalEmp = originalAllocations[parseInt(empIdx, 10)];
-          const originalAlloc = originalEmp?.allocations[parseInt(allocIdx, 10)];
-          const original = originalAlloc?.weeklyFtes[weekKey];
-
-          if (editable && original && editable.fte !== original.fte && editable.docId) {
-            updates.push({
-              docId: editable.docId,
-              content: {
-                allocation_date: weekKey,
-                allocation_name: empAlloc.employeeName,
-                cost_center_name: alloc.costCenterName,
-                cost_center_number: alloc.costCenterId,
-                allocation_amount: editable.fte.toString(),
-              },
-            });
+          const originalEmp = originalAllocations.find(e => e.employeeName === empAlloc.employeeName);
+          const originalAlloc = originalEmp?.allocations.find(a => a.clientId === alloc.clientId);
+          
+          if (editable && editable.docId) {
+            const original = originalAlloc?.weeklyFtes[weekKey];
+            if (original && editable.fte !== original.fte) {
+              updates.push({
+                docId: editable.docId,
+                content: {
+                  allocation_date: weekKey,
+                  allocation_name: empAlloc.employeeName,
+                  cost_center_name: alloc.clientName,
+                  cost_center_number: alloc.clientId,
+                  allocation_amount: editable.fte.toString(),
+                },
+              });
+            }
           }
         }
       }
@@ -245,7 +247,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
             <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Cost Center</TableHead>
+                    <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Client</TableHead>
                     {weeks.map(week => {
                         const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
                         const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
@@ -287,8 +289,8 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                                     ))}
                                 </TableRow>
                                 {empAllocations.map(alloc => (
-                                    <TableRow key={`${employeeName}-${alloc.costCenterId}`}>
-                                        <TableCell className="sticky left-0 bg-card z-10 pl-10">{alloc.costCenterName}</TableCell>
+                                    <TableRow key={`${employeeName}-${alloc.clientId}`}>
+                                        <TableCell className="sticky left-0 bg-card z-10 pl-10">{alloc.clientName}</TableCell>
                                         {weeks.map(week => {
                                             const weekKey = formatDateKey(week);
                                             const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
@@ -303,7 +305,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                                                           type="number" step="0.05" min="0" placeholder="0.00"
                                                           className={cn("w-24 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
                                                           value={fteData.fte || ''}
-                                                          onChange={(e) => handleFteChange(employeeName, alloc.costCenterId, weekKey, e.target.value)}
+                                                          onChange={(e) => handleFteChange(employeeName, alloc.clientId, weekKey, e.target.value)}
                                                           disabled={isLockedForUser || isSaving} readOnly={isLockedForUser}
                                                         />
                                                     ) : (

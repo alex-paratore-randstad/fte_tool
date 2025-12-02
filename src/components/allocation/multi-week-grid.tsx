@@ -42,8 +42,8 @@ const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1
 
 type AllocationRow = {
   id: string;
-  costCenterId: string;
-  costCenterName: string;
+  clientId: string;
+  clientName: string;
   weeklyFtes: { [weekKey: string]: number };
 };
 
@@ -59,38 +59,38 @@ type MultiWeekGridProps = {
 };
 
 // New component to handle its own search state
-const CostCenterSelect = ({ 
-  costCenters, 
+const ClientSelect = ({ 
+  clients, 
   value, 
   onValueChange,
   disabled
 }: { 
-  costCenters: AiReportData[], 
+  clients: AiReportData[], 
   value: string, 
   onValueChange: (value: string) => void,
   disabled?: boolean 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
-  const filteredCostCenters = useMemo(() => {
-    const sorted = costCenters.sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
+  const filteredClients = useMemo(() => {
+    const sorted = clients.sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
     if (!searchTerm) {
       return sorted;
     }
     return sorted.filter(cc =>
       cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [costCenters, searchTerm]);
+  }, [clients, searchTerm]);
 
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger><SelectValue placeholder="Select Cost Center..." /></SelectTrigger>
+      <SelectTrigger><SelectValue placeholder="Select Client..." /></SelectTrigger>
       <SelectContent>
-        <SelectSearch placeholder="Search cost center..." onChange={setSearchTerm} />
-        {filteredCostCenters.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
-         {filteredCostCenters.length === 0 && (
+        <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
+        {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
+         {filteredClients.length === 0 && (
           <div className="p-4 text-sm text-center text-muted-foreground">
-              No cost centers found.
+              No clients found.
           </div>
         )}
       </SelectContent>
@@ -103,7 +103,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
-  const [costCenters, setCostCenters] = useState<AiReportData[]>([]);
+  const [clients, setClients] = useState<AiReportData[]>([]);
   const [loading, setLoading] = useState(true);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
@@ -127,25 +127,25 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [empResponse, ccResponse] = await Promise.all([
+      const [empResponse, clientResponse] = await Promise.all([
         fetch(`/data/v1/gbs_ind_hr_fte_report`),
         fetch(`/data/v1/ai_report`),
       ]);
 
-      if (!empResponse.ok || !ccResponse.ok) {
+      if (!empResponse.ok || !clientResponse.ok) {
         console.warn("Could not fetch initial data. This may be expected in local dev.");
       }
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name) : [];
-      const ccData: AiReportData[] = ccResponse.ok ? (await ccResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name).sort((a, b) => a.Full_Name.localeCompare(b.Full_Name)) : [];
+      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
       
       setAllEmployees(empData);
       
-      const staticCostCenters: AiReportData[] = [
+      const staticClients: AiReportData[] = [
         { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
         { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '' },
       ];
-      setCostCenters([...staticCostCenters, ...ccData]);
+      setClients([...staticClients, ...clientData].sort((a, b) => a.DisplayName.localeCompare(b.DisplayName)));
       
       const managerMap = new Map<string, string>();
       empData.forEach(emp => {
@@ -177,8 +177,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const availableEmployees = useMemo(() => {
     const activeEmployeeIds = new Set(activeAllocations.map(a => a.employee.Person_Number));
     const unallocatedEmployees = allEmployees
-      .filter(e => !activeEmployeeIds.has(e.Person_Number))
-      .sort((a, b) => a.Full_Name.localeCompare(b.Full_Name));
+      .filter(e => !activeEmployeeIds.has(e.Person_Number));
 
     if (!employeeSearchTerm) {
         return unallocatedEmployees;
@@ -205,8 +204,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
       }
       const newAllocationRow: AllocationRow = {
         id: `${employeeId}-new-${Date.now()}`,
-        costCenterId: '',
-        costCenterName: '',
+        clientId: '',
+        clientName: '',
         weeklyFtes: {},
       };
       
@@ -226,8 +225,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
       .map(employee => {
         const newAllocationRow: AllocationRow = {
           id: `${employee.Person_Number}-new-${Date.now()}`,
-          costCenterId: '',
-          costCenterName: '',
+          clientId: '',
+          clientName: '',
           weeklyFtes: {},
         };
         return {
@@ -294,13 +293,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     });
   };
   
-  const handleCostCenterChange = (employeeId: string, allocId: string, newCostCenterName: string) => {
+  const handleClientChange = (employeeId: string, allocId: string, newClientName: string) => {
      setActiveAllocations(prev => prev.map(empAlloc => {
         if (empAlloc.employee.Person_Number === employeeId) {
             const newAllocations = empAlloc.allocations.map(alloc => {
                 if (alloc.id === allocId) {
-                    const selectedCc = costCenters.find(cc => cc.DisplayName === newCostCenterName);
-                    return { ...alloc, costCenterName: newCostCenterName, costCenterId: selectedCc?.Code || '' };
+                    const selectedCc = clients.find(cc => cc.DisplayName === newClientName);
+                    return { ...alloc, clientName: newClientName, clientId: selectedCc?.Code || '' };
                 }
                 return alloc;
             });
@@ -315,8 +314,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
         if (empAlloc.employee.Person_Number === employeeId) {
             const newAlloc: AllocationRow = {
                 id: `${employeeId}-new-${Date.now()}`,
-                costCenterId: '',
-                costCenterName: '',
+                clientId: '',
+                clientName: '',
                 weeklyFtes: {},
             };
             return { ...empAlloc, allocations: [...empAlloc.allocations, newAlloc] };
@@ -343,17 +342,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
       empAlloc.allocations.forEach(alloc => {
         Object.entries(alloc.weeklyFtes).forEach(([weekKey, fte]) => {
           if (fte > 0) {
-             if (!alloc.costCenterId || !alloc.costCenterName) {
+             if (!alloc.clientId || !alloc.clientName) {
                 hasInvalidAllocation = true;
-                toast({ variant: 'destructive', title: 'Missing Cost Center', description: `Please select a cost center for ${empAlloc.employee.Full_Name}.` });
+                toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${empAlloc.employee.Full_Name}.` });
                 return;
             }
             submissions.push({
               content: {
                 allocation_date: weekKey,
                 allocation_name: empAlloc.employee.Full_Name,
-                cost_center_name: alloc.costCenterName,
-                cost_center_number: alloc.costCenterId,
+                cost_center_name: alloc.clientName,
+                cost_center_number: alloc.clientId,
                 allocation_amount: fte.toString(),
               }
             });
@@ -462,8 +461,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee</TableHead>
-                <TableHead className="min-w-[250px]">Cost Center Name</TableHead>
-                <TableHead className="min-w-[150px]">Cost Center Code</TableHead>
+                <TableHead className="min-w-[250px]">Client Name</TableHead>
+                <TableHead className="min-w-[150px]">Client Code</TableHead>
                 <TableHead className="text-center min-w-[150px]">Bulk Hours Entry</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
@@ -526,19 +525,19 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                       <TableRow key={alloc.id}>
                         <TableCell className="sticky left-0 bg-card z-10"></TableCell>
                         <TableCell>
-                          <CostCenterSelect
-                              costCenters={costCenters}
-                              value={alloc.costCenterName}
-                              onValueChange={(newCcName) => handleCostCenterChange(employee.Person_Number, alloc.id, newCcName)}
+                          <ClientSelect
+                              clients={clients}
+                              value={alloc.clientName}
+                              onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
                               disabled={isRowLocked}
                           />
                         </TableCell>
                          <TableCell>
                             <Input
-                                value={alloc.costCenterId}
+                                value={alloc.clientId}
                                 readOnly
                                 className="bg-muted"
-                                placeholder="CC Code"
+                                placeholder="Client Code"
                             />
                         </TableCell>
                         <TableCell className="text-center">
@@ -592,6 +591,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     </Card>
   );
 }
+
+    
 
     
 
