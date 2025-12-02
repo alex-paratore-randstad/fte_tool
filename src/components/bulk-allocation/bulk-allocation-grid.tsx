@@ -64,7 +64,14 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const sorted = clients.sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
+    const specialClients = ['PTO', 'Unallocated'];
+    const topItems = clients.filter(c => specialClients.includes(c.DisplayName));
+    const regularItems = clients
+      .filter(c => !specialClients.includes(c.DisplayName))
+      .sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
+      
+    const sorted = [...topItems, ...regularItems];
+
     if (!searchTerm) {
       return sorted;
     }
@@ -137,7 +144,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
         { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
         { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '' },
       ];
-      setClients([...staticClients, ...clientData].sort((a, b) => a.DisplayName.localeCompare(b.DisplayName)));
+      setClients([...staticClients, ...clientData]);
 
     } catch (error) {
       console.error("Failed to fetch initial data:", error);

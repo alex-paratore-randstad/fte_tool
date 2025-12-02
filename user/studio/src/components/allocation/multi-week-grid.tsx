@@ -73,7 +73,25 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const sorted = clients.sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
+    const specialClients = ['PTO', 'Unallocated'];
+    
+    // Create a stable sort: special clients first, then alphabetical.
+    const sorted = [...clients].sort((a, b) => {
+      const aIsSpecial = specialClients.includes(a.DisplayName);
+      const bIsSpecial = specialClients.includes(b.DisplayName);
+
+      if (aIsSpecial && !bIsSpecial) return -1;
+      if (!aIsSpecial && bIsSpecial) return 1;
+      
+      // If both are special or both are not, sort by name.
+      // Give 'Unallocated' a slight edge over 'PTO' if both present
+      if (aIsSpecial && bIsSpecial) {
+          return a.DisplayName === 'Unallocated' ? -1 : 1;
+      }
+      
+      return a.DisplayName.localeCompare(b.DisplayName);
+    });
+
     if (!searchTerm) {
       return sorted;
     }
@@ -109,10 +127,11 @@ const EmployeeSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
+    const sortedEmployees = employees.sort((a,b) => a.Full_Name.localeCompare(b.Full_Name));
     if (!searchTerm) {
-      return employees;
+      return sortedEmployees;
     }
-    return employees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
 
   return (
@@ -148,10 +167,11 @@ const ManagerSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
+    const sortedManagers = managers.sort((a,b) => a.name.localeCompare(b.name));
     if (!searchTerm) {
-      return managers;
+      return sortedManagers;
     }
-    return managers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
 
   return (
@@ -222,7 +242,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
         { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
         { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '' },
       ];
-      setClients([...staticClients, ...clientData].sort((a, b) => a.DisplayName.localeCompare(b.DisplayName)));
+      setClients([...staticClients, ...clientData]);
       
       const managerMap = new Map<string, string>();
       empData.forEach(emp => {
