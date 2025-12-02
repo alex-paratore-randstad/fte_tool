@@ -19,15 +19,71 @@ type TitleManagementContentProps = {
   onSaveSuccess: () => void;
 };
 
+const EmployeeSelect = ({ employees, value, onValueChange, disabled }: { employees: TeamMember[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const filteredEmployees = useMemo(() => {
+        if (!searchTerm) return employees;
+        return employees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [employees, searchTerm]);
+
+    return (
+        <Select onValueChange={onValueChange} value={value} disabled={disabled}>
+            <SelectTrigger id="employee">
+                <SelectValue placeholder="Select an employee..." />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
+                {filteredEmployees.map(emp => (
+                    <SelectItem key={emp.Person_Number} value={emp.Full_Name}>
+                        {emp.Full_Name}
+                    </SelectItem>
+                ))}
+                {filteredEmployees.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No employees found.
+                </div>
+                )}
+            </SelectContent>
+        </Select>
+    );
+};
+
+const TitleSelect = ({ titles, value, onValueChange, disabled }: { titles: UpdatedTitle[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const filteredTitles = useMemo(() => {
+        if (!searchTerm) return titles;
+        return titles.filter(t => t.updated_titles.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [titles, searchTerm]);
+
+    return (
+        <Select onValueChange={onValueChange} value={value} disabled={disabled}>
+            <SelectTrigger id="title">
+                <SelectValue placeholder="Select a new title..." />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectSearch placeholder="Search title..." onChange={setSearchTerm} />
+                {filteredTitles.map(t => (
+                    <SelectItem key={t.updated_titles} value={t.updated_titles}>
+                        {t.updated_titles}
+                    </SelectItem>
+                ))}
+                {filteredTitles.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No titles found.
+                </div>
+                )}
+            </SelectContent>
+        </Select>
+    );
+};
+
+
 export function TitleManagementContent({ onSaveSuccess }: TitleManagementContentProps) {
   const [employees, setEmployees] = useState<TeamMember[]>([]);
   const [titles, setTitles] = useState<UpdatedTitle[]>([]);
   
   const [selectedEmployeeName, setSelectedEmployeeName] = useState<string>('');
   const [selectedTitle, setSelectedTitle] = useState<string>('');
-  
-  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
-  const [titleSearchTerm, setTitleSearchTerm] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,20 +125,6 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const filteredEmployees = useMemo(() => {
-    if (!employeeSearchTerm) {
-      return employees;
-    }
-    return employees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
-  }, [employees, employeeSearchTerm]);
-  
-  const filteredTitles = useMemo(() => {
-    if (!titleSearchTerm) {
-      return titles;
-    }
-    return titles.filter(t => t.updated_titles.toLowerCase().includes(titleSearchTerm.toLowerCase()));
-  }, [titles, titleSearchTerm]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,45 +224,21 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
         <CardContent className="grid gap-6">
             <div className="grid gap-2">
               <Label htmlFor="employee">Employee</Label>
-              <Select onValueChange={setSelectedEmployeeName} value={selectedEmployeeName} disabled={isSubmitting}>
-                  <SelectTrigger id="employee">
-                      <SelectValue placeholder="Select an employee..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectSearch placeholder="Search employee..." onChange={setEmployeeSearchTerm} />
-                      {filteredEmployees.map(emp => (
-                          <SelectItem key={emp.Person_Number} value={emp.Full_Name}>
-                              {emp.Full_Name}
-                          </SelectItem>
-                      ))}
-                      {filteredEmployees.length === 0 && (
-                        <div className="p-4 text-sm text-center text-muted-foreground">
-                            No employees found.
-                        </div>
-                      )}
-                  </SelectContent>
-              </Select>
+              <EmployeeSelect
+                employees={employees}
+                value={selectedEmployeeName}
+                onValueChange={setSelectedEmployeeName}
+                disabled={isSubmitting}
+               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="title">New Market-Facing Title</Label>
-              <Select onValueChange={setSelectedTitle} value={selectedTitle} disabled={isSubmitting}>
-                  <SelectTrigger id="title">
-                      <SelectValue placeholder="Select a new title..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectSearch placeholder="Search title..." onChange={setTitleSearchTerm} />
-                      {filteredTitles.map(t => (
-                          <SelectItem key={t.updated_titles} value={t.updated_titles}>
-                              {t.updated_titles}
-                          </SelectItem>
-                      ))}
-                      {filteredTitles.length === 0 && (
-                        <div className="p-4 text-sm text-center text-muted-foreground">
-                            No titles found.
-                        </div>
-                      )}
-                  </SelectContent>
-              </Select>
+              <TitleSelect 
+                titles={titles}
+                value={selectedTitle}
+                onValueChange={setSelectedTitle}
+                disabled={isSubmitting}
+              />
             </div>
         </CardContent>
         <CardFooter>
