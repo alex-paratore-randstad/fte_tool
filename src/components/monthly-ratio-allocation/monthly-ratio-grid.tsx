@@ -38,7 +38,7 @@ type TicketAllocationData = {
 
 type AllocationRow = {
   id: string;
-  agentGroupName: string;
+  clientName: string;
   fte: number;
 };
 
@@ -96,7 +96,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
           agentName,
           allocations: agentData.map((d) => ({
             id: `${agentName}-${d.agent_group_name}-${Date.now()}`,
-            agentGroupName: d.agent_group_name,
+            clientName: d.agent_group_name,
             fte: parseFloat(d.monthly_ticket_ratio) || 0,
           })),
         })
@@ -140,7 +140,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       if (empAlloc.agentName === agentName) {
         const newAlloc: AllocationRow = {
           id: `${agentName}-new-${Date.now()}`,
-          agentGroupName: 'MANUAL ENTRY',
+          clientName: 'MANUAL ENTRY',
           fte: 0,
         };
         return { ...empAlloc, allocations: [...empAlloc.allocations, newAlloc] };
@@ -184,8 +184,8 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
             content: {
               allocation_date: allocationDate,
               allocation_name: empAlloc.agentName,
-              cost_center_name: alloc.agentGroupName,
-              cost_center_number: alloc.agentGroupName, // Using name as number for this use case
+              cost_center_name: alloc.clientName,
+              cost_center_number: alloc.clientName, // Using name as number for this use case
               allocation_amount: alloc.fte.toString(),
             }
           });
@@ -258,7 +258,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Agent Name</TableHead>
-                <TableHead className="min-w-[250px]">Agent Group (Cost Center)</TableHead>
+                <TableHead className="min-w-[250px]">Client</TableHead>
                 <TableHead className="text-center min-w-[150px]">FTE</TableHead>
                 <TableHead className="w-[100px]"> </TableHead>
               </TableRow>
@@ -288,7 +288,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
                       <TableRow key={alloc.id}>
                         <TableCell className="sticky left-0 bg-card z-10"></TableCell>
                         <TableCell>
-                           <Input value={alloc.agentGroupName} readOnly className="bg-muted" />
+                           <Input value={alloc.clientName} readOnly className="bg-muted" />
                         </TableCell>
                         <TableCell>
                           <Input

@@ -38,8 +38,8 @@ type SummaryDoc = {
   id: string;
   content: {
     bulk_allocation_id: string;
-    cost_center_name: string;
     cost_center_number: string;
+    cost_center_name: string;
     allocation_percentage: string;
     bulk_allocation_date: string;
   };
@@ -267,11 +267,11 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
                             </ScrollArea>
                         </div>
                         <div>
-                             <h4 className="font-semibold mb-2">Cost Center Allocation</h4>
+                             <h4 className="font-semibold mb-2">Client Allocation</h4>
                              <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Cost Center</TableHead>
+                                        <TableHead>Client</TableHead>
                                         <TableHead className="text-right w-32">Percentage</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -317,5 +317,3 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
     </Card>
   );
 }
-
-    

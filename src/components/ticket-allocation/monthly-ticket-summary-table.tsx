@@ -77,7 +77,7 @@ export function MonthlyTicketSummaryTable() {
             <TableHeader>
               <TableRow>
                 <TableHead>Agent</TableHead>
-                <TableHead>Agent Group</TableHead>
+                <TableHead>Client</TableHead>
                 <TableHead>Month</TableHead>
                 <TableHead>Year</TableHead>
                 <TableHead>Tickets</TableHead>
@@ -112,4 +112,3 @@ export function MonthlyTicketSummaryTable() {
     </Card>
   );
 }
-

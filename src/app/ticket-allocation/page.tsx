@@ -17,7 +17,7 @@ export default function TicketAllocationPage() {
   return (
     <div className="flex flex-col gap-8">
        <PageHeader
-        title="Ticket Allocation"
+        title="Client Ticket Allocation"
         description="Review and adjust monthly FTE allocations based on pre-calculated ticket ratios."
       />
       <TicketAllocationGrid onSaveSuccess={handleRefresh} />

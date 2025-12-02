@@ -79,7 +79,7 @@ export function SavedTicketAllocationsTable({ refreshKey }: { refreshKey: number
               <TableRow>
                 <TableHead>Allocation Month</TableHead>
                 <TableHead>Agent Name</TableHead>
-                <TableHead>Agent Group</TableHead>
+                <TableHead>Client</TableHead>
                 <TableHead>FTE</TableHead>
               </TableRow>
             </TableHeader>

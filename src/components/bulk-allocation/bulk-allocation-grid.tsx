@@ -32,8 +32,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Label } from '../ui/label';
 
-type CostCenterData = { ['cost_center_number']: string; ['cost_center_name']: string };
-type AllocationRow = { id: string; costCenterName: string; percentage: number };
+type AiReportData = {
+    Code: string;
+    Name: string;
+    DisplayName: string;
+    RollsUpTo: string;
+};
+type AllocationRow = { id: string; clientName: string; percentage: number };
 
 type BulkAllocationGridProps = {
   onSaveSuccess: () => void;
@@ -46,38 +51,39 @@ const months = [
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
 
-// New self-contained component for the Cost Center dropdown
-const CostCenterSelect = ({
-  costCenters,
+// New self-contained component for the Client dropdown
+const ClientSelect = ({
+  clients,
   value,
   onValueChange
 }: {
-  costCenters: CostCenterData[],
+  clients: AiReportData[],
   value: string,
   onValueChange: (value: string) => void
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
-  const filteredCostCenters = useMemo(() => {
+  const filteredClients = useMemo(() => {
+    const sorted = clients.sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
     if (!searchTerm) {
-      return costCenters;
+      return sorted;
     }
-    return costCenters.filter(cc =>
-      cc.cost_center_name.toLowerCase().includes(searchTerm.toLowerCase())
+    return sorted.filter(client =>
+      client.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [costCenters, searchTerm]);
+  }, [clients, searchTerm]);
 
   return (
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger>
-          <SelectValue placeholder="Select Cost Center..." />
+          <SelectValue placeholder="Select Client..." />
       </SelectTrigger>
       <SelectContent>
-          <SelectSearch placeholder="Search cost center..." onChange={setSearchTerm} />
-          {filteredCostCenters.map(cc => <SelectItem key={cc.cost_center_number} value={cc.cost_center_name}>{cc.cost_center_name}</SelectItem>)}
-          {filteredCostCenters.length === 0 && (
+          <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
+          {filteredClients.map(client => <SelectItem key={client.Code} value={client.DisplayName}>{client.DisplayName}</SelectItem>)}
+          {filteredClients.length === 0 && (
               <div className="p-4 text-sm text-center text-muted-foreground">
-                  No cost centers found.
+                  No clients found.
               </div>
           )}
       </SelectContent>
@@ -88,7 +94,7 @@ const CostCenterSelect = ({
 
 export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
-  const [costCenters, setCostCenters] = useState<CostCenterData[]>([]);
+  const [clients, setClients] = useState<AiReportData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -113,25 +119,25 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [empResponse, ccResponse] = await Promise.all([
+      const [empResponse, clientResponse] = await Promise.all([
         fetch(`/data/v1/gbs_ind_hr_fte_report`),
-        fetch(`/data/v1/gbs_ind_finance_cc_report`),
+        fetch(`/data/v1/ai_report`),
       ]);
 
-      if (!empResponse.ok || !ccResponse.ok) {
+      if (!empResponse.ok || !clientResponse.ok) {
         console.warn("Could not fetch initial data.");
       }
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name) : [];
-      const ccData: CostCenterData[] = ccResponse.ok ? (await ccResponse.json()).filter((c: CostCenterData) => c.cost_center_number && c.cost_center_name) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name).sort((a,b) => a.Full_Name.localeCompare(b.Full_Name)) : [];
+      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
       
       setAllEmployees(empData);
       
-      const staticCostCenters: CostCenterData[] = [
-        { cost_center_number: 'UNALLOCATED', cost_center_name: 'Unallocated' },
-        { cost_center_number: 'PTO', cost_center_name: 'PTO' },
+      const staticClients: AiReportData[] = [
+        { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
+        { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '' },
       ];
-      setCostCenters([...staticCostCenters, ...ccData]);
+      setClients([...staticClients, ...clientData].sort((a, b) => a.DisplayName.localeCompare(b.DisplayName)));
 
     } catch (error) {
       console.error("Failed to fetch initial data:", error);
@@ -146,7 +152,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
       fetchData();
     }
     // Add default allocation row
-    setAllocationRows([{ id: `new-${Date.now()}`, costCenterName: '', percentage: 100 }]);
+    setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
   }, [fetchData, userLoading, currentUser.id]);
 
   const filteredEmployees = useMemo(() => {
@@ -173,14 +179,14 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
   };
 
   const handleAddAllocationRow = () => {
-    setAllocationRows(prev => [...prev, { id: `new-${Date.now()}`, costCenterName: '', percentage: 0 }]);
+    setAllocationRows(prev => [...prev, { id: `new-${Date.now()}`, clientName: '', percentage: 0 }]);
   };
 
   const handleRemoveAllocationRow = (id: string) => {
     setAllocationRows(prev => prev.filter(row => row.id !== id));
   };
   
-  const handleAllocationChange = (id: string, field: 'costCenterName' | 'percentage', value: string) => {
+  const handleAllocationChange = (id: string, field: 'clientName' | 'percentage', value: string) => {
     setAllocationRows(prev => prev.map(row => {
       if (row.id === id) {
         if (field === 'percentage') {
@@ -201,8 +207,8 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
       toast({ variant: 'destructive', title: 'Total allocation must be 100%.' });
       return;
     }
-    if (allocationRows.some(row => !row.costCenterName || row.percentage <= 0)) {
-        toast({ variant: 'destructive', title: 'Invalid allocation rows.', description: 'Please ensure every row has a cost center and a percentage greater than 0.' });
+    if (allocationRows.some(row => !row.clientName || row.percentage <= 0)) {
+        toast({ variant: 'destructive', title: 'Invalid allocation rows.', description: 'Please ensure every row has a client and a percentage greater than 0.' });
         return;
     }
     if (!selectedMonth || !selectedYear) {
@@ -234,15 +240,15 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
     });
 
     const summarySubmissions = allocationRows.map(row => {
-      const cc = costCenters.find(c => c.cost_center_name === row.costCenterName);
+      const client = clients.find(c => c.DisplayName === row.clientName);
       return fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: {
             bulk_allocation_id: bulkAllocationId,
-            cost_center_number: cc?.cost_center_number || 'Unknown',
-            cost_center_name: row.costCenterName,
+            cost_center_number: client?.Code || 'Unknown',
+            cost_center_name: row.clientName,
             allocation_percentage: row.percentage.toString(),
             bulk_allocation_date: allocationDate,
           }
@@ -262,7 +268,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
       
       // Reset form
       setSelectedEmployees(new Set());
-      setAllocationRows([{ id: `new-${Date.now()}`, costCenterName: '', percentage: 100 }]);
+      setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
       onSaveSuccess();
 
     } catch (error: any) {
@@ -339,7 +345,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
       <Card>
         <CardHeader>
           <CardTitle>Step 2: Define Allocation</CardTitle>
-          <CardDescription>Define the cost center percentages for the selected group.</CardDescription>
+          <CardDescription>Define the client percentages for the selected group.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6">
@@ -370,10 +376,10 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
             <div className="grid gap-4">
               {allocationRows.map((row, index) => (
                 <div key={row.id} className="flex gap-2 items-center">
-                  <CostCenterSelect
-                    costCenters={costCenters}
-                    value={row.costCenterName}
-                    onValueChange={value => handleAllocationChange(row.id, 'costCenterName', value)}
+                  <ClientSelect
+                    clients={clients}
+                    value={row.clientName}
+                    onValueChange={value => handleAllocationChange(row.id, 'clientName', value)}
                   />
                   <Input 
                     type="number"
@@ -390,7 +396,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
                 </div>
               ))}
               <Button variant="outline" onClick={handleAddAllocationRow}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Cost Center
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Client
               </Button>
               <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
                 <AlertDescription>

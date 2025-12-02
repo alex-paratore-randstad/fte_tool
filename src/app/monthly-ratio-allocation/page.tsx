@@ -17,7 +17,7 @@ export default function MonthlyRatioAllocationPage() {
   return (
     <div className="flex flex-col gap-8">
        <PageHeader
-        title="Monthly Ticket Ratio Allocation"
+        title="Monthly Client Ratio Allocation"
         description="Review and adjust monthly FTE allocations based on pre-calculated ticket ratios."
       />
       <MonthlyRatioGrid onSaveSuccess={handleRefresh} />
