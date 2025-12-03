@@ -32,8 +32,6 @@ const chartColors = [
   'hsl(var(--chart-5))',
 ];
 
-const fromCssKey = (key: string) => key.replace(/-/g, ' ');
-
 export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   const { chartConfig, costCenters } = useMemo(() => {
     if (!data || data.length === 0) {
@@ -53,8 +51,10 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
     const config: ChartConfig = {};
     
     uniqueCostCenters.forEach((ccKey, index) => {
+      // The key is the sanitized CSS-friendly version (e.g., "Project-Alpha")
+      // The label is the original, human-readable name.
       config[ccKey] = {
-        label: fromCssKey(ccKey), // Use original name for display
+        label: ccKey.replace(/-/g, ' '), // Convert back for display
         color: chartColors[index % chartColors.length],
       };
     });

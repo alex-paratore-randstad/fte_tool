@@ -16,6 +16,13 @@ import { startOfWeek, subWeeks, format } from 'date-fns';
 
 type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
 
+type AiReportData = {
+    Code: string;
+    Name: string;
+    DisplayName: string;
+    RollsUpTo: string;
+};
+
 type ChartData = {
   name: string; // Week start date
   [key: string]: any; // Client allocations
@@ -45,9 +52,10 @@ export default function DashboardPage() {
     async function fetchData() {
       setLoading(true);
       try {
-        const [empResponse, allocResponse] = await Promise.all([
+        const [empResponse, allocResponse, clientResponse] = await Promise.all([
           fetch(`/data/v1/gbs_ind_hr_fte_report`),
           fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/`),
+          fetch(`/data/v1/ai_report`),
         ]);
 
         if (!empResponse.ok) {
@@ -61,9 +69,14 @@ export default function DashboardPage() {
          if (!allocResponse.ok) {
           console.warn("Could not fetch allocation data. This may be expected in local dev.");
         }
+        if (!clientResponse.ok) {
+          console.warn("Could not fetch client data. This may be expected in local dev.");
+        }
 
         const employees: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
         const allocations: WeeklyAllocation[] = allocResponse.ok ? await allocResponse.json() : [];
+        const allPossibleClients: AiReportData[] = clientResponse.ok ? await clientResponse.json() : [];
+
 
         // Safe data processing to prevent runtime errors
         try {
@@ -88,7 +101,13 @@ export default function DashboardPage() {
             setMissingAllocations(unallocatedEmps.length);
 
             // Robust data processing for the allocation chart
-            const allClients = Array.from(new Set(allocations.map(a => a.content.cost_center_name))).sort();
+            const allClients = Array.from(new Set([
+              ...allPossibleClients.map(c => c.DisplayName), 
+              'PTO', 
+              'Unallocated',
+              ...allocations.map(a => a.content.cost_center_name)
+            ])).filter(Boolean).sort();
+            
             const today = new Date();
             const last6Weeks = Array.from({ length: 6 }).map((_, i) => {
               return startOfWeek(subWeeks(today, 5 - i), { weekStartsOn: 1 });
@@ -264,7 +283,7 @@ export default function DashboardPage() {
                   <Skeleton className="h-[300px] w-full" />
               </CardContent>
           </Card>
-           <div className="grid grid-cols-1 gap-8">
+          <div className="grid grid-cols-1 gap-8">
             {activeView && (
               <Card>
                   <CardHeader>
