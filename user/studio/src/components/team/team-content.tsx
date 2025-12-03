@@ -24,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '../ui/button';
+import { SelectSearch } from '../ui/select-search';
 
 type FilterOptions = {
   teams: string[];
@@ -31,6 +32,30 @@ type FilterOptions = {
   managers: string[];
   regions: string[];
 }
+
+const FilterSelect = ({ placeholder, options, value, onValueChange }: { placeholder: string, options: string[], value: string, onValueChange: (value: string) => void }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const filteredOptions = useMemo(() => {
+    const sortedOptions = [...options].sort((a,b) => a.localeCompare(b));
+    if (!searchTerm) return sortedOptions;
+    return sortedOptions.filter(opt => opt.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [options, searchTerm]);
+
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectContent>
+        <SelectSearch placeholder="Search..." onChange={setSearchTerm} />
+        {filteredOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+         {filteredOptions.length === 0 && (
+          <div className="p-4 text-sm text-center text-muted-foreground">
+              No results found.
+          </div>
+        )}
+      </SelectContent>
+    </Select>
+  );
+};
 
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -72,14 +97,14 @@ export function TeamContent() {
         setTeamMembers(data);
 
         // Derive filter options from the data
-        const getUniqueSorted = (key: keyof TeamMember) => 
-            Array.from(new Set(data.map(item => item[key]).filter(Boolean))).sort();
+        const getUnique = (key: keyof TeamMember) => 
+            Array.from(new Set(data.map(item => item[key]).filter(Boolean) as string[]));
         
         setFilterOptions({
-            teams: getUniqueSorted('Team_Name'),
-            titles: getUniqueSorted('Market_Facing_Title'),
-            managers: getUniqueSorted('First_Reviewer_Name'),
-            regions: getUniqueSorted('Region'),
+            teams: getUnique('Team_Name'),
+            titles: getUnique('Market_Facing_Title'),
+            managers: getUnique('First_Reviewer_Name'),
+            regions: getUnique('Region'),
         });
         
       } catch (error) {
@@ -152,22 +177,10 @@ export function TeamContent() {
                 value={filters.name}
                 onChange={e => handleFilterChange('name', e.target.value)}
             />
-            <Select value={filters.region} onValueChange={value => handleFilterChange('region', value)}>
-                <SelectTrigger><SelectValue placeholder="Filter by Region..." /></SelectTrigger>
-                <SelectContent>{filterOptions.regions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-            </Select>
-             <Select value={filters.team} onValueChange={value => handleFilterChange('team', value)}>
-                <SelectTrigger><SelectValue placeholder="Filter by Team..." /></SelectTrigger>
-                <SelectContent>{filterOptions.teams.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-            </Select>
-            <Select value={filters.title} onValueChange={value => handleFilterChange('title', value)}>
-                <SelectTrigger><SelectValue placeholder="Filter by Title..." /></SelectTrigger>
-                <SelectContent>{filterOptions.titles.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-            </Select>
-            <Select value={filters.manager} onValueChange={value => handleFilterChange('manager', value)}>
-                <SelectTrigger><SelectValue placeholder="Filter by Manager..." /></SelectTrigger>
-                <SelectContent>{filterOptions.managers.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-            </Select>
+            <FilterSelect placeholder="Filter by Region..." options={filterOptions.regions} value={filters.region} onValueChange={value => handleFilterChange('region', value)} />
+            <FilterSelect placeholder="Filter by Team..." options={filterOptions.teams} value={filters.team} onValueChange={value => handleFilterChange('team', value)} />
+            <FilterSelect placeholder="Filter by Title..." options={filterOptions.titles} value={filters.title} onValueChange={value => handleFilterChange('title', value)} />
+            <FilterSelect placeholder="Filter by Manager..." options={filterOptions.managers} value={filters.manager} onValueChange={value => handleFilterChange('manager', value)} />
             <Button variant="outline" onClick={clearFilters}>Clear Filters</Button>
         </div>
       </CardHeader>

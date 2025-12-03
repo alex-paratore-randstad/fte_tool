@@ -24,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '../ui/button';
+import { SelectSearch } from '../ui/select-search';
 
 type FilterOptions = {
   teams: string[];
@@ -31,6 +32,24 @@ type FilterOptions = {
   managers: string[];
   regions: string[];
 }
+
+const FilterSelect = ({ placeholder, options, value, onValueChange }: { placeholder: string, options: string[], value: string, onValueChange: (value: string) => void }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm) return options;
+    return options.filter(opt => opt.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [options, searchTerm]);
+
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectContent>
+        <SelectSearch onChange={setSearchTerm} />
+        {filteredOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+};
 
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -73,7 +92,7 @@ export function TeamContent() {
 
         // Derive filter options from the data
         const getUniqueSorted = (key: keyof TeamMember) => 
-            Array.from(new Set(data.map(item => item[key]).filter(Boolean))).sort();
+            Array.from(new Set(data.map(item => item[key]).filter(Boolean))).sort((a,b) => a.localeCompare(b));
         
         setFilterOptions({
             teams: getUniqueSorted('Team_Name'),
@@ -152,22 +171,10 @@ export function TeamContent() {
                 value={filters.name}
                 onChange={e => handleFilterChange('name', e.target.value)}
             />
-            <Select value={filters.region} onValueChange={value => handleFilterChange('region', value)}>
-                <SelectTrigger><SelectValue placeholder="Filter by Region..." /></SelectTrigger>
-                <SelectContent>{filterOptions.regions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-            </Select>
-             <Select value={filters.team} onValueChange={value => handleFilterChange('team', value)}>
-                <SelectTrigger><SelectValue placeholder="Filter by Team..." /></SelectTrigger>
-                <SelectContent>{filterOptions.teams.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-            </Select>
-            <Select value={filters.title} onValueChange={value => handleFilterChange('title', value)}>
-                <SelectTrigger><SelectValue placeholder="Filter by Title..." /></SelectTrigger>
-                <SelectContent>{filterOptions.titles.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-            </Select>
-            <Select value={filters.manager} onValueChange={value => handleFilterChange('manager', value)}>
-                <SelectTrigger><SelectValue placeholder="Filter by Manager..." /></SelectTrigger>
-                <SelectContent>{filterOptions.managers.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-            </Select>
+            <FilterSelect placeholder="Filter by Region..." options={filterOptions.regions} value={filters.region} onValueChange={value => handleFilterChange('region', value)} />
+            <FilterSelect placeholder="Filter by Team..." options={filterOptions.teams} value={filters.team} onValueChange={value => handleFilterChange('team', value)} />
+            <FilterSelect placeholder="Filter by Title..." options={filterOptions.titles} value={filters.title} onValueChange={value => handleFilterChange('title', value)} />
+            <FilterSelect placeholder="Filter by Manager..." options={filterOptions.managers} value={filters.manager} onValueChange={value => handleFilterChange('manager', value)} />
             <Button variant="outline" onClick={clearFilters}>Clear Filters</Button>
         </div>
       </CardHeader>

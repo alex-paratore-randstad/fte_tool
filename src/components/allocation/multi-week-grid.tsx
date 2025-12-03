@@ -73,10 +73,9 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const specialClients = ['PTO', 'Unallocated'];
-    
     // Create a stable sort: special clients first, then alphabetical.
     const sorted = [...clients].sort((a, b) => {
+      const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
       const bIsSpecial = specialClients.includes(b.DisplayName);
 

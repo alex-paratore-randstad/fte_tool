@@ -64,13 +64,22 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const specialClients = ['PTO', 'Unallocated'];
-    const topItems = clients.filter(c => specialClients.includes(c.DisplayName));
-    const regularItems = clients
-      .filter(c => !specialClients.includes(c.DisplayName))
-      .sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
+    // Create a stable sort: special clients first, then alphabetical.
+    const sorted = [...clients].sort((a, b) => {
+      const specialClients = ['PTO', 'Unallocated'];
+      const aIsSpecial = specialClients.includes(a.DisplayName);
+      const bIsSpecial = specialClients.includes(b.DisplayName);
+
+      if (aIsSpecial && !bIsSpecial) return -1;
+      if (!aIsSpecial && bIsSpecial) return 1;
       
-    const sorted = [...topItems, ...regularItems];
+      // If both are special or both are not, sort by name.
+      if (aIsSpecial && bIsSpecial) {
+          return a.DisplayName === 'Unallocated' ? -1 : 1;
+      }
+      
+      return a.DisplayName.localeCompare(b.DisplayName);
+    });
 
     if (!searchTerm) {
       return sorted;

@@ -51,8 +51,9 @@ const EmployeeSelect = ({ employees, value, onValueChange, disabled }: { employe
 const TitleSelect = ({ titles, value, onValueChange, disabled }: { titles: UpdatedTitle[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const filteredTitles = useMemo(() => {
-        if (!searchTerm) return titles;
-        return titles.filter(t => t.updated_titles.toLowerCase().includes(searchTerm.toLowerCase()));
+        const sortedTitles = [...titles].sort((a,b) => a.updated_titles.localeCompare(b.updated_titles));
+        if (!searchTerm) return sortedTitles;
+        return sortedTitles.filter(t => t.updated_titles.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [titles, searchTerm]);
 
     return (
@@ -107,7 +108,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       const empData: TeamMember[] = await empResponse.json();
       const titleData: any[] = await titleResponse.json();
       
-      setEmployees(empData.filter(e => e && e.Full_Name));
+      setEmployees(empData.filter(e => e && e.Full_Name).sort((a,b) => a.Full_Name.localeCompare(b.Full_Name)));
       setTitles(titleData.filter(t => t && t['updated_titles']));
 
     } catch (error: any) {
