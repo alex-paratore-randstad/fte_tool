@@ -32,8 +32,8 @@ const chartColors = [
   'hsl(var(--chart-5))',
 ];
 
-// Helper to create a CSS-friendly key from a string
-const toCssKey = (name: string) => name.replace(/[^a-zA-Z0-9]/g, '-');
+// Helper to create a display name from a CSS-friendly key
+const fromCssKey = (name: string) => name.replace(/-/g, ' ');
 
 export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   const { chartConfig, costCenters } = useMemo(() => {
@@ -53,10 +53,9 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
     const uniqueCostCenters = Array.from(ccKeys).sort();
     const config: ChartConfig = {};
     
-    uniqueCostCenters.forEach((cc, index) => {
-      const key = toCssKey(cc);
-      config[key] = {
-        label: cc,
+    uniqueCostCenters.forEach((ccKey, index) => {
+      config[ccKey] = {
+        label: fromCssKey(ccKey), // Use original name for display
         color: chartColors[index % chartColors.length],
       };
     });
@@ -66,19 +65,10 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
 
   const formattedData = useMemo(() => {
     if (!data.length) return [];
-    
-    // Rename data keys to match sanitized chartConfig keys
-    return data.map(item => {
-      const newItem: Record<string, any> = {
-        name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown Date',
-      };
-      for (const key in item) {
-        if (key !== 'name') {
-          newItem[toCssKey(key)] = item[key];
-        }
-      }
-      return newItem;
-    });
+    return data.map(item => ({
+      ...item,
+      name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown Date',
+    }));
   }, [data]);
 
   if (!data || data.length === 0) {
@@ -108,17 +98,15 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
             content={<ChartTooltipContent />}
           />
           <Legend content={<ChartLegendContent />} />
-          {costCenters.map(cc => {
-            const cssKey = toCssKey(cc);
-            return (
+          {costCenters.map(ccKey => (
              <Bar
-                key={cssKey}
-                dataKey={cssKey}
+                key={ccKey}
+                dataKey={ccKey}
                 stackId="a"
-                fill={`var(--color-${cssKey})`}
+                fill={`var(--color-${ccKey})`}
                 radius={[4, 4, 0, 0]}
             />
-          )})}
+          ))}
         </BarChart>
       </ResponsiveContainer>
     </ChartContainer>

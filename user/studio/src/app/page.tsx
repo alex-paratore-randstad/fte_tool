@@ -21,6 +21,10 @@ type ChartData = {
   [key: string]: any; // Client allocations
 };
 
+// Helper to create a CSS-friendly key from a string
+const toCssKey = (name: string) => name.replace(/[^a-zA-Z0-9]/g, '-');
+
+
 export default function DashboardPage() {
   const [totalFtes, setTotalFtes] = useState(0);
   const [allocatedFtes, setAllocatedFtes] = useState(0);
@@ -84,7 +88,7 @@ export default function DashboardPage() {
             setMissingAllocations(unallocatedEmps.length);
 
             // Robust data processing for the allocation chart
-            const allClients = Array.from(new Set(allocations.map(a => a.content.cost_center_name)));
+            const allClients = Array.from(new Set(allocations.map(a => a.content.cost_center_name))).sort();
             const today = new Date();
             const last6Weeks = Array.from({ length: 6 }).map((_, i) => {
               return startOfWeek(subWeeks(today, 5 - i), { weekStartsOn: 1 });
@@ -107,7 +111,9 @@ export default function DashboardPage() {
               // Ensure all clients are present in the data for each week
               const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
               allClients.forEach(client => {
-                completeWeeklyData[client] = weeklyTotals[client] || 0;
+                // Sanitize the client name to be used as a key
+                const key = toCssKey(client);
+                completeWeeklyData[key] = weeklyTotals[client] || 0;
               });
 
               return completeWeeklyData;
@@ -219,10 +225,34 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-8">
         <PageHeader title="Dashboard" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Skeleton className="h-[120px]" />
-            <Skeleton className="h-[120px]" />
-            <Skeleton className="h-[120px]" />
-            <Skeleton className="h-[120px]" />
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total FTEs</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Allocated FTEs</CardTitle>
+                     <Briefcase className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Unallocated FTEs</CardTitle>
+                    <UserMinus className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Missing Allocations</CardTitle>
+                    <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
+            </Card>
         </div>
         <div className="grid grid-cols-1 gap-8">
           <Card>
@@ -234,6 +264,19 @@ export default function DashboardPage() {
                   <Skeleton className="h-[300px] w-full" />
               </CardContent>
           </Card>
+           <div className="grid grid-cols-1 gap-8">
+            {activeView && (
+              <Card>
+                  <CardHeader>
+                      <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
+                      <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <Skeleton className="h-[300px] w-full" />
+                  </CardContent>
+              </Card>
+            )}
+           </div>
         </div>
       </div>
     )
@@ -285,7 +328,9 @@ export default function DashboardPage() {
                 <FteAllocationChart data={allocationChartData} />
             </CardContent>
         </Card>
-        {renderDetailView()}
+        <div className="grid grid-cols-1 gap-8">
+          {renderDetailView()}
+        </div>
       </div>
     </div>
   );
