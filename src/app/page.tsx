@@ -11,8 +11,15 @@ import { TeamMember, WeeklyAllocation } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
+import { startOfWeek, subWeeks, format } from 'date-fns';
 
 type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
+
+type ChartData = {
+  name: string; // Week start date
+  [key: string]: any; // Client allocations
+};
 
 export default function DashboardPage() {
   const [totalFtes, setTotalFtes] = useState(0);
@@ -23,6 +30,8 @@ export default function DashboardPage() {
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [allocatedEmployees, setAllocatedEmployees] = useState<TeamMember[]>([]);
   const [unallocatedEmployees, setUnallocatedEmployees] = useState<TeamMember[]>([]);
+  
+  const [allocationChartData, setAllocationChartData] = useState<ChartData[]>([]);
   
   const [activeView, setActiveView] = useState<ActiveView>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +82,38 @@ export default function DashboardPage() {
             setUnallocatedEmployees(unallocatedEmps);
             setUnallocatedFtes(unallocatedEmps.length);
             setMissingAllocations(unallocatedEmps.length);
+
+            // Robust data processing for the allocation chart
+            const allClients = Array.from(new Set(allocations.map(a => a.content.cost_center_name)));
+            const today = new Date();
+            const last6Weeks = Array.from({ length: 6 }).map((_, i) => {
+              return startOfWeek(subWeeks(today, 5 - i), { weekStartsOn: 1 });
+            });
+
+            const weeklyData = last6Weeks.map(weekStart => {
+              const weekStartDateString = format(weekStart, 'yyyy-MM-dd');
+              const allocationsForWeek = allocations.filter(a => a.content.allocation_date === weekStartDateString);
+
+              const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
+                const client = curr.content.cost_center_name;
+                const fte = Number(curr.content.allocation_amount) || 0;
+                if (!acc[client]) {
+                  acc[client] = 0;
+                }
+                acc[client] += fte;
+                return acc;
+              }, {} as Record<string, number>);
+
+              // Ensure all clients are present in the data for each week
+              const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
+              allClients.forEach(client => {
+                completeWeeklyData[client] = weeklyTotals[client] || 0;
+              });
+
+              return completeWeeklyData;
+            });
+            setAllocationChartData(weeklyData);
+
         } catch (processingError) {
              console.error("Failed to process dashboard data:", processingError);
              toast({
@@ -85,6 +126,7 @@ export default function DashboardPage() {
             setAllocatedFtes(0);
             setUnallocatedFtes(0);
             setMissingAllocations(0);
+            setAllocationChartData([]);
         }
 
       } catch (error) {
@@ -206,15 +248,28 @@ export default function DashboardPage() {
                 <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
             </Card>
         </div>
-         <Card>
-            <CardHeader>
-                <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-                 <div className="text-sm text-muted-foreground"><Skeleton className="h-4 w-1/2" /></div>
-            </CardHeader>
-            <CardContent>
-                <Skeleton className="h-[300px] w-full" />
-            </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-8">
+          <Card>
+              <CardHeader>
+                  <CardTitle>Weekly Client Allocation</CardTitle>
+                  <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <Skeleton className="h-[300px] w-full" />
+              </CardContent>
+          </Card>
+          {activeView && (
+            <Card>
+                <CardHeader>
+                    <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
+                    <div className="text-sm text-muted-foreground"><Skeleton className="h-4 w-1/2" /></div>
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-[300px] w-full" />
+                </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     )
   }
@@ -256,8 +311,19 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-8">
+         <Card>
+            <CardHeader>
+                <CardTitle>Weekly Client Allocation</CardTitle>
+                <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <FteAllocationChart data={allocationChartData} />
+            </CardContent>
+        </Card>
         {renderDetailView()}
       </div>
     </div>
   );
 }
+
+    

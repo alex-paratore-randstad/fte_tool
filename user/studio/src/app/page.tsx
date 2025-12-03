@@ -83,7 +83,8 @@ export default function DashboardPage() {
             setUnallocatedFtes(unallocatedEmps.length);
             setMissingAllocations(unallocatedEmps.length);
 
-            // Process data for the allocation chart
+            // Robust data processing for the allocation chart
+            const allClients = Array.from(new Set(allocations.map(a => a.content.cost_center_name)));
             const today = new Date();
             const last6Weeks = Array.from({ length: 6 }).map((_, i) => {
               return startOfWeek(subWeeks(today, 5 - i), { weekStartsOn: 1 });
@@ -103,10 +104,13 @@ export default function DashboardPage() {
                 return acc;
               }, {} as Record<string, number>);
 
-              return {
-                name: weekStartDateString,
-                ...weeklyTotals
-              };
+              // Ensure all clients are present in the data for each week
+              const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
+              allClients.forEach(client => {
+                completeWeeklyData[client] = weeklyTotals[client] || 0;
+              });
+
+              return completeWeeklyData;
             });
             setAllocationChartData(weeklyData);
 
