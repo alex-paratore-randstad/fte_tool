@@ -292,10 +292,6 @@
             "alias": "global_445_calendar",
             "fields": [
                 {
-                    "alias": "Day",
-                    "columnName": "Day"
-                },
-                {
                     "alias": "Week_Number",
                     "columnName": "Week #"
                 },

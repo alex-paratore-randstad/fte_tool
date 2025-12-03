@@ -20,17 +20,16 @@ export default function AllocationPage() {
         if (response.ok) {
           const calendarData: Omit<FiscalCalendarEntry, 'parsedDate'>[] = await response.json();
           initializeFiscalCalendar(calendarData);
-          setCurrentDate(new Date());
-          setCalendarInitialized(true);
         } else {
           console.error("Failed to load 4-4-5 calendar data, using fallback.");
-          setCurrentDate(new Date());
-          setCalendarInitialized(true);
         }
       } catch (error) {
         console.error("Error initializing calendar:", error);
-        setCurrentDate(new Date()); // Ensure date is set even on error
+      } finally {
+        // This must be called in all paths to ensure client-side state
+        // transitions correctly and avoids hydration errors.
         setCalendarInitialized(true);
+        setCurrentDate(new Date());
       }
     }
     initCalendar();
@@ -40,7 +39,9 @@ export default function AllocationPage() {
     setRefreshKey(prevKey => prevKey + 1);
   };
 
-  if (!calendarInitialized) {
+  // This condition prevents rendering the main content until the client-side
+  // useEffect has run, which avoids the hydration mismatch with the server.
+  if (!calendarInitialized || !currentDate) {
       return (
         <div className="flex flex-col gap-8">
             <PageHeader
