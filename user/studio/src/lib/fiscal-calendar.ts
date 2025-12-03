@@ -102,7 +102,7 @@ export function getPreviousFiscalMonth(currentDate: Date): Date {
     return subMonths(currentDate, 1);
   }
 
-  // Find the first day of the current fiscal month
+  // Find the first day of the current fiscal month in the full calendar array
   const firstDayOfCurrentMonth = parsedCalendar.find(d => 
     d.Reporting_Month === currentFiscalData.Reporting_Month && d.Reporting_Year === currentFiscalData.Reporting_Year
   );
