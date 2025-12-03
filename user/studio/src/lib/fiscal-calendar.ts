@@ -66,7 +66,7 @@ export function getWeeksForFiscalMonth(date: Date): FiscalWeek[] {
   const currentFiscalData = getFiscalDataForDate(date);
   if (!currentFiscalData || parsedCalendar.length === 0) {
     // Return empty array if calendar is not initialized or date is not found.
-    // The UI will show a loading state.
+    // The UI will show a loading state and re-calculate when data is ready.
     return [];
   }
 

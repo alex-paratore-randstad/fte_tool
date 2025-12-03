@@ -77,7 +77,10 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
   }, [currentDate]);
 
   const fetchData = useCallback(async () => {
-    if (weeks.length === 0) return;
+    if (weeks.length === 0) {
+        setLoading(false);
+        return;
+    };
     setLoading(true);
     try {
       const weekKeys = weeks.map(w => formatDateKey(w.startDate));
@@ -134,8 +137,10 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
   }, [weeks, toast]);
   
   useEffect(() => {
-    fetchData();
-  }, [fetchData, refreshKey]);
+    if(currentDate) {
+        fetchData();
+    }
+  }, [currentDate, fetchData, refreshKey]);
 
   const handleFteChange = (employeeName: string, clientId: string, weekKey: string, newFteValue: string) => {
     const newFte = parseFloat(newFteValue) || 0;
