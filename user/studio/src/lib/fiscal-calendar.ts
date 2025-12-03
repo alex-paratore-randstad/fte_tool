@@ -72,11 +72,18 @@ export function getWeeksForFiscalMonth(date: Date): FiscalWeek[] {
 
   const { Reporting_Month, Reporting_Year } = currentFiscalData;
 
-  const weeksInMonth = parsedCalendar.filter(
+  const entriesForMonth = parsedCalendar.filter(
     d => d.Reporting_Month === Reporting_Month && d.Reporting_Year === Reporting_Year
   );
 
-  const uniqueWeeks = [...new Map(weeksInMonth.map(item => [item['Reporting_Week'], item])).values()];
+  // Get unique week-ending dates for the month
+  const uniqueWeekEndDates = Array.from(new Set(entriesForMonth.map(item => item.Reporting_Week_Date)));
+
+  // For each unique week-ending date, find the first corresponding entry.
+  // This ensures we get one entry per fiscal week.
+  const uniqueWeeks = uniqueWeekEndDates.map(weekEndDate => {
+    return entriesForMonth.find(entry => entry.Reporting_Week_Date === weekEndDate)!;
+  });
   
   // Sort the weeks chronologically by their start date to ensure correct order
   uniqueWeeks.sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
