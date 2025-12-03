@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth } from '@/lib/fiscal-calendar';
+import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
 
 type AiReportData = {
     Code: string;
@@ -216,8 +216,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const { weeks, fiscalMonthLabel } = useMemo(() => {
     if (!currentDate) return { weeks: [], fiscalMonthLabel: 'Loading...' };
     const fiscalData = getFiscalDataForDate(currentDate);
-    const monthWeeks = getWeeksForFiscalMonth(currentDate);
-    const label = fiscalData ? `${fiscalData.reporting_month} ${fiscalData.reporting_year}` : 'Loading...';
+    const monthWeeks: FiscalWeek[] = getWeeksForFiscalMonth(currentDate);
+    const label = fiscalData ? `${fiscalData.Reporting_Month} ${fiscalData.Reporting_Year}` : 'Loading...';
     return { weeks: monthWeeks, fiscalMonthLabel: label };
   }, [currentDate]);
 
@@ -366,8 +366,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
             if (alloc.id === allocId) {
               const updatedWeeklyFtes = { ...alloc.weeklyFtes };
               weeks.forEach(week => {
-                const weekKey = formatDateKey(week);
-                const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                const weekKey = formatDateKey(week.startDate);
+                const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                 const isLockedForUser = isPast && !isAdmin;
                 if (!isLockedForUser) {
                   updatedWeeklyFtes[weekKey] = monthlyFte;
@@ -524,18 +524,18 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee</TableHead>
-                <TableHead className="min-w-[250px]">Client Name</TableHead>
+                <TableHead className="min-w-[250px]">Client</TableHead>
                 <TableHead className="min-w-[150px]">Client Code</TableHead>
-                <TableHead className="text-center min-w-[150px]">Bulk Hours Entry</TableHead>
+                <TableHead className="text-center min-w-[150px]">Bulk FTE Entry</TableHead>
                 {weeks.map(week => {
-                  const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                  const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                  const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                  const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                   const isLockedForUser = isPast && !isAdmin;
                   return (
-                    <TableHead key={week.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
+                    <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
                       <div className='flex items-center justify-center gap-2'>
                         {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
-                        <span>W/E {format(endOfWeek(week, { weekStartsOn: 1 }), 'MMM d')}</span>
+                        <span>W/E {week.reportingWeekDate}</span>
                       </div>
                       {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
                     </TableHead>
@@ -554,7 +554,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
              )}
               {activeAllocations.map(({ employee, allocations }) => {
                 const weeklyTotals = weeks.map(week => {
-                  const weekKey = formatDateKey(week);
+                  const weekKey = formatDateKey(week.startDate);
                   return allocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
                 });
 
@@ -581,7 +581,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
 
                     {allocations.map((alloc) => {
                        const isRowLocked = weeks.some(week => {
-                            const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                            const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                             return isPast && !isAdmin;
                        });
                       return (
@@ -612,12 +612,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                               />
                         </TableCell>
                         {weeks.map(week => {
-                          const weekKey = formatDateKey(week);
-                          const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                           const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                          const weekKey = formatDateKey(week.startDate);
+                          const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                           const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                           const isLockedForUser = isPast && !isAdmin;
                           return (
-                            <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
+                            <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
                               <Input
                                 type="number" step="0.05" min="0" placeholder="0.00"
                                 className={cn("w-24 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
@@ -654,3 +654,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     </Card>
   );
 }
+
+    
