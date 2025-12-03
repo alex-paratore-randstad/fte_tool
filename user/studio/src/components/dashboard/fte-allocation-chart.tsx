@@ -32,6 +32,9 @@ const chartColors = [
   'hsl(var(--chart-5))',
 ];
 
+// Helper to create a CSS-friendly key from a string
+const toCssKey = (name: string) => name.replace(/[^a-zA-Z0-9]/g, '-');
+
 export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   const { chartConfig, costCenters } = useMemo(() => {
     if (!data || data.length === 0) {
@@ -49,8 +52,10 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
 
     const uniqueCostCenters = Array.from(ccKeys).sort();
     const config: ChartConfig = {};
+    
     uniqueCostCenters.forEach((cc, index) => {
-      config[cc] = {
+      const key = toCssKey(cc);
+      config[key] = {
         label: cc,
         color: chartColors[index % chartColors.length],
       };
@@ -61,10 +66,19 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
 
   const formattedData = useMemo(() => {
     if (!data.length) return [];
-    return data.map(item => ({
-      ...item,
-      name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown Date',
-    }));
+    
+    // Rename data keys to match sanitized chartConfig keys
+    return data.map(item => {
+      const newItem: Record<string, any> = {
+        name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown Date',
+      };
+      for (const key in item) {
+        if (key !== 'name') {
+          newItem[toCssKey(key)] = item[key];
+        }
+      }
+      return newItem;
+    });
   }, [data]);
 
   if (!data || data.length === 0) {
@@ -94,19 +108,19 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
             content={<ChartTooltipContent />}
           />
           <Legend content={<ChartLegendContent />} />
-          {costCenters.map(cc => (
+          {costCenters.map(cc => {
+            const cssKey = toCssKey(cc);
+            return (
              <Bar
-                key={cc}
-                dataKey={cc}
+                key={cssKey}
+                dataKey={cssKey}
                 stackId="a"
-                fill={`var(--color-${cc})`}
+                fill={`var(--color-${cssKey})`}
                 radius={[4, 4, 0, 0]}
             />
-          ))}
+          )})}
         </BarChart>
       </ResponsiveContainer>
     </ChartContainer>
   );
 }
-
-    
