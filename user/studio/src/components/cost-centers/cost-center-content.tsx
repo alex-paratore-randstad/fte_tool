@@ -22,8 +22,9 @@ export function CostCenterContent() {
   
   const filteredCostCenters = useMemo(() => {
     if (!costCenterFilter) return costCenters;
+    const lowercasedFilter = costCenterFilter.toLowerCase();
     return costCenters.filter(cc => 
-        cc['Cost Center Name/Description']?.toLowerCase().includes(costCenterFilter.toLowerCase())
+      Object.values(cc).some(val => val && val.toLowerCase().includes(lowercasedFilter))
     );
   }, [costCenters, costCenterFilter]);
 
@@ -87,9 +88,9 @@ export function CostCenterContent() {
             </Card>
             <Card>
                 <CardHeader>
-                    <CardTitle>AI Report Data</CardTitle>
+                    <CardTitle>Client Data</CardTitle>
                     <CardDescription>
-                        Data from the `ai_report` dataset.
+                        Data from the `ai_report` dataset used to populate client dropdowns.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -113,7 +114,7 @@ export function CostCenterContent() {
           </CardDescription>
           <div className="pt-2">
             <Input
-              placeholder="Filter by Cost Center Name..."
+              placeholder="Filter cost centers..."
               value={costCenterFilter}
               onChange={(e) => setCostCenterFilter(e.target.value)}
               className="max-w-sm"

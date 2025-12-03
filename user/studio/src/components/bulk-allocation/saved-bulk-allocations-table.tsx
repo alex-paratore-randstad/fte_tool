@@ -165,9 +165,7 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
     }
 
     const totalPercentage = editableAlloc.summaries.reduce((sum, s) => sum + s.percentage, 0);
-    const roundedTotal = Math.round(totalPercentage);
-
-    if (roundedTotal !== 100) {
+    if (Math.round(totalPercentage) !== 100) {
       toast({ variant: 'destructive', title: 'Validation Error', description: 'Total allocation must be exactly 100%.' });
       setIsSaving(prev => ({...prev, [allocId]: false}));
       return;

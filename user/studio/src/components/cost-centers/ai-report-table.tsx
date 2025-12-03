@@ -23,21 +23,23 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
 
   const filteredData = useMemo(() => {
     if (!filter) return reportData;
+    const lowercasedFilter = filter.toLowerCase();
     return reportData.filter(row =>
-      row.DisplayName.toLowerCase().includes(filter.toLowerCase())
+      (row.DisplayName && row.DisplayName.toLowerCase().includes(lowercasedFilter)) ||
+      (row.Code && row.Code.toLowerCase().includes(lowercasedFilter))
     );
   }, [reportData, filter]);
   
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI Report Data</CardTitle>
+        <CardTitle>Client Data</CardTitle>
         <CardDescription>
-            Data from the `ai_report` dataset.
+            Data from the `ai_report` dataset used to populate client dropdowns.
         </CardDescription>
         <div className="pt-2">
             <Input
-              placeholder="Filter by Display Name..."
+              placeholder="Filter by Display Name or Code..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="max-w-sm"
@@ -68,7 +70,7 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
                 ) : (
                     <TableRow>
                         <TableCell colSpan={4} className="h-24 text-center">
-                            No AI report data available.
+                            No client data available or matching filters.
                         </TableCell>
                     </TableRow>
                 )}

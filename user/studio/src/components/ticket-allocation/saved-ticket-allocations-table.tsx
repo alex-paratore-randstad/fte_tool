@@ -27,6 +27,8 @@ export function SavedTicketAllocationsTable({ refreshKey }: { refreshKey: number
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // This fetches all documents, which can be inefficient but is required
+      // as we need to filter on a property that isn't indexed for querying.
       const response = await fetch('/domo/datastores/v1/collections/weekly_allocation/documents/');
       if (!response.ok) {
         console.warn('Failed to fetch saved ticket allocations');
@@ -34,8 +36,13 @@ export function SavedTicketAllocationsTable({ refreshKey }: { refreshKey: number
         return;
       }
       const data: SavedAllocationDoc[] = await response.json();
-      // Only show allocations saved from this flow (where cost_center_name and cost_center_number are the same)
-      const filteredData = data.filter(d => d.content.cost_center_name === d.content.cost_center_number);
+      
+      // The logic here assumes that allocations saved from the "Client Ticket Allocation" page
+      // will have the same value for cost_center_name and cost_center_number.
+      const filteredData = data.filter(d => 
+        d.content.cost_center_name === d.content.cost_center_number
+      );
+
       setAllocations(filteredData.sort((a,b) => new Date(b.content.allocation_date).getTime() - new Date(a.content.allocation_date).getTime()));
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -87,7 +94,7 @@ export function SavedTicketAllocationsTable({ refreshKey }: { refreshKey: number
               {allocations.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="h-24 text-center">
-                    No saved allocations found.
+                    No saved allocations found from this tool.
                   </TableCell>
                 </TableRow>
               ) : (
