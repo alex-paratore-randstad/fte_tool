@@ -223,24 +223,13 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-8">
           <Card>
               <CardHeader>
-                  <CardTitle><Skeleton className="h-6 w-1/3" /></CardTitle>
-                  <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
+                  <CardTitle>Weekly Client Allocation</CardTitle>
+                  <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
               </CardHeader>
               <CardContent>
                   <Skeleton className="h-[300px] w-full" />
               </CardContent>
           </Card>
-          {activeView && (
-            <Card>
-                <CardHeader>
-                    <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-                     <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Skeleton className="h-[300px] w-full" />
-                </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     )
