@@ -32,8 +32,7 @@ const chartColors = [
   'hsl(var(--chart-5))',
 ];
 
-// Helper to create a display name from a CSS-friendly key
-const fromCssKey = (name: string) => name.replace(/-/g, ' ');
+const fromCssKey = (key: string) => key.replace(/-/g, ' ');
 
 export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   const { chartConfig, costCenters } = useMemo(() => {
@@ -64,7 +63,7 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   }, [data]);
 
   const formattedData = useMemo(() => {
-    if (!data.length) return [];
+    if (!data || data.length === 0) return [];
     return data.map(item => ({
       ...item,
       name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown Date',
@@ -98,7 +97,7 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
             content={<ChartTooltipContent />}
           />
           <Legend content={<ChartLegendContent />} />
-          {costCenters.map(ccKey => (
+          {costCenters.map((ccKey) => (
              <Bar
                 key={ccKey}
                 dataKey={ccKey}
