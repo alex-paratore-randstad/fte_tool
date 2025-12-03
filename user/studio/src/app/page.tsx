@@ -28,10 +28,6 @@ type ChartData = {
   [key: string]: any; // Client allocations
 };
 
-// Helper to create a CSS-friendly key from a string
-const toCssKey = (name: string) => name.replace(/[^a-zA-Z0-9]/g, '-');
-
-
 export default function DashboardPage() {
   const [totalFtes, setTotalFtes] = useState(0);
   const [allocatedFtes, setAllocatedFtes] = useState(0);
@@ -60,11 +56,6 @@ export default function DashboardPage() {
 
         if (!empResponse.ok) {
           console.warn("Could not fetch employee data. This may be expected in local dev.");
-          toast({
-            variant: 'destructive',
-            title: 'Failed to load employee data',
-            description: 'Dashboard metrics will be incomplete.'
-          });
         }
          if (!allocResponse.ok) {
           console.warn("Could not fetch allocation data. This may be expected in local dev.");
@@ -130,9 +121,7 @@ export default function DashboardPage() {
               // Ensure all clients are present in the data for each week
               const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
               allClients.forEach(client => {
-                // Sanitize the client name to be used as a key
-                const key = toCssKey(client);
-                completeWeeklyData[key] = weeklyTotals[client] || 0;
+                completeWeeklyData[client] = weeklyTotals[client] || 0;
               });
 
               return completeWeeklyData;

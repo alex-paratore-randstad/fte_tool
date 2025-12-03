@@ -32,6 +32,8 @@ const chartColors = [
   'hsl(var(--chart-5))',
 ];
 
+const toCssKey = (key: string) => key.replace(/[^a-zA-Z0-9]/g, '-');
+
 export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   const { chartConfig, costCenters } = useMemo(() => {
     if (!data || data.length === 0) {
@@ -46,17 +48,16 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
         }
       });
     });
-
-    const uniqueCostCenters = Array.from(ccKeys).sort();
-    const config: ChartConfig = {};
     
-    uniqueCostCenters.forEach((ccKey, index) => {
-      // The key is the sanitized CSS-friendly version (e.g., "Project-Alpha")
-      // The label is the original, human-readable name.
-      config[ccKey] = {
-        label: ccKey.replace(/-/g, ' '), // Convert back for display
-        color: chartColors[index % chartColors.length],
-      };
+    const uniqueCostCenters = Array.from(ccKeys).sort();
+    
+    const config: ChartConfig = {};
+    uniqueCostCenters.forEach((ccName, index) => {
+        const sanitizedKey = toCssKey(ccName);
+        config[sanitizedKey] = {
+            label: ccName,
+            color: chartColors[index % chartColors.length],
+        };
     });
 
     return { chartConfig: config, costCenters: uniqueCostCenters };
@@ -97,15 +98,18 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
             content={<ChartTooltipContent />}
           />
           <Legend content={<ChartLegendContent />} />
-          {costCenters.map((ccKey) => (
-             <Bar
-                key={ccKey}
-                dataKey={ccKey}
+          {costCenters.map((cc) => {
+            const sanitizedKey = toCssKey(cc);
+            return (
+              <Bar
+                key={sanitizedKey}
+                dataKey={cc}
                 stackId="a"
-                fill={`var(--color-${ccKey})`}
+                fill={`var(--color-${sanitizedKey})`}
                 radius={[4, 4, 0, 0]}
-            />
-          ))}
+              />
+            )
+          })}
         </BarChart>
       </ResponsiveContainer>
     </ChartContainer>
