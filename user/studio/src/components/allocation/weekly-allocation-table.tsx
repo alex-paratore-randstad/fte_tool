@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { getWeeksForFiscalMonth } from '@/lib/fiscal-calendar';
+import { getWeeksForFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 
@@ -71,19 +71,16 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
     );
   }, [editableAllocations, nameFilter]);
 
-  const weeks = useMemo(() => {
+  const weeks: FiscalWeek[] = useMemo(() => {
     if (!currentDate) return [];
     return getWeeksForFiscalMonth(currentDate);
   }, [currentDate]);
 
   const fetchData = useCallback(async () => {
-    if (weeks.length === 0) {
-        setLoading(false);
-        return;
-    };
+    if (weeks.length === 0) return;
     setLoading(true);
     try {
-      const weekKeys = weeks.map(formatDateKey);
+      const weekKeys = weeks.map(w => formatDateKey(w.startDate));
       
       const allocationRequests = weekKeys.map(async weekKey => {
         const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
@@ -137,10 +134,8 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
   }, [weeks, toast]);
   
   useEffect(() => {
-    if(currentDate) {
-        fetchData();
-    }
-  }, [currentDate, fetchData, refreshKey]);
+    fetchData();
+  }, [fetchData, refreshKey]);
 
   const handleFteChange = (employeeName: string, clientId: string, weekKey: string, newFteValue: string) => {
     const newFte = parseFloat(newFteValue) || 0;
@@ -266,14 +261,14 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                 <TableRow>
                     <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Client</TableHead>
                     {weeks.map(week => {
-                        const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                        const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                        const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                        const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                         const isLockedForUser = isPast && !isAdmin;
                         return (
-                            <TableHead key={week.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
+                            <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
                             <div className='flex items-center justify-center gap-2'>
                                 {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
-                                <span>W/E {format(endOfWeek(week, { weekStartsOn: 1 }), 'MMM d')}</span>
+                                <span>W/E {week.reportingWeekDate}</span>
                             </div>
                             {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
                             </TableHead>
@@ -291,7 +286,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                 ) : (
                     filteredAllocations.map(({ employeeName, allocations: empAllocations }) => {
                         const weeklyTotals = weeks.map(week => {
-                            const weekKey = formatDateKey(week);
+                            const weekKey = formatDateKey(week.startDate);
                             return empAllocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey]?.fte || 0), 0);
                         });
 
@@ -309,14 +304,14 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                                     <TableRow key={`${employeeName}-${alloc.clientId}`}>
                                         <TableCell className="sticky left-0 bg-card z-10 pl-10">{alloc.clientName}</TableCell>
                                         {weeks.map(week => {
-                                            const weekKey = formatDateKey(week);
-                                            const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                                            const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                                            const weekKey = formatDateKey(week.startDate);
+                                            const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                                            const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                                             const isLockedForUser = isPast && !isAdmin;
                                             const fteData = alloc.weeklyFtes[weekKey];
 
                                             return (
-                                                <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
+                                                <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
                                                     {fteData ? (
                                                         <Input
                                                           type="number" step="0.05" min="0" placeholder="0.00"
@@ -344,4 +339,3 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
     </Card>
   );
 }
-

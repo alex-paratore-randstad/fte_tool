@@ -216,11 +216,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const { weeks, fiscalMonthLabel } = useMemo(() => {
     if (!currentDate) return { weeks: [], fiscalMonthLabel: 'Loading...' };
     const fiscalData = getFiscalDataForDate(currentDate);
-    if (!fiscalData) {
-        return { weeks: [], fiscalMonthLabel: 'Loading...' };
-    }
     const monthWeeks: FiscalWeek[] = getWeeksForFiscalMonth(currentDate);
-    const label = `${fiscalData.Reporting_Month} ${fiscalData.Reporting_Year}`;
+    const label = fiscalData ? `${fiscalData.Reporting_Month} ${fiscalData.Reporting_Year}` : 'Loading...';
     return { weeks: monthWeeks, fiscalMonthLabel: label };
   }, [currentDate]);
 
@@ -484,7 +481,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     }
   };
 
-  if (loading || userLoading || !currentDate || !startOfCurrentWeek || weeks.length === 0) {
+  if (loading || userLoading || !currentDate || !startOfCurrentWeek) {
     return (
       <Card>
         <CardHeader>
@@ -527,7 +524,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee</TableHead>
-                <TableHead className="min-w-[250px]">Client</TableHead>
+                <TableHead className="min-w-[250px]">Client Name</TableHead>
                 <TableHead className="min-w-[150px]">Client Code</TableHead>
                 <TableHead className="text-center min-w-[150px]">Bulk FTE Entry</TableHead>
                 {weeks.map(week => {
@@ -568,8 +565,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                         {employee.Full_Name}
                         <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
                       </TableCell>
-                      <TableCell></TableCell>
-                      <TableCell></TableCell>
+                      <TableCell colSpan={2}></TableCell>
                       <TableCell></TableCell>
                       {weeklyTotals.map((total, index) => (
                         <TableCell key={index} className={cn("text-center font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
