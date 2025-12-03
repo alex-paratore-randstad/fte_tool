@@ -296,10 +296,6 @@
                     "columnName": "Day"
                 },
                 {
-                    "alias": "Date",
-                    "columnName": "Date"
-                },
-                {
                     "alias": "Week_Number",
                     "columnName": "Week #"
                 },

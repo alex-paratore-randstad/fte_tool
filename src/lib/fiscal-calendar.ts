@@ -1,5 +1,5 @@
 
-import { startOfWeek, addMonths, subMonths, parse, getYear, getMonth, addWeeks } from 'date-fns';
+import { startOfWeek, addMonths, subMonths, parse, getYear, getMonth, addWeeks, endOfWeek, format } from 'date-fns';
 
 export type FiscalCalendarEntry = {
   Day: string;
@@ -15,6 +15,11 @@ export type FiscalCalendarEntry = {
   parsedDate: Date; // For internal use
 };
 
+export type FiscalWeek = {
+    startDate: Date;
+    reportingWeekDate: string;
+};
+
 // This data will be fetched from the 'global_445_calendar' dataset
 let parsedCalendar: FiscalCalendarEntry[] = [];
 
@@ -25,8 +30,6 @@ let parsedCalendar: FiscalCalendarEntry[] = [];
 export function initializeFiscalCalendar(data: Omit<FiscalCalendarEntry, 'parsedDate'>[]): void {
   if (parsedCalendar.length > 0) return; // Already initialized
 
-  const monthMap: { [key: string]: number } = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
-  
   parsedCalendar = data.map(d => ({
       ...d,
       // The Date format from the dataset is 'YYYY-MM-DD HH:mm:ss'
@@ -43,22 +46,29 @@ export function initializeFiscalCalendar(data: Omit<FiscalCalendarEntry, 'parsed
  */
 export function getFiscalDataForDate(date: Date): Omit<FiscalCalendarEntry, 'parsedDate'> | undefined {
     const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
-    return parsedCalendar.find(d => d.Date.startsWith(dateString));
+    const entry = parsedCalendar.find(d => d.Date.startsWith(dateString));
+    return entry ? { ...entry } : undefined;
 }
 
 
 /**
- * Returns an array of Date objects representing the start of each week
- * in the fiscal month that the given date belongs to.
+ * Returns an array of objects representing the start of each week
+ * and the reporting week end date in the fiscal month that the given date belongs to.
  * @param date The date to find the fiscal month for.
  * @returns An array of week-starting dates.
  */
-export function getWeeksForFiscalMonth(date: Date): Date[] {
+export function getWeeksForFiscalMonth(date: Date): FiscalWeek[] {
   const currentFiscalData = getFiscalDataForDate(date);
   if (!currentFiscalData || parsedCalendar.length === 0) {
     // Fallback to standard 4-week block if date is not in fiscal calendar
     const start = startOfWeek(date, { weekStartsOn: 1 });
-    return Array.from({ length: 4 }, (_, i) => addWeeks(start, i));
+    return Array.from({ length: 4 }, (_, i) => {
+        const weekStart = addWeeks(start, i);
+        return {
+            startDate: weekStart,
+            reportingWeekDate: format(endOfWeek(weekStart, { weekStartsOn: 1 }), 'MMM d')
+        }
+    });
   }
 
   const { Reporting_Month, Reporting_Year } = currentFiscalData;
@@ -69,7 +79,10 @@ export function getWeeksForFiscalMonth(date: Date): Date[] {
 
   const uniqueWeeks = [...new Map(weeksInMonth.map(item => [item['Week_Number'], item])).values()];
   
-  return uniqueWeeks.map(d => startOfWeek(d.parsedDate, { weekStartsOn: 1 }));
+  return uniqueWeeks.map(d => ({
+      startDate: startOfWeek(d.parsedDate, { weekStartsOn: 1 }),
+      reportingWeekDate: format(parse(d.Reporting_Week_Date, 'yyyy-MM-dd HH:mm:ss', new Date()), 'MMM d')
+  }));
 }
 
 

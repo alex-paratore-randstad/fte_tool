@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { getWeeksForFiscalMonth } from '@/lib/fiscal-calendar';
+import { getWeeksForFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 
@@ -55,6 +55,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
+  const [nameFilter, setNameFilter] = useState('');
   const { toast } = useToast();
   const { isAdmin } = useCurrentUser();
 
@@ -62,8 +63,15 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
     // Set date only on client to avoid hydration mismatch
     setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   }, []);
+  
+  const filteredAllocations = useMemo(() => {
+    if (!nameFilter) return editableAllocations;
+    return editableAllocations.filter(alloc => 
+      alloc.employeeName.toLowerCase().includes(nameFilter.toLowerCase())
+    );
+  }, [editableAllocations, nameFilter]);
 
-  const weeks = useMemo(() => {
+  const weeks: FiscalWeek[] = useMemo(() => {
     if (!currentDate) return [];
     return getWeeksForFiscalMonth(currentDate);
   }, [currentDate]);
@@ -75,7 +83,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
     };
     setLoading(true);
     try {
-      const weekKeys = weeks.map(formatDateKey);
+      const weekKeys = weeks.map(w => formatDateKey(w.startDate));
       
       const allocationRequests = weekKeys.map(async weekKey => {
         const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
@@ -158,18 +166,17 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
     setIsSaving(true);
     const updates = [];
 
-    for (const empIdx in editableAllocations) {
+    for (let empIdx = 0; empIdx < editableAllocations.length; empIdx++) {
       const empAlloc = editableAllocations[empIdx];
-      for (const allocIdx in empAlloc.allocations) {
+      for (let allocIdx = 0; allocIdx < empAlloc.allocations.length; allocIdx++) {
         const alloc = empAlloc.allocations[allocIdx];
         for (const weekKey in alloc.weeklyFtes) {
           const editable = alloc.weeklyFtes[weekKey];
-          // Add a guard to prevent accessing undefined properties
           const originalEmp = originalAllocations.find(e => e.employeeName === empAlloc.employeeName);
           const originalAlloc = originalEmp?.allocations.find(a => a.clientId === alloc.clientId);
           
-          if (editable && editable.docId) {
-            const original = originalAlloc?.weeklyFtes[weekKey];
+          if (editable && editable.docId && originalAlloc) {
+            const original = originalAlloc.weeklyFtes[weekKey];
             if (original && editable.fte !== original.fte) {
               updates.push({
                 docId: editable.docId,
@@ -233,14 +240,24 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Saved Allocations for this Period</CardTitle>
-          <CardDescription>Records from the weekly_allocation collection. You can edit values and save.</CardDescription>
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <CardTitle>Saved Allocations for this Period</CardTitle>
+              <CardDescription>Records from the weekly_allocation collection. You can edit values and save.</CardDescription>
+            </div>
+            <Button onClick={handleSaveChanges} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
         </div>
-        <Button onClick={handleSaveChanges} disabled={isSaving}>
-          {isSaving ? 'Saving...' : 'Save Changes'}
-        </Button>
+         <div className="pt-4">
+          <Input 
+            placeholder="Filter by employee name..."
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -249,14 +266,14 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                 <TableRow>
                     <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Client</TableHead>
                     {weeks.map(week => {
-                        const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                        const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                        const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                        const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                         const isLockedForUser = isPast && !isAdmin;
                         return (
-                            <TableHead key={week.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
+                            <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
                             <div className='flex items-center justify-center gap-2'>
                                 {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
-                                <span>W/E {format(endOfWeek(week, { weekStartsOn: 1 }), 'MMM d')}</span>
+                                <span>W/E {week.reportingWeekDate}</span>
                             </div>
                             {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
                             </TableHead>
@@ -265,16 +282,16 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {editableAllocations.length === 0 ? (
+                {filteredAllocations.length === 0 ? (
                     <TableRow>
                         <TableCell colSpan={weeks.length + 1} className="text-center h-24 text-muted-foreground">
-                            No saved allocation data found for this period.
+                            {nameFilter ? 'No matching employees found.' : 'No saved allocation data found for this period.'}
                         </TableCell>
                     </TableRow>
                 ) : (
-                    editableAllocations.map(({ employeeName, allocations: empAllocations }) => {
+                    filteredAllocations.map(({ employeeName, allocations: empAllocations }) => {
                         const weeklyTotals = weeks.map(week => {
-                            const weekKey = formatDateKey(week);
+                            const weekKey = formatDateKey(week.startDate);
                             return empAllocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey]?.fte || 0), 0);
                         });
 
@@ -292,14 +309,14 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                                     <TableRow key={`${employeeName}-${alloc.clientId}`}>
                                         <TableCell className="sticky left-0 bg-card z-10 pl-10">{alloc.clientName}</TableCell>
                                         {weeks.map(week => {
-                                            const weekKey = formatDateKey(week);
-                                            const isPast = isBefore(endOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
-                                            const isCurrent = isSameDay(startOfWeek(week, { weekStartsOn: 1 }), startOfCurrentWeek);
+                                            const weekKey = formatDateKey(week.startDate);
+                                            const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                                            const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                                             const isLockedForUser = isPast && !isAdmin;
                                             const fteData = alloc.weeklyFtes[weekKey];
 
                                             return (
-                                                <TableCell key={week.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
+                                                <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
                                                     {fteData ? (
                                                         <Input
                                                           type="number" step="0.05" min="0" placeholder="0.00"
@@ -327,5 +344,3 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
     </Card>
   );
 }
-
-    
