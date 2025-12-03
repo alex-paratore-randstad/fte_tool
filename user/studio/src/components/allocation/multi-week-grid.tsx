@@ -137,7 +137,7 @@ const EmployeeSelect = ({
   return (
     <Select onValueChange={onValueChange}>
       <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Add Employee..." />
+          <SelectValue placeholder="Load Employee..." />
       </SelectTrigger>
       <SelectContent>
           <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
@@ -654,5 +654,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     </Card>
   );
 }
-
-    

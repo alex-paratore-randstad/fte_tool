@@ -119,10 +119,12 @@ const ClientSelect = ({
 // New self-contained component for the Employee dropdown
 const EmployeeSelect = ({ 
   employees, 
-  onValueChange 
+  onValueChange,
+  value
 }: { 
   employees: TeamMember[], 
-  onValueChange: (value: string) => void 
+  onValueChange: (value: string) => void,
+  value: string,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -135,9 +137,9 @@ const EmployeeSelect = ({
   }, [employees, searchTerm]);
 
   return (
-    <Select onValueChange={onValueChange}>
+    <Select onValueChange={onValueChange} value={value}>
       <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Add Employee..." />
+          <SelectValue placeholder="Load Employee..." />
       </SelectTrigger>
       <SelectContent>
           <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
@@ -204,6 +206,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const [clients, setClients] = useState<AiReportData[]>([]);
   const [loading, setLoading] = useState(true);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
+  const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
 
   const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
@@ -285,6 +288,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
+
+    setSelectedEmployeeToAdd(employeeId); // Keep the select controlled
+
     const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
     
     if (employeeToAdd) {
@@ -305,6 +311,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
         allocations: [newAllocationRow]
       }, ...prev]);
     }
+    // Reset the select after adding
+    setTimeout(() => setSelectedEmployeeToAdd(''), 0);
   };
 
   const handleAddManagerTeam = (managerId: string) => {
@@ -481,7 +489,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     }
   };
 
-  if (loading || userLoading || !currentDate || !startOfCurrentWeek) {
+  if (loading || userLoading || !currentDate || !startOfCurrentWeek || weeks.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -507,7 +515,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
             <CardDescription>Add employees to build your allocation plan. Past weeks are locked for non-admins.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-             <EmployeeSelect employees={availableEmployees} onValueChange={handleAddEmployee} />
+             <EmployeeSelect 
+                employees={availableEmployees} 
+                onValueChange={handleAddEmployee}
+                value={selectedEmployeeToAdd}
+             />
              <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} />
             <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium w-32 text-center">
@@ -523,16 +535,16 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee</TableHead>
-                <TableHead className="min-w-[250px]">Client Name</TableHead>
-                <TableHead className="min-w-[150px]">Client Code</TableHead>
-                <TableHead className="text-center min-w-[150px]">Bulk Hours Entry</TableHead>
+                <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
+                <TableHead className="min-w-[200px]">Client Name</TableHead>
+                <TableHead className="min-w-[120px]">Client Code</TableHead>
+                <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                   const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                   const isLockedForUser = isPast && !isAdmin;
                   return (
-                    <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
+                    <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
                       <div className='flex items-center justify-center gap-2'>
                         {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
                         <span>W/E {week.reportingWeekDate}</span>
@@ -541,7 +553,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                     </TableHead>
                   )
                 })}
-                <TableHead className="w-[100px]"> </TableHead>
+                <TableHead className="w-[80px]"> </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -606,7 +618,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                         <TableCell className="text-center">
                            <Input
                                 type="number" step="0.05" min="0" placeholder="0.00"
-                                className="w-24 text-center mx-auto"
+                                className="w-20 text-center mx-auto"
                                 onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
                                 disabled={isRowLocked}
                               />
@@ -620,7 +632,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                             <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
                               <Input
                                 type="number" step="0.05" min="0" placeholder="0.00"
-                                className={cn("w-24 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
+                                className={cn("w-20 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
                                 value={alloc.weeklyFtes[weekKey] || ''}
                                 onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
                                 disabled={isLockedForUser} readOnly={isLockedForUser}
