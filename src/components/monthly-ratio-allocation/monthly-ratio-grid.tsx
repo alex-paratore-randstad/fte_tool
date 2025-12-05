@@ -39,7 +39,7 @@ type TicketAllocationData = {
 type AllocationRow = {
   id: string;
   clientName: string;
-  fte: number;
+  fte: string;
 };
 
 type EmployeeAllocation = {
@@ -54,6 +54,16 @@ type MonthlyRatioGridProps = {
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
+
+const handleNumericInputChange = (value: string) => {
+  if (value === '') return '';
+  // Allow only numbers and a single decimal point
+  const regex = /^[0-9]*\.?[0-9]*$/;
+  if (regex.test(value)) {
+    return value;
+  }
+  return null;
+};
 
 export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
@@ -97,7 +107,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
           allocations: agentData.map((d) => ({
             id: `${agentName}-${d.agent_group_name}-${Date.now()}`,
             clientName: d.agent_group_name,
-            fte: parseFloat(d.monthly_ticket_ratio) || 0,
+            fte: d.monthly_ticket_ratio || '0',
           })),
         })
       );
@@ -120,12 +130,14 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   }, [selectedMonth, selectedYear, fetchDataAndPrepopulate]);
 
   const handleFteChange = (agentName: string, allocId: string, newFteValue: string) => {
-    const newFte = parseFloat(newFteValue) || 0;
+    const validatedValue = handleNumericInputChange(newFteValue);
+    if (validatedValue === null) return;
+    
     setActiveAllocations(prev => prev.map(empAlloc => {
       if (empAlloc.agentName === agentName) {
         const newAllocations = empAlloc.allocations.map(alloc => {
           if (alloc.id === allocId) {
-            return { ...alloc, fte: newFte };
+            return { ...alloc, fte: validatedValue };
           }
           return alloc;
         });
@@ -141,7 +153,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
         const newAlloc: AllocationRow = {
           id: `${agentName}-new-${Date.now()}`,
           clientName: 'MANUAL ENTRY',
-          fte: 0,
+          fte: '0',
         };
         return { ...empAlloc, allocations: [...empAlloc.allocations, newAlloc] };
       }
@@ -172,21 +184,22 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     let hasValidationError = false;
 
     activeAllocations.forEach(empAlloc => {
-      const totalFte = empAlloc.allocations.reduce((sum, alloc) => sum + alloc.fte, 0);
+      const totalFte = empAlloc.allocations.reduce((sum, alloc) => sum + (parseFloat(alloc.fte) || 0), 0);
       if (Math.abs(totalFte - 1.0) > 0.01) { // Allow for small floating point inaccuracies
           toast({ variant: 'destructive', title: `Validation Error for ${empAlloc.agentName}`, description: `Total allocation must be 1.0, but it is ${totalFte.toFixed(3)}.` });
           hasValidationError = true;
           return;
       }
       empAlloc.allocations.forEach(alloc => {
-        if (alloc.fte > 0) {
+        const fte = parseFloat(alloc.fte);
+        if (fte > 0) {
           submissions.push({
             content: {
               allocation_date: allocationDate,
               allocation_name: empAlloc.agentName,
               cost_center_name: alloc.clientName,
               cost_center_number: alloc.clientName, // Using name as number for this use case
-              allocation_amount: alloc.fte.toString(),
+              allocation_amount: fte.toString(),
             }
           });
         }
@@ -272,7 +285,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
                 </TableRow>
               )}
               {activeAllocations.map(({ agentName, allocations }) => {
-                const totalFte = allocations.reduce((total, alloc) => total + (alloc.fte || 0), 0);
+                const totalFte = allocations.reduce((total, alloc) => total + (parseFloat(alloc.fte) || 0), 0);
                 return (
                   <Fragment key={agentName}>
                     <TableRow className="bg-muted/50 hover:bg-muted">
@@ -292,7 +305,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
                         </TableCell>
                         <TableCell>
                           <Input
-                            type="number" step="0.01" min="0" placeholder="0.00"
+                            type="text" placeholder="0.00"
                             className="w-32 text-center mx-auto"
                             value={alloc.fte}
                             onChange={(e) => handleFteChange(agentName, alloc.id, e.target.value)}

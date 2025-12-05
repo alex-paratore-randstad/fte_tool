@@ -29,7 +29,7 @@ type WeeklyAllocationDoc = {
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
 type AllocationFTE = {
-  fte: number;
+  fte: string;
   docId: string | null;
 };
 
@@ -47,6 +47,16 @@ type EmployeeAllocation = {
 type WeeklyAllocationTableProps = {
   currentDate: Date | null;
   refreshKey: number;
+};
+
+const handleNumericInputChange = (value: string) => {
+  if (value === '') return '';
+  // Allow only numbers and a single decimal point
+  const regex = /^[0-9]*\.?[0-9]*$/;
+  if (regex.test(value)) {
+    return value;
+  }
+  return null;
 };
 
 export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocationTableProps) {
@@ -111,7 +121,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
             };
         }
         acc[allocation_name][cost_center_number].weeklyFtes[allocation_date] = {
-          fte: parseFloat(allocation_amount) || 0,
+          fte: allocation_amount || '0',
           docId: current.id,
         };
         return acc;
@@ -143,14 +153,16 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
   }, [currentDate, fetchData, refreshKey]);
 
   const handleFteChange = (employeeName: string, clientId: string, weekKey: string, newFteValue: string) => {
-    const newFte = parseFloat(newFteValue) || 0;
+    const validatedValue = handleNumericInputChange(newFteValue);
+    if (validatedValue === null) return;
+
     setEditableAllocations(prev => prev.map(empAlloc => {
       if (empAlloc.employeeName === employeeName) {
         const newAllocations = empAlloc.allocations.map(alloc => {
           if (alloc.clientId === clientId) {
             const updatedFtes = { ...alloc.weeklyFtes };
             if (updatedFtes[weekKey]) {
-              updatedFtes[weekKey].fte = newFte;
+              updatedFtes[weekKey].fte = validatedValue;
             }
             return { ...alloc, weeklyFtes: updatedFtes };
           }
@@ -185,7 +197,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                   allocation_name: empAlloc.employeeName,
                   cost_center_name: alloc.clientName,
                   cost_center_number: alloc.clientId,
-                  allocation_amount: editable.fte.toString(),
+                  allocation_amount: (parseFloat(editable.fte) || 0).toString(),
                 },
               });
             }
@@ -292,7 +304,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                     filteredAllocations.map(({ employeeName, allocations: empAllocations }) => {
                         const weeklyTotals = weeks.map(week => {
                             const weekKey = formatDateKey(week.startDate);
-                            return empAllocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey]?.fte || 0), 0);
+                            return empAllocations.reduce((total, alloc) => total + (parseFloat(alloc.weeklyFtes[weekKey]?.fte) || 0), 0);
                         });
 
                         return (
@@ -319,7 +331,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                                                 <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
                                                     {fteData ? (
                                                         <Input
-                                                          type="number" step="0.05" min="0" placeholder="0.00"
+                                                          type="text" placeholder="0.00"
                                                           className={cn("w-24 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
                                                           value={fteData.fte || ''}
                                                           onChange={(e) => handleFteChange(employeeName, alloc.clientId, weekKey, e.target.value)}
