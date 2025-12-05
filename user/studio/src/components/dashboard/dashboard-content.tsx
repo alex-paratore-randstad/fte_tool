@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import { startOfWeek, subWeeks, format } from 'date-fns';
+import { PageHeader } from '../page-header';
 
 type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
 
@@ -211,10 +212,10 @@ export function DashboardContent() {
     );
   };
 
-
   if (!isMounted || loading) {
     return (
-      <>
+      <div className="flex flex-col gap-8">
+        <PageHeader title="Dashboard" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -265,12 +266,13 @@ export function DashboardContent() {
               </CardContent>
           </Card>
         </div>
-      </>
+      </div>
     )
   }
 
   return (
-    <>
+    <div className="flex flex-col gap-8">
+      <PageHeader title="Dashboard" />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           title="Total FTEs"
@@ -316,6 +318,6 @@ export function DashboardContent() {
         </Card>
         {renderDetailView()}
       </div>
-    </>
+    </div>
   );
 }
