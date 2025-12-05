@@ -111,8 +111,6 @@ export function DashboardContent() {
               return completeWeeklyData;
             });
             setAllocationChartData(weeklyData);
-
-            // Set the default view after data is loaded
             setActiveView('total');
 
         } catch (processingError) {
