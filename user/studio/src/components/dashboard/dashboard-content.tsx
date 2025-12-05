@@ -34,9 +34,11 @@ export function DashboardContent() {
   
   const [activeView, setActiveView] = useState<ActiveView>(null);
   const [loading, setLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
+    setIsMounted(true);
     async function fetchData() {
       setLoading(true);
       try {
@@ -60,7 +62,6 @@ export function DashboardContent() {
         const employees: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
         const allocations: WeeklyAllocation[] = allocResponse.ok ? await allocResponse.json() : [];
 
-        // Safe data processing to prevent runtime errors
         try {
             const safeEmployees = employees.filter(e => e && e.Person_Number && e.Full_Name);
             setAllEmployees(safeEmployees);
@@ -82,7 +83,6 @@ export function DashboardContent() {
             setUnallocatedFtes(unallocatedEmps.length);
             setMissingAllocations(unallocatedEmps.length);
 
-            // Robust data processing for the allocation chart
             const allClients = Array.from(new Set(allocations.map(a => a.content.cost_center_name)));
             const today = new Date();
             const last6Weeks = Array.from({ length: 6 }).map((_, i) => {
@@ -103,7 +103,6 @@ export function DashboardContent() {
                 return acc;
               }, {} as Record<string, number>);
 
-              // Ensure all clients are present in the data for each week
               const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
               allClients.forEach(client => {
                 completeWeeklyData[client] = weeklyTotals[client] || 0;
@@ -123,7 +122,6 @@ export function DashboardContent() {
                 title: 'Failed to process data',
                 description: 'Could not calculate dashboard metrics.'
             });
-            // Reset to zero to avoid showing stale/incorrect data
             setTotalFtes(0);
             setAllocatedFtes(0);
             setUnallocatedFtes(0);
@@ -184,7 +182,7 @@ export function DashboardContent() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-96">
+          <ScrollArea className="h-[400px]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -216,7 +214,7 @@ export function DashboardContent() {
   };
 
 
-  if (loading) {
+  if (!isMounted || loading) {
     return (
       <>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -256,7 +254,7 @@ export function DashboardContent() {
                   <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
               </CardHeader>
               <CardContent>
-                  <Skeleton className="h-[300px] w-full" />
+                  <Skeleton className="h-[400px] w-full" />
               </CardContent>
           </Card>
           <Card>
