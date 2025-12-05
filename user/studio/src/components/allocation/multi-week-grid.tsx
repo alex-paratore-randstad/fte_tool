@@ -73,10 +73,9 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const specialClients = ['PTO', 'Unallocated'];
-    
     // Create a stable sort: special clients first, then alphabetical.
     const sorted = [...clients].sort((a, b) => {
+      const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
       const bIsSpecial = specialClients.includes(b.DisplayName);
 
@@ -119,10 +118,12 @@ const ClientSelect = ({
 // New self-contained component for the Employee dropdown
 const EmployeeSelect = ({ 
   employees, 
-  onValueChange 
+  onValueChange,
+  value
 }: { 
   employees: TeamMember[], 
-  onValueChange: (value: string) => void 
+  onValueChange: (value: string) => void,
+  value: string,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -135,7 +136,7 @@ const EmployeeSelect = ({
   }, [employees, searchTerm]);
 
   return (
-    <Select onValueChange={onValueChange}>
+    <Select onValueChange={onValueChange} value={value}>
       <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="Load Employee..." />
       </SelectTrigger>
@@ -204,6 +205,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const [clients, setClients] = useState<AiReportData[]>([]);
   const [loading, setLoading] = useState(true);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
+  const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
 
   const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
@@ -285,6 +287,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
+
+    setSelectedEmployeeToAdd(employeeId); // Keep the select controlled
+
     const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
     
     if (employeeToAdd) {
@@ -305,6 +310,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
         allocations: [newAllocationRow]
       }, ...prev]);
     }
+    // Reset the select after adding
+    setTimeout(() => setSelectedEmployeeToAdd(''), 0);
   };
 
   const handleAddManagerTeam = (managerId: string) => {
@@ -340,12 +347,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   };
   
   const handleFteChange = (employeeId: string, allocId: string, weekKey: string, newFteValue: string) => {
-    const newFte = parseFloat(newFteValue) || 0;
+    const newFte = parseFloat(newFteValue);
     setActiveAllocations(prev => prev.map(empAlloc => {
         if (empAlloc.employee.Person_Number === employeeId) {
             const newAllocations = empAlloc.allocations.map(alloc => {
                 if (alloc.id === allocId) {
-                    return { ...alloc, weeklyFtes: { ...alloc.weeklyFtes, [weekKey]: newFte } };
+                    return { ...alloc, weeklyFtes: { ...alloc.weeklyFtes, [weekKey]: isNaN(newFte) ? 0 : newFte } };
                 }
                 return alloc;
             });
@@ -357,7 +364,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
 
   const handleMonthlyFteChange = (employeeId: string, allocId: string, monthlyFteValue: string) => {
     if (!startOfCurrentWeek) return;
-    const monthlyFte = parseFloat(monthlyFteValue) || 0;
+    const monthlyFte = parseFloat(monthlyFteValue);
     
     setActiveAllocations(prev => {
       return prev.map(empAlloc => {
@@ -370,7 +377,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                 const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                 const isLockedForUser = isPast && !isAdmin;
                 if (!isLockedForUser) {
-                  updatedWeeklyFtes[weekKey] = monthlyFte;
+                  updatedWeeklyFtes[weekKey] = isNaN(monthlyFte) ? 0 : monthlyFte;
                 }
               });
               return { ...alloc, weeklyFtes: updatedWeeklyFtes };
@@ -507,7 +514,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
             <CardDescription>Add employees to build your allocation plan. Past weeks are locked for non-admins.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-             <EmployeeSelect employees={availableEmployees} onValueChange={handleAddEmployee} />
+             <EmployeeSelect 
+                employees={availableEmployees} 
+                onValueChange={handleAddEmployee}
+                value={selectedEmployeeToAdd}
+             />
              <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} />
             <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium w-32 text-center">
@@ -525,7 +536,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
               <TableRow>
                 <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
                 <TableHead className="min-w-[200px]">Client Name</TableHead>
-                <TableHead className="min-w-[120px]">Client Code</TableHead>
+                <TableHead className="min-w-[100px]">Client Code</TableHead>
                 <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
@@ -595,18 +606,19 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                               disabled={isRowLocked}
                           />
                         </TableCell>
-                         <TableCell>
+                         <TableCell className="px-2">
                             <Input
                                 value={alloc.clientId}
                                 readOnly
-                                className="bg-muted"
-                                placeholder="Client Code"
+                                className="bg-muted w-full"
+                                placeholder="Code"
                             />
                         </TableCell>
                         <TableCell className="text-center">
                            <Input
                                 type="number" step="0.05" min="0" placeholder="0.00"
                                 className="w-20 text-center mx-auto"
+                                value={allocations.reduce((acc, curr) => curr.id === alloc.id ? (Object.values(curr.weeklyFtes)[0] || '') : acc, '' as any)}
                                 onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
                                 disabled={isRowLocked}
                               />
@@ -616,12 +628,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                           const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                            const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                           const isLockedForUser = isPast && !isAdmin;
+                          const fteValue = alloc.weeklyFtes[weekKey];
                           return (
                             <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
                               <Input
                                 type="number" step="0.05" min="0" placeholder="0.00"
                                 className={cn("w-20 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
-                                value={alloc.weeklyFtes[weekKey] || ''}
+                                value={fteValue || ''}
                                 onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
                                 disabled={isLockedForUser} readOnly={isLockedForUser}
                               />
