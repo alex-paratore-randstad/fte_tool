@@ -536,7 +536,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
               <TableRow>
                 <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
                 <TableHead className="min-w-[200px]">Client Name</TableHead>
-                <TableHead className="min-w-[100px] px-2">Client Code</TableHead>
+                <TableHead className="min-w-[100px] p-2">Client Code</TableHead>
                 <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
@@ -606,7 +606,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                               disabled={isRowLocked}
                           />
                         </TableCell>
-                         <TableCell className="px-2">
+                         <TableCell className="p-2">
                             <Input
                                 value={alloc.clientId}
                                 readOnly
@@ -618,6 +618,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                            <Input
                                 type="number" step="0.05" min="0" placeholder="0.00"
                                 className="w-20 text-center mx-auto"
+                                value={alloc.weeklyFtes[formatDateKey(weeks[0]?.startDate)] || ''}
                                 onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
                                 disabled={isRowLocked}
                               />

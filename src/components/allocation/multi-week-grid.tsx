@@ -536,7 +536,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
               <TableRow>
                 <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
                 <TableHead className="min-w-[200px]">Client Name</TableHead>
-                <TableHead className="min-w-[120px]">Client Code</TableHead>
+                <TableHead className="min-w-[100px] p-2">Client Code</TableHead>
                 <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
@@ -558,7 +558,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
             <TableBody>
              {activeAllocations.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={weeks.length + 6} className="text-center h-24 text-muted-foreground">
                         Select an employee from the dropdown above to begin building your allocation plan.
                     </TableCell>
                 </TableRow>
@@ -606,18 +606,19 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                               disabled={isRowLocked}
                           />
                         </TableCell>
-                         <TableCell>
+                         <TableCell className="p-2">
                             <Input
                                 value={alloc.clientId}
                                 readOnly
-                                className="bg-muted"
-                                placeholder="Client Code"
+                                className="bg-muted w-full"
+                                placeholder="Code"
                             />
                         </TableCell>
                         <TableCell className="text-center">
                            <Input
                                 type="number" step="0.05" min="0" placeholder="0.00"
                                 className="w-20 text-center mx-auto"
+                                value={alloc.weeklyFtes[formatDateKey(weeks[0]?.startDate)] || ''}
                                 onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
                                 disabled={isRowLocked}
                               />
@@ -654,7 +655,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                           <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
                         </Button>
                       </TableCell>
-                      <TableCell colSpan={weeks.length + 2}></TableCell>
+                      <TableCell colSpan={weeks.length + 3}></TableCell>
                     </TableRow>
                   </Fragment>
                 );
