@@ -536,7 +536,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
               <TableRow>
                 <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
                 <TableHead className="min-w-[200px]">Client Name</TableHead>
-                <TableHead className="p-2 w-[100px]">Client Code</TableHead>
+                <TableHead className="p-2 w-24">Client Code</TableHead>
                 <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
@@ -558,7 +558,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
             <TableBody>
              {activeAllocations.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={weeks.length + 6} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
                         Select an employee from the dropdown above to begin building your allocation plan.
                     </TableCell>
                 </TableRow>
@@ -610,7 +610,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                             <Input
                                 value={alloc.clientId}
                                 readOnly
-                                className="bg-muted w-full"
+                                className="bg-muted w-24"
                                 placeholder="Code"
                             />
                         </TableCell>
@@ -655,7 +655,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                           <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
                         </Button>
                       </TableCell>
-                      <TableCell colSpan={weeks.length + 3}></TableCell>
+                      <TableCell colSpan={weeks.length + 2}></TableCell>
                     </TableRow>
                   </Fragment>
                 );

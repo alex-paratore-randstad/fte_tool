@@ -536,7 +536,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
               <TableRow>
                 <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
                 <TableHead className="min-w-[200px]">Client Name</TableHead>
-                <TableHead className="p-2 w-[100px]">Client Code</TableHead>
+                <TableHead className="p-2 w-28">Client Code</TableHead>
                 <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                 {weeks.map(week => {
                   const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
@@ -576,8 +576,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                         {employee.Full_Name}
                         <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
                       </TableCell>
-                      <TableCell colSpan={2}></TableCell>
-                      <TableCell></TableCell>
+                      <TableCell colSpan={3}></TableCell>
                       {weeklyTotals.map((total, index) => (
                         <TableCell key={index} className={cn("text-center font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
                           {total > 0 ? total.toFixed(2) : '-'}
@@ -610,7 +609,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                             <Input
                                 value={alloc.clientId}
                                 readOnly
-                                className="bg-muted w-full"
+                                className="bg-muted w-24"
                                 placeholder="Code"
                             />
                         </TableCell>
