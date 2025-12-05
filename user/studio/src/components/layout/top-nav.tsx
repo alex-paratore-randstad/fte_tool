@@ -3,27 +3,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  LayoutDashboard,
-  CalendarClock,
-  Users,
-  Building,
-  FlaskConical,
-  CaseUpper,
-  Layers,
-  Ticket,
-} from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'vp'] },
-  { href: '/allocation', label: 'Weekly Allocation', icon: CalendarClock, roles: ['admin', 'manager', 'vp'] },
-  { href: '/bulk-allocation', label: 'Bulk Allocation', icon: Layers, roles: ['admin', 'manager', 'vp'] },
-  { href: '/ticket-allocation', label: 'Ticket Allocation', icon: Ticket, roles: ['admin', 'manager', 'vp'] },
-  { href: '/team', label: 'Team Management', icon: Users, roles: ['admin', 'manager', 'vp'] },
-  { href: '/cost-centers', label: 'Cost Centers', icon: Building, roles: ['admin'] },
-  { href: '/title_management', label: 'Title Management', icon: FlaskConical, roles: ['admin', 'manager'] },
+  { href: '/', label: 'Dashboard', roles: ['admin', 'manager', 'vp'] },
+  { href: '/allocation', label: 'Weekly Allocation', roles: ['admin', 'manager', 'vp'] },
+  { href: '/bulk-allocation', label: 'Bulk Allocation', roles: ['admin', 'manager', 'vp'] },
+  { href: '/monthly-ratio-allocation', label: 'Monthly Ratio Allocation', roles: ['admin', 'manager', 'vp'] },
+  { href: '/team', label: 'Team Management', roles: ['admin', 'manager', 'vp'] },
+  { href: '/cost-centers', label: 'Cost Centers', roles: ['admin'] },
+  { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
 ];
 
 export function TopNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
@@ -44,13 +34,23 @@ export function TopNav({ className, ...props }: React.HTMLAttributes<HTMLElement
   };
   
   const filteredNavItems = navItems.filter(item => {
-    if (!currentUser || !currentUser.role) return false;
+    if (loading || !currentUser || !currentUser.role) return false;
     return item.roles.includes(currentUser.role);
   });
 
+  if (loading) {
+    return (
+       <nav className={cn('flex items-center space-x-4 lg:space-x-6', className)} {...props}>
+         {Array.from({ length: 4 }).map((_, index) => (
+           <div key={index} className="h-4 w-24 bg-muted rounded animate-pulse" />
+         ))}
+       </nav>
+    )
+  }
+
   return (
-    <nav className={cn('flex items-center space-x-4 lg:space-x-6 mx-6', className)} {...props}>
-      {loading ? null : filteredNavItems.map(item => (
+    <nav className={cn('flex items-center space-x-4 lg:space-x-6', className)} {...props}>
+      {filteredNavItems.map(item => (
         <Link
           key={item.href}
           href={getHref(item.href)}

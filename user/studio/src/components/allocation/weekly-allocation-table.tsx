@@ -344,5 +344,3 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
     </Card>
   );
 }
-
-    

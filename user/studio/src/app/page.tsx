@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import { startOfWeek, subWeeks, format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
 
@@ -27,6 +28,9 @@ type ChartData = {
   name: string; // Week start date
   [key: string]: any; // Client allocations
 };
+
+const toCssKey = (key: string) => key.replace(/[^a-zA-Z0-9]/g, '-');
+
 
 export default function DashboardPage() {
   const [totalFtes, setTotalFtes] = useState(0);
@@ -326,8 +330,8 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-8">
-         <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+         <Card className="lg:col-span-1">
             <CardHeader>
                 <CardTitle>Weekly Client Allocation</CardTitle>
                 <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
@@ -336,10 +340,12 @@ export default function DashboardPage() {
                 <FteAllocationChart data={allocationChartData} />
             </CardContent>
         </Card>
-        <div className="grid grid-cols-1 gap-8">
+        <div className="lg:col-span-1">
           {renderDetailView()}
         </div>
       </div>
     </div>
   );
 }
+
+    

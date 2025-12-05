@@ -356,7 +356,7 @@ export function TicketAllocationGrid({ onSaveSuccess }: TicketAllocationGridProp
                         <Input
                           type="number" step="0.01" min="0" placeholder="0.00"
                           className="w-32 text-center mx-auto"
-                          value={alloc.fte}
+                          value={alloc.fte || ''}
                           onChange={(e) => handleFteChange(alloc.id, e.target.value)}
                         />
                       </TableCell>

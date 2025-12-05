@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { AiReportTable, AiReportData } from './ai-report-table';
@@ -43,20 +43,7 @@ export function CostCenterContent() {
   if (loading) {
       return (
         <div className="flex flex-col gap-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Client Data</CardTitle>
-                    <CardDescription>
-                        Data from the `ai_report` dataset used to populate client dropdowns.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-2">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-40 w-full" />
-                    </div>
-                </CardContent>
-            </Card>
+            <AiReportTable reportData={[]} />
         </div>
       )
   }
