@@ -32,7 +32,8 @@ const chartColors = [
   'hsl(var(--chart-5))',
 ];
 
-const toCssKey = (key: string) => key.replace(/[^a-zA-Z0-9]/g, '-');
+const toCssKey = (key: string) => key ? key.replace(/[^a-zA-Z0-9]/g, '-') : 'unknown';
+
 
 export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   const { chartConfig, costCenters } = useMemo(() => {
