@@ -44,7 +44,7 @@ type AllocationRow = {
   id: string;
   clientId: string;
   clientName: string;
-  weeklyFtes: { [weekKey: string]: string };
+  weeklyFtes: { [weekKey: string]: number };
 };
 
 type EmployeeAllocation = {
@@ -197,19 +197,6 @@ const ManagerSelect = ({
   );
 };
 
-const handleNumericInputChange = (value: string) => {
-  if (value === '') return '';
-  // Allow only numbers and a single decimal point
-  const regex = /^[0-9]*\.?[0-9]*$/;
-  if (regex.test(value)) {
-    return value;
-  }
-  // Return the last valid value if the new value is invalid.
-  // This is tricky to do perfectly without a state snapshot here,
-  // so we'll just not update for invalid keys.
-  return null;
-};
-
 
 export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: MultiWeekGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
@@ -360,14 +347,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   };
   
   const handleFteChange = (employeeId: string, allocId: string, weekKey: string, newFteValue: string) => {
-    const validatedValue = handleNumericInputChange(newFteValue);
-    if (validatedValue === null) return; // Invalid input, do nothing
-
+    const newFte = parseFloat(newFteValue) || 0;
     setActiveAllocations(prev => prev.map(empAlloc => {
         if (empAlloc.employee.Person_Number === employeeId) {
             const newAllocations = empAlloc.allocations.map(alloc => {
                 if (alloc.id === allocId) {
-                    return { ...alloc, weeklyFtes: { ...alloc.weeklyFtes, [weekKey]: validatedValue } };
+                    return { ...alloc, weeklyFtes: { ...alloc.weeklyFtes, [weekKey]: newFte } };
                 }
                 return alloc;
             });
@@ -379,10 +364,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
 
   const handleMonthlyFteChange = (employeeId: string, allocId: string, monthlyFteValue: string) => {
     if (!startOfCurrentWeek) return;
+    const monthlyFte = parseFloat(monthlyFteValue) || 0;
     
-    const validatedValue = handleNumericInputChange(monthlyFteValue);
-    if (validatedValue === null) return;
-
     setActiveAllocations(prev => {
       return prev.map(empAlloc => {
         if (empAlloc.employee.Person_Number === employeeId) {
@@ -394,7 +377,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                 const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                 const isLockedForUser = isPast && !isAdmin;
                 if (!isLockedForUser) {
-                  updatedWeeklyFtes[weekKey] = validatedValue;
+                  updatedWeeklyFtes[weekKey] = monthlyFte;
                 }
               });
               return { ...alloc, weeklyFtes: updatedWeeklyFtes };
@@ -455,8 +438,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     
     activeAllocations.forEach(empAlloc => {
       empAlloc.allocations.forEach(alloc => {
-        Object.entries(alloc.weeklyFtes).forEach(([weekKey, fteString]) => {
-          const fte = parseFloat(fteString);
+        Object.entries(alloc.weeklyFtes).forEach(([weekKey, fte]) => {
           if (fte > 0) {
              if (!alloc.clientId || !alloc.clientName) {
                 hasInvalidAllocation = true;
@@ -584,7 +566,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
               {activeAllocations.map(({ employee, allocations }) => {
                 const weeklyTotals = weeks.map(week => {
                   const weekKey = formatDateKey(week.startDate);
-                  return allocations.reduce((total, alloc) => total + (parseFloat(alloc.weeklyFtes[weekKey]) || 0), 0);
+                  return allocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
                 });
 
                 return (
@@ -634,7 +616,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                         </TableCell>
                         <TableCell className="text-center">
                            <Input
-                                type="text" placeholder="0.00"
+                                type="number" step="0.05" min="0" placeholder="0.00"
                                 className="w-20 text-center mx-auto"
                                 onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
                                 disabled={isRowLocked}
@@ -645,12 +627,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
                           const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                            const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                           const isLockedForUser = isPast && !isAdmin;
+                          const fteValue = alloc.weeklyFtes[weekKey];
                           return (
                             <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
                               <Input
-                                type="text" placeholder="0.00"
+                                type="number" step="0.05" min="0" placeholder="0.00"
                                 className={cn("w-20 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
-                                value={alloc.weeklyFtes[weekKey] || ''}
+                                value={fteValue || ''}
                                 onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
                                 disabled={isLockedForUser} readOnly={isLockedForUser}
                               />
