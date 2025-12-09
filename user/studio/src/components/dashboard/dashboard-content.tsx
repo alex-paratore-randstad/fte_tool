@@ -22,6 +22,9 @@ type ChartData = {
 };
 
 export function DashboardContent() {
+  const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState<ActiveView>('total');
+  
   const [totalFtes, setTotalFtes] = useState(0);
   const [allocatedFtes, setAllocatedFtes] = useState(0);
   const [unallocatedFtes, setUnallocatedFtes] = useState(0);
@@ -33,13 +36,12 @@ export function DashboardContent() {
   
   const [allocationChartData, setAllocationChartData] = useState<ChartData[]>([]);
   
-  const [activeView, setActiveView] = useState<ActiveView>('total');
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     async function fetchData() {
-      // Intentionally don't set loading to true here to avoid flashing
+      // Intentionally not setting loading to true at the start of this effect
+      // to avoid a content flash on re-renders. `loading` is true by default.
       try {
         const [empResponse, allocResponse] = await Promise.all([
           fetch(`/data/v1/gbs_ind_hr_fte_report`),
@@ -144,19 +146,19 @@ export function DashboardContent() {
   const getDetailData = () => {
     switch (activeView) {
       case 'total':
-        return { title: 'All FTEs', data: allEmployees };
+        return { title: 'All FTEs', data: allEmployees, description: `Displaying ${allEmployees.length} employee(s).` };
       case 'allocated':
-        return { title: 'Allocated FTEs (Current Week)', data: allocatedEmployees };
+        return { title: 'Allocated FTEs (Current Week)', data: allocatedEmployees, description: `Displaying ${allocatedEmployees.length} employee(s).` };
       case 'unallocated':
-        return { title: 'Unallocated FTEs (Current Week)', data: unallocatedEmployees };
+        return { title: 'Unallocated FTEs (Current Week)', data: unallocatedEmployees, description: `Displaying ${unallocatedEmployees.length} employee(s).` };
       case 'missing':
-        return { title: 'FTEs with Missing Allocations (Current Week)', data: unallocatedEmployees };
+        return { title: 'FTEs with Missing Allocations (Current Week)', data: unallocatedEmployees, description: `Displaying ${unallocatedEmployees.length} employee(s).` };
       default:
-        return { title: '', data: [] };
+        return { title: 'Details', data: [], description: 'Select a category to view employees.' };
     }
   };
 
-  const { title: detailTitle, data: detailData } = getDetailData();
+  const { title: detailTitle, data: detailData, description: detailDescription } = getDetailData();
 
   if (loading) {
     return (
@@ -192,27 +194,47 @@ export function DashboardContent() {
                 <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
             </Card>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Weekly Client Allocation</CardTitle>
-                    <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Skeleton className="h-[400px] w-full" />
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-                    <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ScrollArea className="h-[400px]">
-                        <Skeleton className="h-full w-full" />
-                    </ScrollArea>
-                </CardContent>
-            </Card>
+        <div className="grid grid-cols-2 gap-8">
+          <Card>
+              <CardHeader>
+                  <CardTitle>Weekly Client Allocation</CardTitle>
+                  <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <Skeleton className="h-[400px] w-full" />
+              </CardContent>
+          </Card>
+          <Card>
+              <CardHeader>
+                  <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
+                  <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <ScrollArea className="h-[400px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead><Skeleton className="h-5 w-24" /></TableHead>
+                            <TableHead><Skeleton className="h-5 w-24" /></TableHead>
+                            <TableHead><Skeleton className="h-5 w-24" /></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                          </TableRow>
+                           <TableRow>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                  </ScrollArea>
+              </CardContent>
+          </Card>
         </div>
       </div>
     )
@@ -255,7 +277,7 @@ export function DashboardContent() {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-2 gap-8">
         <Card>
             <CardHeader>
                 <CardTitle>Weekly Client Allocation</CardTitle>
@@ -268,14 +290,11 @@ export function DashboardContent() {
         
         <Card>
           <CardHeader>
-            <CardTitle>{detailTitle || 'Details'}</CardTitle>
-            <CardDescription>
-              {activeView ? `Displaying ${detailData.length} employee(s) in this category.` : 'Select a category to view employees.'}
-            </CardDescription>
+            <CardTitle>{detailTitle}</CardTitle>
+            <CardDescription>{detailDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[400px]">
-              {activeView ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -294,17 +313,12 @@ export function DashboardContent() {
                     )) : (
                       <TableRow>
                         <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                          No data available.
+                          No data to display.
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
-              ) : (
-                <div className="flex items-center justify-center h-full min-h-[300px]">
-                  <p className="text-muted-foreground">Select a category to view details.</p>
-                </div>
-              )}
             </ScrollArea>
           </CardContent>
         </Card>
