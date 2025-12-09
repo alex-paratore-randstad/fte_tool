@@ -60,6 +60,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   const { toast } = useToast();
   
@@ -67,23 +68,26 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     const now = new Date();
     setSelectedMonth(months[now.getMonth()]);
     setSelectedYear(now.getFullYear().toString());
+    setIsClient(true);
   }, []);
 
   const fetchDataAndPrepopulate = useCallback(async () => {
     if (!selectedMonth || !selectedYear) return;
     setLoading(true);
     try {
-      const query = `?q=SELECT * FROM table WHERE \`reporting_month\` = '${selectedMonth}' AND \`reporting_year\` = '${selectedYear}'`;
-      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly${query}`);
+      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
       
       if (!response.ok) {
         console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
         setActiveAllocations([]);
         return;
       }
-      const ticketData: TicketAllocationData[] = await response.json();
       
-      const groupedByAgent = ticketData.reduce((acc, item) => {
+      const ticketData: TicketAllocationData[] = await response.json();
+      // FORCE CLIENT-SIDE FILTERING
+      const filteredData = ticketData.filter(item => item.reporting_month === selectedMonth && item.reporting_year === selectedYear );
+
+      const groupedByAgent = filteredData.reduce((acc, item) => {
         if (!acc[item.agent_name]) {
           acc[item.agent_name] = [];
         }
@@ -222,10 +226,22 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     }
   };
 
-  if (loading || !selectedMonth || !selectedYear) {
+  if (!isClient || loading || !selectedMonth || !selectedYear) {
     return (
       <Card>
-        <CardHeader><Skeleton className="h-6 w-1/4" /></CardHeader>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <Skeleton className="h-6 w-48 mb-2" />
+                <Skeleton className="h-4 w-96" />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                  <Skeleton className="h-10 w-[120px]" />
+                  <Skeleton className="h-10 w-[100px]" />
+                  <Skeleton className="h-10 w-24" />
+              </div>
+          </div>
+        </CardHeader>
         <CardContent><Skeleton className="h-64 w-full" /></CardContent>
       </Card>
     );
@@ -324,3 +340,5 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     </Card>
   );
 }
+
+    
