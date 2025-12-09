@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -24,13 +23,27 @@ type FteAllocationChartProps = {
   data: any[];
 };
 
-const chartColors = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-];
+// BRAND PALETTE LOGIC
+const getBrandPalette = (count: number) => {
+  if (count <= 1) return ['#255CA9'];
+  if (count <= 3) return ['#255CA9', '#BAD808', '#007C82'];
+  if (count === 4) return ['#255CA9', '#BAD808', '#007C82', '#B2CFF2'];
+  if (count === 5) return ['#255CA9', '#BAD808', '#00C4CA', '#007C82', '#B2CFF2'];
+  if (count === 6) return ['#255CA9', '#BAD808', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
+  if (count === 7) return ['#5887D8', '#255CA9', '#BAD808', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
+  if (count === 8) return ['#5887D8', '#255CA9', '#BAD808', '#5A7A00', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
+  if (count === 9) return ['#ABCFFE', '#5887D8', '#255CA9', '#BAD808', '#5A7A00', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
+  // Default for 10-12+ items
+  return ['#ABCFFE', '#5887D8', '#255CA9', '#BAD808', '#88A800', '#5A7A00', '#8FEEF4', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2', '#415E7D'];
+};
+
+// SAFE KEY GENERATOR
+// Ensures '3M' becomes 'c_3m' (valid CSS var) and 'Client A' becomes 'c_client_a'
+const toSafeKey = (key: string) => {
+  if (!key) return 'c_unknown';
+  return 'c_' + key.toLowerCase().replace(/[^a-z0-9]/g, '_');
+};
+
 
 export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   const { chartConfig, costCenters } = useMemo(() => {
@@ -38,6 +51,7 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
       return { chartConfig: {}, costCenters: [] };
     }
 
+    // 1. Extract all unique cost center names
     const ccKeys = new Set<string>();
     data.forEach(week => {
       Object.keys(week).forEach(key => {
@@ -46,31 +60,44 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
         }
       });
     });
+    const uniqueCostCenters = Array.from(ccKeys).sort();
 
-    const uniqueCostCenters = Array.from(ccKeys);
+    // 2. Get the correct palette based on count
+    const palette = getBrandPalette(uniqueCostCenters.length);
+
+    // 3. Build the config using SAFE keys
     const config: ChartConfig = {};
-    uniqueCostCenters.forEach((cc, index) => {
-      config[cc] = {
-        label: cc,
-        color: chartColors[index % chartColors.length],
+    uniqueCostCenters.forEach((ccName, index) => {
+      const safeKey = toSafeKey(ccName);
+      config[safeKey] = {
+        label: ccName,
+        color: palette[index % palette.length],
       };
     });
 
     return { chartConfig: config, costCenters: uniqueCostCenters };
   }, [data]);
 
+  // 4. Transform data to use the same SAFE keys
   const formattedData = useMemo(() => {
-    if (!data.length) return [];
-    return data.map(item => ({
-      ...item,
-      name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown Date',
-    }));
-  }, [data]);
+    if (!data || data.length === 0) return [];
+    return data.map(item => {
+      const newItem: Record<string, any> = {
+        name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown',
+      };
+      costCenters.forEach(cc => {
+        const safeKey = toSafeKey(cc);
+        newItem[safeKey] = item[cc] || 0;
+      });
+      return newItem;
+    });
+  }, [data, costCenters]);
+
 
   if (!data || data.length === 0) {
     return <Skeleton className="h-[300px] w-full" />;
   }
-  
+
   return (
     <ChartContainer config={chartConfig} className="h-[300px] w-full">
       <ResponsiveContainer>
@@ -94,19 +121,24 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
             content={<ChartTooltipContent />}
           />
           <Legend content={<ChartLegendContent />} />
-          {costCenters.map(cc => (
-             <Bar
-                key={cc}
-                dataKey={cc}
+          {costCenters.map((cc) => {
+            const safeKey = toSafeKey(cc);
+            const color = chartConfig[safeKey]?.color;
+
+            if (!color) return null;
+            
+            return (
+              <Bar
+                key={safeKey}
+                dataKey={safeKey}
                 stackId="a"
-                fill={`var(--color-${cc})`}
+                fill={color}
                 radius={[4, 4, 0, 0]}
-            />
-          ))}
+              />
+            )
+          })}
         </BarChart>
       </ResponsiveContainer>
     </ChartContainer>
   );
 }
-
-    

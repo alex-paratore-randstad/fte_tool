@@ -24,6 +24,7 @@ type FteAllocationChartProps = {
   data: any[];
 };
 
+// BRAND PALETTE LOGIC
 const getBrandPalette = (count: number) => {
   if (count <= 1) return ['#255CA9'];
   if (count <= 3) return ['#255CA9', '#BAD808', '#007C82'];
@@ -37,9 +38,10 @@ const getBrandPalette = (count: number) => {
   return ['#ABCFFE', '#5887D8', '#255CA9', '#BAD808', '#88A800', '#5A7A00', '#8FEEF4', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2', '#415E7D'];
 };
 
-const toCssKey = (key: string) => {
-  if (!key) return 'unknown';
-  // Prepend 'c_' to ensure it starts with a letter and lowercasing ensures consistency
+// SAFE KEY GENERATOR
+// Ensures '3M' becomes 'c_3m' (valid CSS var) and 'Client A' becomes 'c_client_a'
+const toSafeKey = (key: string) => {
+  if (!key) return 'c_unknown';
   return 'c_' + key.toLowerCase().replace(/[^a-z0-9]/g, '_');
 };
 
@@ -50,6 +52,7 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
       return { chartConfig: {}, costCenters: [] };
     }
 
+    // 1. Extract all unique cost center names
     const ccKeys = new Set<string>();
     data.forEach(week => {
       Object.keys(week).forEach(key => {
@@ -58,77 +61,85 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
         }
       });
     });
-    
     const uniqueCostCenters = Array.from(ccKeys).sort();
+
+    // 2. Get the correct palette based on count
     const palette = getBrandPalette(uniqueCostCenters.length);
-    
+
+    // 3. Build the config using SAFE keys
     const config: ChartConfig = {};
     uniqueCostCenters.forEach((ccName, index) => {
-        const sanitizedKey = toCssKey(ccName);
-        config[sanitizedKey] = {
-            label: ccName,
-            color: palette[index % palette.length],
-        };
+      const safeKey = toSafeKey(ccName);
+      config[safeKey] = {
+        label: ccName,
+        color: palette[index % palette.length],
+      };
     });
 
     return { chartConfig: config, costCenters: uniqueCostCenters };
   }, [data]);
 
+  // 4. Transform data to use the same SAFE keys
   const formattedData = useMemo(() => {
     if (!data || data.length === 0) return [];
     return data.map(item => {
       const newItem: Record<string, any> = {
-          name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown Date',
+        name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown',
       };
       costCenters.forEach(cc => {
-          const sanitizedKey = toCssKey(cc);
-          newItem[sanitizedKey] = item[cc] || 0;
+        const safeKey = toSafeKey(cc);
+        newItem[safeKey] = item[cc] || 0;
       });
       return newItem;
     });
   }, [data, costCenters]);
-  
+
+
+  if (!data || data.length === 0) {
+    return <Skeleton className="h-[300px] w-full" />;
+  }
+
   return (
     <ChartContainer config={chartConfig} className="h-[300px] w-full">
-      {(!data || data.length === 0) ? (
-         <Skeleton className="h-full w-full" />
-      ) : (
-        <ResponsiveContainer>
-          <BarChart data={formattedData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-            <XAxis
-              dataKey="name"
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => `${value}`}
-            />
-            <Tooltip
-              cursor={{ fill: 'hsl(var(--secondary))' }}
-              content={<ChartTooltipContent />}
-            />
-            <Legend content={<ChartLegendContent />} />
-            {costCenters.map((cc) => {
-              const sanitizedKey = toCssKey(cc);
-              return (
-                <Bar
-                  key={sanitizedKey}
-                  dataKey={sanitizedKey}
-                  stackId="a"
-                  fill={chartConfig[sanitizedKey].color}
-                  radius={[4, 4, 0, 0]}
-                />
-              )
-            })}
-          </BarChart>
-        </ResponsiveContainer>
-      )}
+      <ResponsiveContainer>
+        <BarChart data={formattedData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+          <XAxis
+            dataKey="name"
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={12}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={12}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) => `${value}`}
+          />
+          <Tooltip
+            cursor={{ fill: 'hsl(var(--secondary))' }}
+            content={<ChartTooltipContent />}
+          />
+          <Legend content={<ChartLegendContent />} />
+          {costCenters.map((cc) => {
+            const safeKey = toSafeKey(cc);
+            const color = chartConfig[safeKey]?.color;
+
+            if (!color) return null;
+            
+            return (
+              <Bar
+                key={safeKey}
+                dataKey={safeKey}
+                stackId="a"
+                fill={color}
+                radius={[4, 4, 0, 0]}
+              />
+            )
+          })}
+        </BarChart>
+      </ResponsiveContainer>
     </ChartContainer>
   );
 }
