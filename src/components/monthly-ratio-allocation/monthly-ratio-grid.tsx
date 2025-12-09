@@ -66,8 +66,12 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       }
 
       const ticketData: TicketAllocationData[] = await response.json();
-      // FORCE CLIENT-SIDE FILTERING
-      const filteredData = ticketData.filter(item => item.reporting_month === selectedMonth && item.reporting_year === selectedYear);
+      // FORCE ROBUST CLIENT-SIDE FILTERING
+      // Convert to String and trim to ensure matching works regardless of data type
+      const filteredData = ticketData.filter(item => 
+        String(item.reporting_month).trim() === selectedMonth && 
+        String(item.reporting_year).trim() === selectedYear
+      );
 
       const groupedByAgent = filteredData.reduce((acc, item) => {
         if (!acc[item.agent_name]) {
