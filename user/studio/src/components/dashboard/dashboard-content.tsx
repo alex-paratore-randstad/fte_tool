@@ -33,13 +33,13 @@ export function DashboardContent() {
   
   const [allocationChartData, setAllocationChartData] = useState<ChartData[]>([]);
   
-  const [activeView, setActiveView] = useState<ActiveView>(null);
+  const [activeView, setActiveView] = useState<ActiveView>('total');
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     async function fetchData() {
-      setLoading(true);
+      // Intentionally don't set loading to true here to avoid flashing
       try {
         const [empResponse, allocResponse] = await Promise.all([
           fetch(`/data/v1/gbs_ind_hr_fte_report`),
@@ -107,7 +107,6 @@ export function DashboardContent() {
               return completeWeeklyData;
             });
             setAllocationChartData(weeklyData);
-            setActiveView('total');
 
         } catch (processingError) {
              console.error("Failed to process dashboard data:", processingError);
@@ -147,11 +146,11 @@ export function DashboardContent() {
       case 'total':
         return { title: 'All FTEs', data: allEmployees };
       case 'allocated':
-        return { title: 'Allocated FTEs', data: allocatedEmployees };
+        return { title: 'Allocated FTEs (Current Week)', data: allocatedEmployees };
       case 'unallocated':
-        return { title: 'Unallocated FTEs', data: unallocatedEmployees };
+        return { title: 'Unallocated FTEs (Current Week)', data: unallocatedEmployees };
       case 'missing':
-        return { title: 'FTEs with Missing Allocations', data: unallocatedEmployees };
+        return { title: 'FTEs with Missing Allocations (Current Week)', data: unallocatedEmployees };
       default:
         return { title: '', data: [] };
     }
@@ -193,7 +192,7 @@ export function DashboardContent() {
                 <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
             </Card>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Card>
                 <CardHeader>
                     <CardTitle>Weekly Client Allocation</CardTitle>
@@ -256,7 +255,7 @@ export function DashboardContent() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <Card>
             <CardHeader>
                 <CardTitle>Weekly Client Allocation</CardTitle>
@@ -268,48 +267,46 @@ export function DashboardContent() {
         </Card>
         
         <Card>
-            {activeView ? (
-              <>
-                <CardHeader>
-                  <CardTitle>{detailTitle}</CardTitle>
-                  <CardDescription>
-                    Displaying {detailData.length} employee(s) in this category.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[400px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Full Name</TableHead>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Manager</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {detailData.length > 0 ? detailData.map(employee => (
-                          <TableRow key={employee.Person_Number}>
-                            <TableCell>{employee.Full_Name}</TableCell>
-                            <TableCell>{employee.Market_Facing_Title}</TableCell>
-                            <TableCell>{employee.First_Reviewer_Name}</TableCell>
-                          </TableRow>
-                        )) : (
-                          <TableRow>
-                            <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                              No data available.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </CardContent>
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-full min-h-[400px]">
-                <p className="text-muted-foreground">Select a category to view details.</p>
-              </div>
-            )}
+          <CardHeader>
+            <CardTitle>{detailTitle || 'Details'}</CardTitle>
+            <CardDescription>
+              {activeView ? `Displaying ${detailData.length} employee(s) in this category.` : 'Select a category to view employees.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[400px]">
+              {activeView ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Full Name</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Manager</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detailData.length > 0 ? detailData.map(employee => (
+                      <TableRow key={employee.Person_Number}>
+                        <TableCell>{employee.Full_Name}</TableCell>
+                        <TableCell>{employee.Market_Facing_Title}</TableCell>
+                        <TableCell>{employee.First_Reviewer_Name}</TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                          No data available.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="flex items-center justify-center h-full min-h-[300px]">
+                  <p className="text-muted-foreground">Select a category to view details.</p>
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
         </Card>
       </div>
     </div>
