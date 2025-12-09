@@ -185,7 +185,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey }: WeeklyAllocat
                   allocation_name: empAlloc.employeeName,
                   cost_center_name: alloc.clientName,
                   cost_center_number: alloc.clientId,
-                  allocation_amount: editable.fte.toString(),
+                  allocation_amount: (editable.fte || 0).toString(),
                 },
               });
             }
