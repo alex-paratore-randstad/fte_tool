@@ -42,20 +42,10 @@ export function CostCenterContent() {
 
   if (loading) {
       return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Client Data</CardTitle>
-                <CardDescription>
-                    Data from the `ai_report` dataset used to populate client dropdowns.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-2">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-8 w-full" />
-                </div>
-            </CardContent>
-        </Card>
+        <div className="flex flex-col gap-8">
+            {/* Render the table component with empty data to maintain structure */}
+            <AiReportTable reportData={[]} />
+        </div>
       )
   }
 

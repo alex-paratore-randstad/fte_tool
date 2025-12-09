@@ -1,9 +1,11 @@
 
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 
 export type AiReportData = {
     Code: string;
@@ -17,14 +19,32 @@ type AiReportTableProps = {
 };
 
 export function AiReportTable({ reportData }: AiReportTableProps) {
+  const [filter, setFilter] = useState('');
+
+  const filteredData = useMemo(() => {
+    if (!filter) return reportData;
+    const lowercasedFilter = filter.toLowerCase();
+    return reportData.filter(row =>
+      (row.DisplayName && row.DisplayName.toLowerCase().includes(lowercasedFilter)) ||
+      (row.Code && row.Code.toLowerCase().includes(lowercasedFilter))
+    );
+  }, [reportData, filter]);
   
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI Report Data</CardTitle>
+        <CardTitle>Client Data</CardTitle>
         <CardDescription>
-            Data from the `ai_report` dataset.
+            Data from the `ai_report` dataset used to populate client dropdowns.
         </CardDescription>
+        <div className="pt-2">
+            <Input
+              placeholder="Filter by Display Name or Code..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
       </CardHeader>
       <CardContent>
           <ScrollArea className="h-96">
@@ -38,8 +58,8 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reportData && reportData.length > 0 ? (
-                    reportData.map((row, rowIndex) => (
+                {filteredData && filteredData.length > 0 ? (
+                    filteredData.map((row, rowIndex) => (
                     <TableRow key={rowIndex}>
                         <TableCell>{row.Code}</TableCell>
                         <TableCell>{row.Name}</TableCell>
@@ -50,7 +70,7 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
                 ) : (
                     <TableRow>
                         <TableCell colSpan={4} className="h-24 text-center">
-                            No AI report data available.
+                            No client data available or matching filters.
                         </TableCell>
                     </TableRow>
                 )}
