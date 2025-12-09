@@ -8,15 +8,17 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '../ui/button';
 import { Menu } from 'lucide-react';
 import Link from 'next/link';
+import { useCurrentUser } from '@/hooks/use-current-user';
+import { usePathname } from 'next/navigation';
 
 const navItems = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/allocation', label: 'Weekly Allocation' },
-  { href: '/bulk-allocation', label: 'Bulk Allocation' },
-  { href: '/ticket-allocation', label: 'Ticket Allocation' },
-  { href: '/team', label: 'Team Management' },
-  { href: '/cost-centers', label: 'Cost Centers' },
-  { href: '/title_management', label: 'Title Management' },
+  { href: '/', label: 'Dashboard', roles: ['admin', 'manager', 'vp'] },
+  { href: '/allocation', label: 'Weekly Allocation', roles: ['admin', 'manager', 'vp'] },
+  { href: '/bulk-allocation', label: 'Bulk Allocation', roles: ['admin', 'manager', 'vp'] },
+  { href: '/monthly-ratio-allocation', label: 'Monthly Ratio Allocation', roles: ['admin', 'manager', 'vp'] },
+  { href: '/team', label: 'Team Management', roles: ['admin', 'manager', 'vp'] },
+  { href: '/cost-centers', label: 'Cost Centers', roles: ['admin'] },
+  { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
 ];
 
 const getHref = (href: string) => {
@@ -25,13 +27,20 @@ const getHref = (href: string) => {
 };
 
 export function AppShellClient({ children }: { children: React.ReactNode }) {
+  const { currentUser, loading } = useCurrentUser();
+  const pathname = usePathname();
+
+  const filteredNavItems = navItems.filter(item => {
+    if (loading || !currentUser || !currentUser.role) return false;
+    return item.roles.includes(currentUser.role);
+  });
+
   return (
     <div className="flex min-h-screen w-full flex-col">
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
         <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
           <Link href={getHref('/')} className="flex items-center gap-2 text-lg font-semibold md:text-base">
             <Logo />
-            <span className="sr-only">Randstad FTE</span>
           </Link>
           <TopNav />
         </nav>
@@ -50,9 +59,8 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
             <nav className="grid gap-6 text-lg font-medium">
               <Link href={getHref('/')} className="flex items-center gap-2 text-lg font-semibold">
                  <Logo />
-                 <span className="sr-only">Randstad FTE</span>
               </Link>
-              {navItems.map(item => (
+              {loading ? null : filteredNavItems.map(item => (
                  <Link key={item.href} href={getHref(item.href)} className="text-muted-foreground hover:text-foreground">
                     {item.label}
                  </Link>
