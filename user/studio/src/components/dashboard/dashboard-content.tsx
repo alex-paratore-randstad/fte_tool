@@ -48,11 +48,6 @@ export function DashboardContent() {
 
         if (!empResponse.ok) {
           console.warn("Could not fetch employee data. This may be expected in local dev.");
-          toast({
-            variant: 'destructive',
-            title: 'Failed to load employee data',
-            description: 'Dashboard metrics will be incomplete.'
-          });
         }
          if (!allocResponse.ok) {
           console.warn("Could not fetch allocation data. This may be expected in local dev.");
@@ -199,7 +194,6 @@ export function DashboardContent() {
             </Card>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div>
             <Card>
                 <CardHeader>
                     <CardTitle>Weekly Client Allocation</CardTitle>
@@ -209,18 +203,17 @@ export function DashboardContent() {
                     <Skeleton className="h-[400px] w-full" />
                 </CardContent>
             </Card>
-          </div>
-          <div>
             <Card>
                 <CardHeader>
                     <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
                     <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Skeleton className="h-[400px] w-full" />
+                    <ScrollArea className="h-[400px]">
+                        <Skeleton className="h-full w-full" />
+                    </ScrollArea>
                 </CardContent>
             </Card>
-          </div>
         </div>
       </div>
     )
@@ -264,64 +257,60 @@ export function DashboardContent() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
-          <Card>
-              <CardHeader>
-                  <CardTitle>Weekly Client Allocation</CardTitle>
-                  <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <FteAllocationChart data={allocationChartData} />
-              </CardContent>
-          </Card>
-        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Weekly Client Allocation</CardTitle>
+                <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <FteAllocationChart data={allocationChartData} />
+            </CardContent>
+        </Card>
         
-        <div>
-          <Card>
-              {activeView ? (
-                <>
-                  <CardHeader>
-                    <CardTitle>{detailTitle}</CardTitle>
-                    <CardDescription>
-                      Displaying {detailData.length} employee(s) in this category.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ScrollArea className="h-[400px]">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Full Name</TableHead>
-                            <TableHead>Title</TableHead>
-                            <TableHead>Manager</TableHead>
+        <Card>
+            {activeView ? (
+              <>
+                <CardHeader>
+                  <CardTitle>{detailTitle}</CardTitle>
+                  <CardDescription>
+                    Displaying {detailData.length} employee(s) in this category.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Full Name</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Manager</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {detailData.length > 0 ? detailData.map(employee => (
+                          <TableRow key={employee.Person_Number}>
+                            <TableCell>{employee.Full_Name}</TableCell>
+                            <TableCell>{employee.Market_Facing_Title}</TableCell>
+                            <TableCell>{employee.First_Reviewer_Name}</TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {detailData.length > 0 ? detailData.map(employee => (
-                            <TableRow key={employee.Person_Number}>
-                              <TableCell>{employee.Full_Name}</TableCell>
-                              <TableCell>{employee.Market_Facing_Title}</TableCell>
-                              <TableCell>{employee.First_Reviewer_Name}</TableCell>
-                            </TableRow>
-                          )) : (
-                            <TableRow>
-                              <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                                No data available.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </ScrollArea>
-                  </CardContent>
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-full min-h-[400px]">
-                  <p className="text-muted-foreground">Select a category to view details.</p>
-                </div>
-              )}
-          </Card>
-        </div>
+                        )) : (
+                          <TableRow>
+                            <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                              No data available.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </CardContent>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-full min-h-[400px]">
+                <p className="text-muted-foreground">Select a category to view details.</p>
+              </div>
+            )}
+        </Card>
       </div>
     </div>
   );
