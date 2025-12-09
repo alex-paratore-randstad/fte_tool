@@ -13,11 +13,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { SelectSearch } from '@/components/ui/select-search';
 import { PlusCircle, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { format, startOfMonth, addMonths, subMonths } from 'date-fns';
+import { TeamMember } from '@/types';
 
 type TicketAllocationData = {
   agent_name: string;
@@ -44,70 +53,163 @@ type MonthlyRatioGridProps = {
   onSaveSuccess: () => void;
 };
 
+// Employee Select Component
+const EmployeeSelect = ({ 
+  employees, 
+  onValueChange,
+  value
+}: { 
+  employees: { Person_Number: string, Full_Name: string }[], 
+  onValueChange: (value: string) => void,
+  value: string,
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const filteredEmployees = useMemo(() => {
+    const sortedEmployees = employees.sort((a,b) => a.Full_Name.localeCompare(b.Full_Name));
+    if (!searchTerm) {
+      return sortedEmployees;
+    }
+    return sortedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [employees, searchTerm]);
+
+  return (
+    <Select onValueChange={onValueChange} value={value}>
+      <SelectTrigger className="w-[200px]">
+          <SelectValue placeholder="Load Employee..." />
+      </SelectTrigger>
+      <SelectContent>
+          <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
+          {filteredEmployees.map(e => (
+              <SelectItem key={e.Person_Number} value={e.Full_Name}>
+                  {e.Full_Name}
+              </SelectItem>
+          ))}
+          {filteredEmployees.length === 0 && (
+              <div className="p-4 text-sm text-center text-muted-foreground">
+                  No employees found.
+              </div>
+          )}
+      </SelectContent>
+    </Select>
+  );
+};
+
+// Placeholder Manager Select
+const ManagerSelect = () => (
+    <Select disabled>
+        <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Load Team (Future)..." />
+        </SelectTrigger>
+        <SelectContent></SelectContent>
+    </Select>
+);
+
+
 export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
+  const [allTicketData, setAllTicketData] = useState<TicketAllocationData[]>([]);
+  const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
+
   const { toast } = useToast();
 
-  const fetchDataAndPrepopulate = useCallback(async () => {
-    if (!currentDate) return;
-
+  const fetchDataForMonth = useCallback(async (date: Date) => {
     try {
-      const selectedMonth = format(currentDate, 'MMM');
-      const selectedYear = format(currentDate, 'yyyy');
+      const selectedMonth = format(date, 'MMM');
+      const selectedYear = format(date, 'yyyy');
 
-      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
+      const [ticketResponse, employeeResponse] = await Promise.all([
+          fetch(`/data/v1/fte_tickets_grouped_monthly`),
+          fetch('/data/v1/gbs_ind_hr_fte_report')
+      ]);
 
-      if (!response.ok) {
-        console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
-        setActiveAllocations([]);
+      if (!ticketResponse.ok || !employeeResponse.ok) {
+        console.warn(`Failed to fetch all required data.`);
+        setAllTicketData([]);
+        setAllEmployees([]);
         return;
       }
+      
+      const ticketData: TicketAllocationData[] = await ticketResponse.json();
+      const employeeData: TeamMember[] = await employeeResponse.json();
+      
+      setAllEmployees(employeeData);
 
-      const ticketData: TicketAllocationData[] = await response.json();
-      // FORCE ROBUST CLIENT-SIDE FILTERING
-      // Convert to String and trim to ensure matching works regardless of data type
-      const filteredData = ticketData.filter(item => 
+      // Filter ticket data for the selected month and store it
+      const filteredTicketData = ticketData.filter(item => 
         String(item.reporting_month).trim() === selectedMonth && 
         String(item.reporting_year).trim() === selectedYear
       );
-
-      const groupedByAgent = filteredData.reduce((acc, item) => {
-        if (!acc[item.agent_name]) {
-          acc[item.agent_name] = [];
-        }
-        acc[item.agent_name].push(item);
-        return acc;
-      }, {} as Record<string, TicketAllocationData[]>);
-
-      const prepopulatedAllocations: EmployeeAllocation[] = Object.entries(groupedByAgent).map(
-        ([agentName, agentData]) => ({
-          agentName,
-          allocations: agentData.map((d) => ({
-            id: `${agentName}-${d.agent_group_name}-${Date.now()}`,
-            clientName: d.agent_group_name,
-            fte: parseFloat(d.monthly_ticket_ratio) || 0,
-          })),
-        })
-      );
-
-      setActiveAllocations(prepopulatedAllocations);
+      setAllTicketData(filteredTicketData);
+      
+      // Important: Clear active allocations when the month changes
+      setActiveAllocations([]);
 
     } catch (error) {
-      console.error("Failed to fetch and process ticket data:", error);
+      console.error("Failed to fetch and process data:", error);
       toast({ variant: 'destructive', title: 'Failed to process data' });
       setActiveAllocations([]);
+      setAllTicketData([]);
+      setAllEmployees([]);
     }
-  }, [currentDate, toast]);
+  }, [toast]);
   
   useEffect(() => {
-    if (!currentDate) {
-      setCurrentDate(new Date());
-    } else {
-      fetchDataAndPrepopulate();
+    // Set initial date on client-side only to avoid hydration errors
+    setCurrentDate(new Date());
+  }, []);
+
+  useEffect(() => {
+    // Fetch data whenever the date changes, but only if date is not null
+    if (currentDate) {
+      fetchDataForMonth(currentDate);
     }
-  }, [currentDate, fetchDataAndPrepopulate]);
+  }, [currentDate, fetchDataForMonth]);
+
+
+  const availableEmployees = useMemo(() => {
+    const activeEmployeeNames = new Set(activeAllocations.map(a => a.agentName));
+    const uniqueAgentNamesFromTickets = Array.from(new Set(allTicketData.map(t => t.agent_name)));
+    
+    // We only want to show employees who have ticket data for the selected month
+    return allEmployees
+        .filter(e => uniqueAgentNamesFromTickets.includes(e.Full_Name) && !activeEmployeeNames.has(e.Full_Name))
+        .map(e => ({ Person_Number: e.Person_Number, Full_Name: e.Full_Name }));
+  }, [allEmployees, allTicketData, activeAllocations]);
+
+  const handleAddEmployee = (employeeName: string) => {
+    if (!employeeName) return;
+    
+    setSelectedEmployeeToAdd(employeeName);
+
+    const isAlreadyActive = activeAllocations.some(a => a.agentName === employeeName);
+    if (isAlreadyActive) {
+      toast({ variant: 'destructive', title: 'Employee already in grid' });
+      return;
+    }
+    
+    // Find ticket data for the selected employee
+    const employeeTicketData = allTicketData.filter(t => t.agent_name === employeeName);
+
+    if (employeeTicketData.length > 0) {
+      const newEmployeeAllocation: EmployeeAllocation = {
+        agentName: employeeName,
+        allocations: employeeTicketData.map(d => ({
+          id: `${employeeName}-${d.agent_group_name}-${Date.now()}`,
+          clientName: d.agent_group_name,
+          fte: parseFloat(d.monthly_ticket_ratio) || 0,
+        })),
+      };
+      setActiveAllocations(prev => [newEmployeeAllocation, ...prev]);
+    } else {
+      toast({ variant: 'destructive', title: 'No Data', description: `No ticket allocation data found for ${employeeName} in this month.` });
+    }
+    
+    setTimeout(() => setSelectedEmployeeToAdd(''), 0);
+  };
 
 
   const handlePrevMonth = () => currentDate && setCurrentDate(subMonths(currentDate, 1));
@@ -145,13 +247,21 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
 
   const handleRemoveAllocationRow = (agentName: string, allocId: string) => {
     setActiveAllocations(prev => prev.map(empAlloc => {
-      if (empAlloc.agentName === agentName) {
-        const newAllocations = empAlloc.allocations.filter(a => a.id !== allocId);
-        return { ...empAlloc, allocations: newAllocations };
-      }
-      return empAlloc;
-    }));
+        if (empAlloc.agentName === agentName) {
+            // If it's the last row, remove the entire employee
+            if(empAlloc.allocations.length === 1) {
+                return null;
+            }
+            const newAllocations = empAlloc.allocations.filter(a => a.id !== allocId);
+            return { ...empAlloc, allocations: newAllocations };
+        }
+        return empAlloc;
+    }).filter(Boolean) as EmployeeAllocation[]);
   };
+  
+  const handleRemoveEmployee = (agentName: string) => {
+      setActiveAllocations(prev => prev.filter(a => a.agentName !== agentName));
+  }
 
   const handleSave = async () => {
     if (!currentDate) {
@@ -234,6 +344,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
                 <Skeleton className="h-4 w-96" />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                  <Skeleton className="h-10 w-48" />
                   <Skeleton className="h-10 w-10" />
                   <Skeleton className="h-6 w-32" />
                   <Skeleton className="h-10 w-10" />
@@ -252,9 +363,15 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <CardTitle>Allocation Grid</CardTitle>
-            <CardDescription>Allocations are pre-populated from monthly ticket ratios. Adjust as needed.</CardDescription>
+            <CardDescription>Add employees to view and adjust their pre-populated ticket ratios.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <EmployeeSelect 
+                employees={availableEmployees}
+                onValueChange={handleAddEmployee}
+                value={selectedEmployeeToAdd}
+            />
+            <ManagerSelect />
             <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isSubmitting}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -285,7 +402,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
               {activeAllocations.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                    No ticket data found for the selected period.
+                    Select an employee from the dropdown to begin.
                   </TableCell>
                 </TableRow>
               )}
@@ -299,7 +416,11 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
                       <TableCell className={cn("text-center font-semibold", Math.abs(totalFte - 1.0) > 0.01 ? "text-destructive" : "text-muted-foreground")}>
                         {totalFte > 0 ? totalFte.toFixed(3) : '-'}
                       </TableCell>
-                      <TableCell></TableCell>
+                      <TableCell className='text-right'>
+                        <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(agentName)} disabled={isSubmitting}>
+                           <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
 
                     {allocations.map((alloc) => (
