@@ -158,9 +158,13 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
   }, [toast]);
   
   useEffect(() => {
-    if (!currentDate) {
-      setCurrentDate(new Date());
-    } else {
+    // Set initial date on client-side only to avoid hydration errors
+    setCurrentDate(new Date());
+  }, []);
+
+  useEffect(() => {
+    // Fetch data whenever the date changes, but only if date is not null
+    if (currentDate) {
       fetchDataForMonth(currentDate);
     }
   }, [currentDate, fetchDataForMonth]);

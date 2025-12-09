@@ -11,6 +11,7 @@ const navItems = [
   { href: '/allocation', label: 'Weekly Allocation', roles: ['admin', 'manager', 'vp'] },
   { href: '/bulk-allocation', label: 'Bulk Allocation', roles: ['admin', 'manager', 'vp'] },
   { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation', roles: ['admin', 'manager', 'vp'] },
+  { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation', roles: ['admin', 'manager', 'vp'] },
   { href: '/team', label: 'Team Management', roles: ['admin', 'manager', 'vp'] },
   { href: '/clients', label: 'Client Management', roles: ['admin'] },
   { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
