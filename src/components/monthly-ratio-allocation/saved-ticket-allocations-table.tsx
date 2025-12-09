@@ -56,7 +56,7 @@ export function SavedTicketAllocationsTable({ refreshKey }: { refreshKey: number
       <Card>
         <CardHeader>
           <CardTitle>Saved Monthly Allocations</CardTitle>
-          <CardDescription>History of all saved monthly ticket ratio allocations.</CardDescription>
+          <CardDescription>History of all saved monthly client ratio allocations.</CardDescription>
         </CardHeader>
         <CardContent>
           <Skeleton className="h-40 w-full" />
@@ -69,7 +69,7 @@ export function SavedTicketAllocationsTable({ refreshKey }: { refreshKey: number
     <Card>
       <CardHeader>
         <CardTitle>Saved Monthly Allocations</CardTitle>
-        <CardDescription>History of all saved monthly ticket ratio allocations.</CardDescription>
+        <CardDescription>History of all saved monthly client ratio allocations.</CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-96">

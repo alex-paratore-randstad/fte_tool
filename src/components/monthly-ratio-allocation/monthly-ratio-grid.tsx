@@ -46,36 +46,28 @@ type MonthlyRatioGridProps = {
 
 export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
-
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  
-  useEffect(() => {
-    // Set date on client to avoid hydration mismatch
-    setCurrentDate(new Date());
-  }, []);
 
   const fetchDataAndPrepopulate = useCallback(async () => {
     if (!currentDate) return;
 
-    setLoading(true);
     try {
       const selectedMonth = format(currentDate, 'MMM');
       const selectedYear = format(currentDate, 'yyyy');
 
       const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
-      
+
       if (!response.ok) {
         console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
         setActiveAllocations([]);
-        setLoading(false);
         return;
       }
-      
+
       const ticketData: TicketAllocationData[] = await response.json();
       // FORCE CLIENT-SIDE FILTERING
-      const filteredData = ticketData.filter(item => item.reporting_month === selectedMonth && item.reporting_year === selectedYear );
+      const filteredData = ticketData.filter(item => item.reporting_month === selectedMonth && item.reporting_year === selectedYear);
 
       const groupedByAgent = filteredData.reduce((acc, item) => {
         if (!acc[item.agent_name]) {
@@ -97,21 +89,22 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       );
 
       setActiveAllocations(prepopulatedAllocations);
-      setLoading(false);
 
     } catch (error) {
       console.error("Failed to fetch and process ticket data:", error);
       toast({ variant: 'destructive', title: 'Failed to process data' });
       setActiveAllocations([]);
-      setLoading(false);
     }
   }, [currentDate, toast]);
-
+  
   useEffect(() => {
-    if (currentDate) {
+    if (!currentDate) {
+      setCurrentDate(new Date());
+    } else {
       fetchDataAndPrepopulate();
     }
   }, [currentDate, fetchDataAndPrepopulate]);
+
 
   const handlePrevMonth = () => currentDate && setCurrentDate(subMonths(currentDate, 1));
   const handleNextMonth = () => currentDate && setCurrentDate(addMonths(currentDate, 1));
@@ -162,6 +155,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
         return;
     }
     
+    setIsSubmitting(true);
     const allocationDate = format(startOfMonth(currentDate), 'yyyy-MM-dd');
     const selectedMonth = format(currentDate, 'MMM');
     const selectedYear = format(currentDate, 'yyyy');
@@ -191,10 +185,14 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       });
     });
 
-    if (hasValidationError) return;
+    if (hasValidationError) {
+        setIsSubmitting(false);
+        return;
+    }
 
     if (submissions.length === 0) {
       toast({ title: 'No changes to save.' });
+      setIsSubmitting(false);
       return;
     }
 
@@ -217,10 +215,12 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     } catch (error: any) {
         console.error("Save error:", error);
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
-  if (loading || !currentDate) {
+  if (!currentDate) {
     return (
       <Card>
         <CardHeader>
@@ -251,16 +251,18 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
             <CardDescription>Allocations are pre-populated from monthly ticket ratios. Adjust as needed.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" size="icon" onClick={handlePrevMonth}>
+            <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isSubmitting}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm font-medium w-32 text-center">
               {format(currentDate, 'MMMM yyyy')}
             </span>
-            <Button variant="outline" size="icon" onClick={handleNextMonth}>
+            <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isSubmitting}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
+            <Button onClick={handleSave} disabled={activeAllocations.length === 0 || isSubmitting}>
+              {isSubmitting ? 'Saving...' : 'Save All'}
+            </Button>
           </div>
         </div>
       </CardHeader>
@@ -308,10 +310,11 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
                             className="w-32 text-center mx-auto"
                             value={alloc.fte || ''}
                             onChange={(e) => handleFteChange(agentName, alloc.id, e.target.value)}
+                            disabled={isSubmitting}
                           />
                         </TableCell>
                         <TableCell className='text-right'>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(agentName, alloc.id)}>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(agentName, alloc.id)} disabled={isSubmitting}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
@@ -320,7 +323,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
 
                     <TableRow>
                       <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
-                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(agentName)}>
+                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(agentName)} disabled={isSubmitting}>
                           <PlusCircle className="mr-2 h-4 w-4" /> Add Manual Allocation
                         </Button>
                       </TableCell>
