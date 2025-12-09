@@ -143,7 +143,7 @@ export function DashboardContent() {
     setActiveView(current => (current === view ? null : view));
   };
   
-  const getDetailData = () => {
+  const { title: detailTitle, data: detailData, description: detailDescription } = (() => {
     switch (activeView) {
       case 'total':
         return { title: 'All FTEs', data: allEmployees, description: `Displaying ${allEmployees.length} employee(s).` };
@@ -154,86 +154,85 @@ export function DashboardContent() {
       case 'missing':
         return { title: 'FTEs with Missing Allocations (Current Week)', data: unallocatedEmployees, description: `Displaying ${unallocatedEmployees.length} employee(s).` };
       default:
-        return { title: 'Details', data: [], description: 'Select a category to view employees.' };
+        // Provide a default empty state for the initial null `activeView` state
+        return { title: 'All FTEs', data: allEmployees, description: `Displaying ${allEmployees.length} employee(s).` };
     }
-  };
-
-  const { title: detailTitle, data: detailData, description: detailDescription } = getDetailData();
+  })();
 
   if (loading) {
     return (
       <div className="flex flex-col gap-8">
         <PageHeader title="Dashboard" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total FTEs</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
-            </Card>
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Allocated FTEs</CardTitle>
-                     <Briefcase className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
-            </Card>
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Unallocated FTEs</CardTitle>
-                    <UserMinus className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
-            </Card>
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Missing Allocations</CardTitle>
-                    <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
-            </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total FTEs</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Allocated FTEs</CardTitle>
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Unallocated FTEs</CardTitle>
+              <UserMinus className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Missing Allocations</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
+          </Card>
         </div>
         <div className="grid grid-cols-2 gap-8">
           <Card>
-              <CardHeader>
-                  <CardTitle>Weekly Client Allocation</CardTitle>
-                  <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <Skeleton className="h-[400px] w-full" />
-              </CardContent>
+            <CardHeader>
+              <CardTitle>Weekly Client Allocation</CardTitle>
+              <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FteAllocationChart data={[]} />
+            </CardContent>
           </Card>
           <Card>
-              <CardHeader>
-                  <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-                  <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <ScrollArea className="h-[400px]">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead><Skeleton className="h-5 w-24" /></TableHead>
-                            <TableHead><Skeleton className="h-5 w-24" /></TableHead>
-                            <TableHead><Skeleton className="h-5 w-24" /></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                          </TableRow>
-                           <TableRow>
-                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                  </ScrollArea>
-              </CardContent>
+            <CardHeader>
+              <CardTitle>All FTEs</CardTitle>
+              <CardDescription>Displaying employees.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead><Skeleton className="h-5 w-24" /></TableHead>
+                      <TableHead><Skeleton className="h-5 w-24" /></TableHead>
+                      <TableHead><Skeleton className="h-5 w-24" /></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
           </Card>
         </div>
       </div>
@@ -256,36 +255,36 @@ export function DashboardContent() {
           title="Allocated FTEs"
           value={allocatedFtes.toString()}
           icon={Briefcase}
-           onClick={() => handleCardClick('allocated')}
-           isActive={activeView === 'allocated'}
+          onClick={() => handleCardClick('allocated')}
+          isActive={activeView === 'allocated'}
         />
         <SummaryCard
           title="Unallocated FTEs"
           value={unallocatedFtes.toString()}
           icon={UserMinus}
           variant={unallocatedFtes > 0 ? 'default' : 'default'}
-           onClick={() => handleCardClick('unallocated')}
-           isActive={activeView === 'unallocated'}
+          onClick={() => handleCardClick('unallocated')}
+          isActive={activeView === 'unallocated'}
         />
         <SummaryCard
           title="Missing Allocations"
           value={missingAllocations.toString()}
           icon={AlertTriangle}
           variant={missingAllocations > 0 ? 'destructive' : 'default'}
-           onClick={() => handleCardClick('missing')}
-           isActive={activeView === 'missing'}
+          onClick={() => handleCardClick('missing')}
+          isActive={activeView === 'missing'}
         />
       </div>
 
       <div className="grid grid-cols-2 gap-8">
         <Card>
-            <CardHeader>
-                <CardTitle>Weekly Client Allocation</CardTitle>
-                <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <FteAllocationChart data={allocationChartData} />
-            </CardContent>
+          <CardHeader>
+            <CardTitle>Weekly Client Allocation</CardTitle>
+            <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FteAllocationChart data={allocationChartData} />
+          </CardContent>
         </Card>
         
         <Card>
@@ -295,30 +294,30 @@ export function DashboardContent() {
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[400px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Full Name</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Manager</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Full Name</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Manager</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailData.length > 0 ? detailData.map(employee => (
+                    <TableRow key={employee.Person_Number}>
+                      <TableCell>{employee.Full_Name}</TableCell>
+                      <TableCell>{employee.Market_Facing_Title}</TableCell>
+                      <TableCell>{employee.First_Reviewer_Name}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {detailData.length > 0 ? detailData.map(employee => (
-                      <TableRow key={employee.Person_Number}>
-                        <TableCell>{employee.Full_Name}</TableCell>
-                        <TableCell>{employee.Market_Facing_Title}</TableCell>
-                        <TableCell>{employee.First_Reviewer_Name}</TableCell>
-                      </TableRow>
-                    )) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                          No data to display.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                        No data to display.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </ScrollArea>
           </CardContent>
         </Card>

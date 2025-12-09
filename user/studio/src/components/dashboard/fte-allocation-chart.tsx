@@ -66,11 +66,17 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
 
   const formattedData = useMemo(() => {
     if (!data || data.length === 0) return [];
-    return data.map(item => ({
-      ...item,
-      name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown Date',
-    }));
-  }, [data]);
+    return data.map(item => {
+      const newItem: Record<string, any> = {
+          name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown Date',
+      };
+      costCenters.forEach(cc => {
+          const sanitizedKey = toCssKey(cc);
+          newItem[sanitizedKey] = item[cc] || 0;
+      });
+      return newItem;
+    });
+  }, [data, costCenters]);
 
   if (!data || data.length === 0) {
     return <Skeleton className="h-[300px] w-full" />;
@@ -104,7 +110,7 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
             return (
               <Bar
                 key={sanitizedKey}
-                dataKey={cc}
+                dataKey={sanitizedKey}
                 stackId="a"
                 fill={`var(--color-${sanitizedKey})`}
                 radius={[4, 4, 0, 0]}
@@ -116,3 +122,4 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
     </ChartContainer>
   );
 }
+
