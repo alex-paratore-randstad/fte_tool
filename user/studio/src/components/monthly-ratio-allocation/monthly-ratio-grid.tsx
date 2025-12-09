@@ -69,6 +69,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       if (!response.ok) {
         console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
         setActiveAllocations([]);
+        setLoading(false);
         return;
       }
       
@@ -112,8 +113,8 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     }
   }, [currentDate, fetchDataAndPrepopulate]);
 
-  const handlePrevMonth = () => setCurrentDate(prev => subMonths(prev!, 1));
-  const handleNextMonth = () => setCurrentDate(prev => addMonths(prev!, 1));
+  const handlePrevMonth = () => currentDate && setCurrentDate(subMonths(currentDate, 1));
+  const handleNextMonth = () => currentDate && setCurrentDate(addMonths(currentDate, 1));
 
   const handleFteChange = (agentName: string, allocId: string, newFteValue: string) => {
     const newFte = parseFloat(newFteValue) || 0;
