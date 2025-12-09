@@ -35,7 +35,7 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
       <CardHeader>
         <CardTitle>Client Data</CardTitle>
         <CardDescription>
-            Data from the `ai_report` dataset used to populate client dropdowns.
+            This table displays all available clients from the `ai_report` dataset.
         </CardDescription>
         <div className="pt-2">
             <Input
@@ -81,3 +81,4 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
     </Card>
   );
 }
+
