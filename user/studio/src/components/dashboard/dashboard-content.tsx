@@ -198,7 +198,7 @@ export function DashboardContent() {
               <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-[300px] w-full" />
+              <FteAllocationChart data={[]} />
             </CardContent>
           </Card>
           <Card>

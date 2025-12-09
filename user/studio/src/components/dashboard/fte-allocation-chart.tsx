@@ -37,7 +37,11 @@ const getBrandPalette = (count: number) => {
   return ['#ABCFFE', '#5887D8', '#255CA9', '#BAD808', '#88A800', '#5A7A00', '#8FEEF4', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2', '#415E7D'];
 };
 
-const toCssKey = (key: string) => key ? key.replace(/[^a-zA-Z0-9]/g, '-') : 'unknown';
+const toCssKey = (key: string) => {
+  if (!key) return 'unknown';
+  // Prepend 'c_' to ensure it starts with a letter and lowercasing ensures consistency
+  return 'c_' + key.toLowerCase().replace(/[^a-z0-9]/g, '_');
+};
 
 
 export default function FteAllocationChart({ data }: FteAllocationChartProps) {
@@ -84,49 +88,47 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
     });
   }, [data, costCenters]);
   
-  if (!data || data.length === 0) {
-    return <Skeleton className="h-[300px] w-full" />;
-  }
-
   return (
     <ChartContainer config={chartConfig} className="h-[300px] w-full">
-      <ResponsiveContainer>
-        <BarChart data={formattedData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-          <XAxis
-            dataKey="name"
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(value) => `${value}`}
-          />
-          <Tooltip
-            cursor={{ fill: 'hsl(var(--secondary))' }}
-            content={<ChartTooltipContent />}
-          />
-          <Legend content={<ChartLegendContent />} />
-          {costCenters.map((cc) => {
-            const sanitizedKey = toCssKey(cc);
-            const color = chartConfig[sanitizedKey]?.color;
-            if (!color) return null;
-            return (
-              <Bar
-                key={sanitizedKey}
-                dataKey={sanitizedKey}
-                stackId="a"
-                fill={color}
-                radius={[4, 4, 0, 0]}
-              />
-            )
-          })}
-        </BarChart>
-      </ResponsiveContainer>
+      {(!data || data.length === 0) ? (
+         <Skeleton className="h-full w-full" />
+      ) : (
+        <ResponsiveContainer>
+          <BarChart data={formattedData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+            <XAxis
+              dataKey="name"
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => `${value}`}
+            />
+            <Tooltip
+              cursor={{ fill: 'hsl(var(--secondary))' }}
+              content={<ChartTooltipContent />}
+            />
+            <Legend content={<ChartLegendContent />} />
+            {costCenters.map((cc) => {
+              const sanitizedKey = toCssKey(cc);
+              return (
+                <Bar
+                  key={sanitizedKey}
+                  dataKey={sanitizedKey}
+                  stackId="a"
+                  fill={chartConfig[sanitizedKey].color}
+                  radius={[4, 4, 0, 0]}
+                />
+              )
+            })}
+          </BarChart>
+        </ResponsiveContainer>
+      )}
     </ChartContainer>
   );
 }
