@@ -8,8 +8,7 @@ export default function CostCenterPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="Cost Center Management"
-        description="View all cost centers."
+        title="Client Management"
       />
       <CostCenterContent />
     </div>
