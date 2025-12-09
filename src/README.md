@@ -24,4 +24,21 @@ This application is built to run on the Domo platform and has specific configura
 
 4.  **`public/thumbnail.png`**: This file is a user-provided image asset that serves as the application's thumbnail in the Domo Appstore. It has been added manually by the user. **Do not** modify, move, or delete this file.
 
+5.  **Chart Colors (Brand Guidelines)**: When creating charts, use the following function to determine the color palette based on the number of categories being displayed. This ensures brand compliance. Do not use the default theme colors (`chart-1`, `chart-2`, etc.).
+
+    ```javascript
+    const getBrandPalette = (count: number) => {
+      if (count <= 1) return ['#255CA9'];
+      if (count <= 3) return ['#255CA9', '#BAD808', '#007C82'];
+      if (count === 4) return ['#255CA9', '#BAD808', '#007C82', '#B2CFF2'];
+      if (count === 5) return ['#255CA9', '#BAD808', '#00C4CA', '#007C82', '#B2CFF2'];
+      if (count === 6) return ['#255CA9', '#BAD808', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
+      if (count === 7) return ['#5887D8', '#255CA9', '#BAD808', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
+      if (count === 8) return ['#5887D8', '#255CA9', '#BAD808', '#5A7A00', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
+      if (count === 9) return ['#ABCFFE', '#5887D8', '#255CA9', '#BAD808', '#5A7A00', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
+      // Default for 10-12+ items
+      return ['#ABCFFE', '#5887D8', '#255CA9', '#BAD808', '#88A800', '#5A7A00', '#8FEEF4', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2', '#415E7D'];
+    };
+    ```
+
 By adhering to these rules, you will avoid breaking the application's connection to the Domo platform.
