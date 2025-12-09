@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
+import { useState, Fragment, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,30 +46,27 @@ type MonthlyRatioGridProps = {
 
 export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
   const { toast } = useToast();
   
   useEffect(() => {
-    // Set date on client to avoid hydration mismatch
+    // Set date only on the client to avoid hydration mismatch.
     setCurrentDate(new Date());
   }, []);
 
   const fetchDataAndPrepopulate = useCallback(async () => {
     if (!currentDate) return;
 
-    setLoading(true);
-    const selectedMonth = format(currentDate, 'MMM');
-    const selectedYear = format(currentDate, 'yyyy');
-
     try {
+      const selectedMonth = format(currentDate, 'MMM');
+      const selectedYear = format(currentDate, 'yyyy');
+
       const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
       
       if (!response.ok) {
         console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
         setActiveAllocations([]);
-        setLoading(false);
         return;
       }
       
@@ -102,15 +99,11 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       console.error("Failed to fetch and process ticket data:", error);
       toast({ variant: 'destructive', title: 'Failed to process data' });
       setActiveAllocations([]);
-    } finally {
-      setLoading(false);
     }
   }, [currentDate, toast]);
 
   useEffect(() => {
-    if (currentDate) {
-      fetchDataAndPrepopulate();
-    }
+    fetchDataAndPrepopulate();
   }, [currentDate, fetchDataAndPrepopulate]);
 
   const handlePrevMonth = () => currentDate && setCurrentDate(subMonths(currentDate, 1));
@@ -220,7 +213,9 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     }
   };
 
-  if (loading || !currentDate) {
+  // This condition prevents rendering the main UI until the client-side
+  // useEffect has run, which avoids hydration errors with the server.
+  if (!currentDate) {
     return (
       <Card>
         <CardHeader>
