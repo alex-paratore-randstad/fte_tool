@@ -77,48 +77,50 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
       return newItem;
     });
   }, [data, costCenters]);
-
-  if (!data || data.length === 0) {
-    return <Skeleton className="h-[300px] w-full" />;
-  }
   
   return (
     <ChartContainer config={chartConfig} className="h-[300px] w-full">
-      <ResponsiveContainer>
-        <BarChart data={formattedData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-          <XAxis
-            dataKey="name"
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(value) => `${value}`}
-          />
-          <Tooltip
-            cursor={{ fill: 'hsl(var(--secondary))' }}
-            content={<ChartTooltipContent />}
-          />
-          <Legend content={<ChartLegendContent />} />
-          {costCenters.map((cc) => {
-            const sanitizedKey = toCssKey(cc);
-            return (
-              <Bar
-                key={sanitizedKey}
-                dataKey={sanitizedKey}
-                stackId="a"
-                fill={`var(--color-${sanitizedKey})`}
-                radius={[4, 4, 0, 0]}
-              />
-            )
-          })}
-        </BarChart>
-      </ResponsiveContainer>
+      {!data || data.length === 0 ? (
+        <Skeleton className="h-full w-full" />
+      ) : (
+        <ResponsiveContainer>
+          <BarChart data={formattedData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+            <XAxis
+              dataKey="name"
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => `${value}`}
+            />
+            <Tooltip
+              cursor={{ fill: 'hsl(var(--secondary))' }}
+              content={<ChartTooltipContent />}
+            />
+            <Legend content={<ChartLegendContent />} />
+            {costCenters.map((cc) => {
+              const sanitizedKey = toCssKey(cc);
+              const color = chartConfig[sanitizedKey]?.color;
+              if (!color) return null;
+              return (
+                <Bar
+                  key={sanitizedKey}
+                  dataKey={sanitizedKey}
+                  stackId="a"
+                  fill={color}
+                  radius={[4, 4, 0, 0]}
+                />
+              )
+            })}
+          </BarChart>
+        </ResponsiveContainer>
+      )}
     </ChartContainer>
   );
 }
