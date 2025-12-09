@@ -6,13 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Table,
   TableBody,
   TableCell,
@@ -20,11 +13,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { format, startOfMonth } from 'date-fns';
+import { format, startOfMonth, addMonths, subMonths } from 'date-fns';
 
 type TicketAllocationData = {
   agent_name: string;
@@ -51,29 +44,25 @@ type MonthlyRatioGridProps = {
   onSaveSuccess: () => void;
 };
 
-const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
-
 export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<string | null>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
   const { toast } = useToast();
   
   useEffect(() => {
-    const now = new Date();
-    setSelectedMonth(months[now.getMonth()]);
-    setSelectedYear(now.getFullYear().toString());
-    setIsClient(true);
+    // Set date on client to avoid hydration mismatch
+    setCurrentDate(new Date());
   }, []);
 
   const fetchDataAndPrepopulate = useCallback(async () => {
-    if (!selectedMonth || !selectedYear) return;
+    if (!currentDate) return;
+
     setLoading(true);
+    const selectedMonth = format(currentDate, 'MMM');
+    const selectedYear = format(currentDate, 'yyyy');
+
     try {
       const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
       
@@ -115,13 +104,16 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth, selectedYear, toast]);
+  }, [currentDate, toast]);
 
   useEffect(() => {
-    if (selectedMonth && selectedYear) {
+    if (currentDate) {
       fetchDataAndPrepopulate();
     }
-  }, [selectedMonth, selectedYear, fetchDataAndPrepopulate]);
+  }, [currentDate, fetchDataAndPrepopulate]);
+
+  const handlePrevMonth = () => setCurrentDate(prev => subMonths(prev!, 1));
+  const handleNextMonth = () => setCurrentDate(prev => addMonths(prev!, 1));
 
   const handleFteChange = (agentName: string, allocId: string, newFteValue: string) => {
     const newFte = parseFloat(newFteValue) || 0;
@@ -164,13 +156,14 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   };
 
   const handleSave = async () => {
-    if (!selectedMonth || !selectedYear) {
+    if (!currentDate) {
         toast({ variant: 'destructive', title: 'Invalid Date', description: 'Please select a valid month and year.' });
         return;
     }
     
-    const monthIndex = months.indexOf(selectedMonth);
-    const allocationDate = format(startOfMonth(new Date(parseInt(selectedYear), monthIndex)), 'yyyy-MM-dd');
+    const allocationDate = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+    const selectedMonth = format(currentDate, 'MMM');
+    const selectedYear = format(currentDate, 'yyyy');
     
     const submissions: any[] = [];
     let hasValidationError = false;
@@ -226,7 +219,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     }
   };
 
-  if (!isClient || loading || !selectedMonth || !selectedYear) {
+  if (loading || !currentDate) {
     return (
       <Card>
         <CardHeader>
@@ -236,8 +229,9 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
                 <Skeleton className="h-4 w-96" />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                  <Skeleton className="h-10 w-[120px]" />
-                  <Skeleton className="h-10 w-[100px]" />
+                  <Skeleton className="h-10 w-10" />
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-10 w-10" />
                   <Skeleton className="h-10 w-24" />
               </div>
           </div>
@@ -256,14 +250,15 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
             <CardDescription>Allocations are pre-populated from monthly ticket ratios. Adjust as needed.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Select value={selectedMonth || ''} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[120px]"><SelectValue placeholder="Month" /></SelectTrigger>
-              <SelectContent>{months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-            </Select>
-            <Select value={selectedYear || ''} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-[100px]"><SelectValue placeholder="Year" /></SelectTrigger>
-              <SelectContent>{years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
-            </Select>
+            <Button variant="outline" size="icon" onClick={handlePrevMonth}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium w-32 text-center">
+              {format(currentDate, 'MMMM yyyy')}
+            </span>
+            <Button variant="outline" size="icon" onClick={handleNextMonth}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
             <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
           </div>
         </div>
@@ -340,5 +335,3 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     </Card>
   );
 }
-
-    
