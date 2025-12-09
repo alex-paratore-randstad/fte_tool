@@ -40,8 +40,6 @@ export function DashboardContent() {
 
   useEffect(() => {
     async function fetchData() {
-      // Intentionally not setting loading to true at the start of this effect
-      // to avoid a content flash on re-renders. `loading` is true by default.
       try {
         const [empResponse, allocResponse] = await Promise.all([
           fetch(`/data/v1/gbs_ind_hr_fte_report`),
@@ -200,7 +198,7 @@ export function DashboardContent() {
               <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
             </CardHeader>
             <CardContent>
-              <FteAllocationChart data={[]} />
+              <Skeleton className="h-[300px] w-full" />
             </CardContent>
           </Card>
           <Card>
@@ -277,50 +275,49 @@ export function DashboardContent() {
       </div>
 
       <div className="grid grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Weekly Client Allocation</CardTitle>
-            <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FteAllocationChart data={allocationChartData} />
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>{detailTitle}</CardTitle>
-            <CardDescription>{detailDescription}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[400px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Full Name</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Manager</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailData.length > 0 ? detailData.map(employee => (
-                    <TableRow key={employee.Person_Number}>
-                      <TableCell>{employee.Full_Name}</TableCell>
-                      <TableCell>{employee.Market_Facing_Title}</TableCell>
-                      <TableCell>{employee.First_Reviewer_Name}</TableCell>
-                    </TableRow>
-                  )) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Weekly Client Allocation</CardTitle>
+              <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FteAllocationChart data={allocationChartData} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{detailTitle}</CardTitle>
+              <CardDescription>{detailDescription}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                        No data to display.
-                      </TableCell>
+                      <TableHead>Full Name</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Manager</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {detailData.length > 0 ? detailData.map(employee => (
+                      <TableRow key={employee.Person_Number}>
+                        <TableCell>{employee.Full_Name}</TableCell>
+                        <TableCell>{employee.Market_Facing_Title}</TableCell>
+                        <TableCell>{employee.First_Reviewer_Name}</TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                          No data to display.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
       </div>
     </div>
   );
