@@ -31,6 +31,8 @@ import { TeamMember } from '@/types';
 type TicketAllocationData = {
   agent_name: string;
   agent_group_name: string;
+  department_name: string;
+  client_name: string;
   reporting_month: string;
   reporting_year: string;
   tickets: string;
@@ -198,8 +200,8 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       const newEmployeeAllocation: EmployeeAllocation = {
         agentName: employeeName,
         allocations: employeeTicketData.map(d => ({
-          id: `${employeeName}-${d.agent_group_name}-${Date.now()}`,
-          clientName: d.agent_group_name,
+          id: `${employeeName}-${d.client_name || d.agent_group_name}-${Date.now()}`,
+          clientName: d.client_name || d.agent_group_name,
           fte: parseFloat(d.monthly_ticket_ratio) || 0,
         })),
       };

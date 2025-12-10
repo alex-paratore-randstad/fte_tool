@@ -154,36 +154,6 @@
             ]
         },
         {
-            "dataSetId": "b45b89c8-da80-4165-a3d6-c2ce4e818543",
-            "alias": "gbs_ind_finance_cc_report",
-            "fields": [
-                {
-                    "alias": "region",
-                    "columnName": "Region"
-                },
-                {
-                    "alias": "country",
-                    "columnName": "Country"
-                },
-                {
-                    "alias": "invoiced_entity",
-                    "columnName": "Invoiced Entity"
-                },
-                {
-                    "alias": "tagetik_entity",
-                    "columnName": "Tagetik Entity"
-                },
-                {
-                    "alias": "cost_center_number",
-                    "columnName": "Cost Center #"
-                },
-                {
-                    "alias": "cost_center_name",
-                    "columnName": "Cost Center Name/Description"
-                }
-            ]
-        },
-        {
             "dataSetId": "08f5bbf7-5327-4991-b932-9de9c776c83f",
             "alias": "mst_fte_updated_titles",
             "fields": [
@@ -242,6 +212,14 @@
                 {
                     "alias": "agent_group_name",
                     "columnName": "agent_group_name"
+                },
+                {
+                    "alias": "department_name",
+                    "columnName": "department_name"
+                },
+                {
+                    "alias": "client_name",
+                    "columnName": "client_name"
                 },
                 {
                     "alias": "reporting_month",
