@@ -4,7 +4,10 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { AiReportTable, AiReportData } from './ai-report-table';
+import { ClientGroupingsTable } from './client-groupings-table';
 import { Skeleton } from '../ui/skeleton';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+
 
 export function ClientContent() {
   const [aiReportData, setAiReportData] = useState<AiReportData[]>([]);
@@ -38,28 +41,11 @@ export function ClientContent() {
 
     fetchData();
   }, [toast]);
-  
-  if (loading) {
-      return (
-          <Card>
-            <CardHeader>
-              <CardTitle><Skeleton className="h-6 w-1/3 mb-2" /></CardTitle>
-              <CardDescription><Skeleton className="h-4 w-2/3" /></CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-40 w-full" />
-              </div>
-            </CardContent>
-          </Card>
-      );
-  }
 
   return (
     <div className="flex flex-col gap-8">
-      <AiReportTable reportData={aiReportData} />
+      <AiReportTable reportData={aiReportData} loading={loading} />
+      <ClientGroupingsTable />
     </div>
   );
 }
-

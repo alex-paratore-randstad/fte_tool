@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '../ui/skeleton';
 
 export type AiReportData = {
     Code: string;
@@ -16,9 +17,10 @@ export type AiReportData = {
 
 type AiReportTableProps = {
     reportData: AiReportData[];
+    loading: boolean;
 };
 
-export function AiReportTable({ reportData }: AiReportTableProps) {
+export function AiReportTable({ reportData, loading }: AiReportTableProps) {
   const [filter, setFilter] = useState('');
 
   const filteredData = useMemo(() => {
@@ -33,9 +35,9 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Client Data</CardTitle>
+        <CardTitle>Client Data (from ai_report)</CardTitle>
         <CardDescription>
-            This table displays all available clients from the `ai_report` dataset.
+            This table displays all available clients from the `ai_report` dataset which populates the client dropdowns across the app.
         </CardDescription>
         <div className="pt-2">
             <Input
@@ -58,7 +60,16 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData && filteredData.length > 0 ? (
+                {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                        </TableRow>
+                    ))
+                ) : filteredData && filteredData.length > 0 ? (
                     filteredData.map((row, rowIndex) => (
                     <TableRow key={rowIndex}>
                         <TableCell>{row.Code}</TableCell>
@@ -81,4 +92,3 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
     </Card>
   );
 }
-
