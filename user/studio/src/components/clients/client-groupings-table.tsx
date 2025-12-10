@@ -1,22 +1,21 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 
-type TicketData = {
+export type TicketData = {
   agent_name: string;
   agent_group_name: string;
   department_name: string;
   client_name: string;
 };
 
-type GroupedData = {
+export type GroupedData = {
   [clientName: string]: {
     [departmentName: string]: {
       [agentGroupName: string]: Set<string>; // Set of agent names
@@ -24,52 +23,13 @@ type GroupedData = {
   };
 };
 
-export function ClientGroupingsTable() {
-  const [groupedData, setGroupedData] = useState<GroupedData>({});
-  const [loading, setLoading] = useState(true);
+type ClientGroupingsTableProps = {
+  groupedData: GroupedData;
+  loading: boolean;
+};
+
+export function ClientGroupingsTable({ groupedData, loading }: ClientGroupingsTableProps) {
   const [filter, setFilter] = useState('');
-  const { toast } = useToast();
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/data/v1/fte_tickets_grouped_monthly');
-      if (!response.ok) {
-        throw new Error('Failed to fetch ticket data');
-      }
-      const data: TicketData[] = await response.json();
-
-      const processedData = data.reduce((acc: GroupedData, item) => {
-        const client = item.client_name || 'N/A';
-        const department = item.department_name || 'N/A';
-        const agentGroup = item.agent_group_name || 'N/A';
-        const agent = item.agent_name;
-
-        if (!acc[client]) acc[client] = {};
-        if (!acc[client][department]) acc[client][department] = {};
-        if (!acc[client][department][agentGroup]) {
-          acc[client][department][agentGroup] = new Set();
-        }
-        acc[client][department][agentGroup].add(agent);
-
-        return acc;
-      }, {});
-
-      setGroupedData(processedData);
-    } catch (error) {
-      console.error('Error fetching and processing data:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Failed to load client groupings',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   const filteredClients = useMemo(() => {
     if (!filter) return Object.keys(groupedData).sort();
@@ -90,6 +50,7 @@ export function ClientGroupingsTable() {
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="max-w-sm"
+              disabled={loading}
             />
           </div>
       </CardHeader>
