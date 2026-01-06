@@ -77,3 +77,14 @@ export type WeeklyAllocation = {
     allocation_amount: number; // 0.0 to 1.0
   }
 };
+
+export type WeeklyForecast = {
+  id: string;
+  content: {
+    forecast_allocation_date: string;
+    forecast_allocation_name: string;
+    forecast_cost_center_number: string;
+    forecast_cost_center_name: string;
+    forecast_allocation_amount: string;
+  }
+};

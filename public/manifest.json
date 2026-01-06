@@ -350,6 +350,34 @@
             "syncEnabled": false
         },
         {
+            "name": "weekly_forecast",
+            "schema": {
+                "columns": [
+                    {
+                        "name": "forecast_allocation_date",
+                        "type": "DATE"
+                    },
+                    {
+                        "name": "forecast_allocation_name",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "forecast_allocation_amount",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "forecast_cost_center_name",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "forecast_cost_center_number",
+                        "type": "STRING"
+                    }
+                ]
+            },
+            "syncEnabled": false
+        },
+        {
             "name": "title_management",
             "schema": {
                 "columns": [
