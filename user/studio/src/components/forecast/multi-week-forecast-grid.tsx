@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/table';
 import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import type { TeamMember, WeeklyForecast } from '@/types';
+import type { TeamMember } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -446,7 +446,6 @@ export function MultiWeekForecastGrid({ currentDate, setCurrentDate, onSaveSucce
               content: {
                 forecast_allocation_date: weekKey,
                 forecast_allocation_name: `[${empAlloc.employee.Person_Number}] ${empAlloc.employee.Full_Name}`,
-                employee_id: empAlloc.employee.Person_Number,
                 forecast_cost_center_name: alloc.clientName,
                 forecast_cost_center_number: alloc.clientId,
                 forecast_allocation_amount: fte.toString(),

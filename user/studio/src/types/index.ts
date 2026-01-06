@@ -83,7 +83,6 @@ export type WeeklyForecast = {
   content: {
     forecast_allocation_date: string;
     forecast_allocation_name: string;
-    employee_id?: string; // Employee Person_Number
     forecast_cost_center_number: string;
     forecast_cost_center_name: string;
     forecast_allocation_amount: string;
