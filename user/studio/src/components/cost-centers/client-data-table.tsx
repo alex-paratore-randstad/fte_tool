@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '../ui/skeleton';
 
 export type AiReportData = {
     Code: string;
@@ -14,11 +15,12 @@ export type AiReportData = {
     RollsUpTo: string;
 };
 
-type AiReportTableProps = {
+type ClientDataTableProps = {
     reportData: AiReportData[];
+    loading: boolean;
 };
 
-export function AiReportTable({ reportData }: AiReportTableProps) {
+export function ClientDataTable({ reportData, loading }: ClientDataTableProps) {
   const [filter, setFilter] = useState('');
 
   const filteredData = useMemo(() => {
@@ -33,9 +35,9 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Client Data</CardTitle>
+        <CardTitle>Client Data (from ai_report)</CardTitle>
         <CardDescription>
-            Data from the `ai_report` dataset used to populate client dropdowns.
+            This table displays all available clients from the `ai_report` dataset which populates the client dropdowns across the app.
         </CardDescription>
         <div className="pt-2">
             <Input
@@ -43,6 +45,7 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="max-w-sm"
+              disabled={loading}
             />
           </div>
       </CardHeader>
@@ -58,9 +61,18 @@ export function AiReportTable({ reportData }: AiReportTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData && filteredData.length > 0 ? (
+                {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={`skeleton-${i}`}>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                        </TableRow>
+                    ))
+                ) : filteredData.length > 0 ? (
                     filteredData.map((row, rowIndex) => (
-                    <TableRow key={rowIndex}>
+                    <TableRow key={row.Code || rowIndex}>
                         <TableCell>{row.Code}</TableCell>
                         <TableCell>{row.Name}</TableCell>
                         <TableCell>{row.DisplayName}</TableCell>

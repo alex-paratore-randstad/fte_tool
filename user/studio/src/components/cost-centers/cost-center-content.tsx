@@ -1,11 +1,10 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { AiReportTable, AiReportData } from './ai-report-table';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { ClientDataTable, type AiReportData } from './client-data-table';
+
 
 export function CostCenterContent() {
   const [aiReportData, setAiReportData] = useState<AiReportData[]>([]);
@@ -40,17 +39,9 @@ export function CostCenterContent() {
     fetchData();
   }, [toast]);
 
-  if (loading) {
-      return (
-        <div className="flex flex-col gap-8">
-            <AiReportTable reportData={[]} />
-        </div>
-      )
-  }
-
   return (
     <div className="flex flex-col gap-8">
-      <AiReportTable reportData={aiReportData} />
+      <ClientDataTable reportData={aiReportData} loading={loading} />
     </div>
   );
 }

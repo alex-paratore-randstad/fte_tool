@@ -299,12 +299,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const sourceWeekKeys = sourceWeeks.map(w => `'${formatDateKey(w.startDate)}'`);
     if (sourceWeekKeys.length === 0) return;
 
+    // CORRECTED: Build a single 'q' parameter with 'and'
     const employeeNameFilter = `content.allocation_name='${employee.Full_Name}'`;
     const dateFilter = `content.allocation_date in (${sourceWeekKeys.join(',')})`;
-    const combinedQuery = `(${employeeNameFilter}) and (${dateFilter})`;
+    const combinedQuery = `q=(${employeeNameFilter}) and (${dateFilter})`;
     
     try {
-      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=${combinedQuery}`);
+      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/?${combinedQuery}`);
       
       if (!response.ok) {
         console.warn(`No previous allocations found for ${employee.Full_Name}`);
@@ -313,8 +314,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       
       const prevAllocs: WeeklyAllocation[] = await response.json();
       if (prevAllocs.length === 0) return;
-      
-      // Group previous allocations by client AND then by week
+
       const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
 
       prevAllocs.forEach(alloc => {
@@ -338,7 +338,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           weeklyFtes: {},
         };
         
-        // Map previous week allocations to current week's first 4 weeks
         targetWeeks.forEach((currentWeek, index) => {
             const sourceWeekKey = sourceWeeks[index] ? formatDateKey(sourceWeeks[index].startDate) : null;
             if (sourceWeekKey && data.weeklyFtes.has(sourceWeekKey)) {
@@ -751,5 +750,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     </Card>
   );
 }
-
-    
