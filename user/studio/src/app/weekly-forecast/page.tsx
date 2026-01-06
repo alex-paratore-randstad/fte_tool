@@ -36,22 +36,24 @@ export default function WeeklyForecastPage() {
     setRefreshKey(prevKey => prevKey + 1);
   };
 
+  const isInitialLoading = !calendarInitialized || !currentDate;
+
   return (
     <div className="flex flex-col gap-8">
        <PageHeader
         title="Weekly Forecast"
         description="Forecast FTEs for future fiscal periods."
       />
-      <MultiWeekForecastGrid 
-        currentDate={currentDate} 
-        setCurrentDate={setCurrentDate} 
+      <MultiWeekForecastGrid
+        currentDate={currentDate}
+        setCurrentDate={setCurrentDate}
         onSaveSuccess={handleRefresh}
-        initialLoading={!calendarInitialized}
+        initialLoading={isInitialLoading}
       />
-      <WeeklyForecastTable 
-        currentDate={currentDate} 
+      <WeeklyForecastTable
+        currentDate={currentDate}
         refreshKey={refreshKey}
-        initialLoading={!calendarInitialized}
+        initialLoading={isInitialLoading}
       />
     </div>
   );

@@ -297,13 +297,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const targetWeeks = weeks.slice(0, 4); // Only apply to first 4 weeks of current month
     
     const sourceWeekKeys = sourceWeeks.map(w => `'${formatDateKey(w.startDate)}'`);
+    if (sourceWeekKeys.length === 0) return;
+
     const employeeNameFilter = `content.allocation_name='${employee.Full_Name}'`;
     const dateFilter = `content.allocation_date in (${sourceWeekKeys.join(',')})`;
     const combinedQuery = `(${employeeNameFilter}) and (${dateFilter})`;
-    const encodedQuery = encodeURIComponent(combinedQuery);
-
+    
     try {
-      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=${encodedQuery}`);
+      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=${combinedQuery}`);
       
       if (!response.ok) {
         console.warn(`No previous allocations found for ${employee.Full_Name}`);
