@@ -135,7 +135,7 @@ const EmployeeSelect = ({
     }
     return sortedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
-
+  
   return (
     <Select onValueChange={onValueChange} value={value}>
       <SelectTrigger className="w-[200px]">
@@ -485,22 +485,7 @@ export function MultiWeekForecastGrid({ currentDate, setCurrentDate, onSaveSucce
     }
   };
 
-  if (initialLoading || internalLoading || userLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-          <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const isLoading = initialLoading || internalLoading || userLoading;
 
   return (
     <Card>
@@ -510,141 +495,155 @@ export function MultiWeekForecastGrid({ currentDate, setCurrentDate, onSaveSucce
             <CardTitle>Monthly Forecast Grid</CardTitle>
             <CardDescription>Add employees to build your forecast plan.</CardDescription>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-             <EmployeeSelect 
-                employees={availableEmployees} 
-                onValueChange={handleAddEmployee}
-                value={selectedEmployeeToAdd}
-             />
-             <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} />
-            <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-            <span className="text-sm font-medium w-32 text-center">
-              {fiscalMonthLabel}
-            </span>
-            <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
-            <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
-          </div>
+          {isLoading ? (
+             <div className="flex items-center gap-2 flex-wrap">
+                <Skeleton className="h-10 w-[200px]" />
+                <Skeleton className="h-10 w-[200px]" />
+                <Skeleton className="h-10 w-10" />
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-10 w-10" />
+                <Skeleton className="h-10 w-24" />
+              </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <EmployeeSelect 
+                  employees={availableEmployees} 
+                  onValueChange={handleAddEmployee}
+                  value={selectedEmployeeToAdd}
+              />
+              <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} />
+              <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
+              <span className="text-sm font-medium w-32 text-center">
+                {fiscalMonthLabel}
+              </span>
+              <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
+              <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
-                <TableHead className="min-w-[200px]">Client Name</TableHead>
-                <TableHead className="p-2 w-28">Client Code</TableHead>
-                <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
-                {weeks.map(week => {
-                  const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                  return (
-                    <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-primary/10": isCurrent })}>
-                      <div className='flex items-center justify-center gap-2'>
-                        <span>W/E {week.reportingWeekDate}</span>
-                      </div>
-                      {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
-                    </TableHead>
-                  )
-                })}
-                <TableHead className="w-[80px]"> </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-             {activeAllocations.length === 0 && (
+          {isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                    <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
-                        Select an employee from the dropdown above to begin building your forecast plan.
-                    </TableCell>
+                  <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
+                  <TableHead className="min-w-[200px]">Client Name</TableHead>
+                  <TableHead className="p-2 w-28">Client Code</TableHead>
+                  <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
+                  {weeks.map(week => {
+                    const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                    return (
+                      <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-primary/10": isCurrent })}>
+                        <div className='flex items-center justify-center gap-2'>
+                          <span>W/E {week.reportingWeekDate}</span>
+                        </div>
+                        {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
+                      </TableHead>
+                    )
+                  })}
+                  <TableHead className="w-[80px]"> </TableHead>
                 </TableRow>
-             )}
-              {activeAllocations.map(({ employee, allocations }) => {
-                const weeklyTotals = weeks.map(week => {
-                  const weekKey = formatDateKey(week.startDate);
-                  return allocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
-                });
-
-                return (
-                  <Fragment key={employee.Person_Number}>
-                    <TableRow className="bg-muted/50 hover:bg-muted">
-                       <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">
-                        {employee.Full_Name}
-                        <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
+              </TableHeader>
+              <TableBody>
+              {activeAllocations.length === 0 ? (
+                  <TableRow>
+                      <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
+                          Select an employee from the dropdown above to begin building your forecast plan.
                       </TableCell>
-                      <TableCell colSpan={3}></TableCell>
-                      {weeklyTotals.map((total, index) => (
-                        <TableCell key={index} className={cn("text-center font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
-                          {total > 0 ? total.toFixed(2) : '-'}
-                        </TableCell>
-                      ))}
-                      <TableCell className='text-right'>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.Person_Number)}>
-                           <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                  </TableRow>
+              ) : activeAllocations.map(({ employee, allocations }) => {
+                  const weeklyTotals = weeks.map(week => {
+                    const weekKey = formatDateKey(week.startDate);
+                    return allocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
+                  });
 
-                    {allocations.map((alloc) => (
-                      <TableRow key={alloc.id}>
-                        <TableCell className="sticky left-0 bg-card z-10"></TableCell>
-                        <TableCell>
-                          <ClientSelect
-                              clients={clients}
-                              value={alloc.clientName}
-                              onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
-                          />
+                  return (
+                    <Fragment key={employee.Person_Number}>
+                      <TableRow className="bg-muted/50 hover:bg-muted">
+                        <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">
+                          {employee.Full_Name}
+                          <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
                         </TableCell>
-                         <TableCell className="p-2">
-                            <Input
-                                value={alloc.clientId}
-                                readOnly
-                                className="bg-muted w-24"
-                                placeholder="Code"
-                            />
-                        </TableCell>
-                        <TableCell className="text-center">
-                           <Input
-                                type="number" step="0.05" min="0" placeholder="0.00"
-                                className="w-20 text-center mx-auto"
-                                value={alloc.weeklyFtes[formatDateKey(weeks[0]?.startDate)] || ''}
-                                onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
-                              />
-                        </TableCell>
-                        {weeks.map(week => {
-                          const weekKey = formatDateKey(week.startDate);
-                          const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                          const fteValue = alloc.weeklyFtes[weekKey];
-                          return (
-                            <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-primary/10": isCurrent})}>
-                              <Input
-                                type="number" step="0.05" min="0" placeholder="0.00"
-                                className="w-20 text-center mx-auto"
-                                value={fteValue || ''}
-                                onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
-                              />
-                            </TableCell>
-                          )
-                        })}
-                         <TableCell className='text-right'>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(employee.Person_Number, alloc.id)} disabled={allocations.length === 1}>
+                        <TableCell colSpan={3}></TableCell>
+                        {weeklyTotals.map((total, index) => (
+                          <TableCell key={index} className={cn("text-center font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
+                            {total > 0 ? total.toFixed(2) : '-'}
+                          </TableCell>
+                        ))}
+                        <TableCell className='text-right'>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.Person_Number)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
 
-                    <TableRow>
-                      <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
-                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Add Forecast
-                        </Button>
-                      </TableCell>
-                      <TableCell colSpan={weeks.length + 2}></TableCell>
-                    </TableRow>
-                  </Fragment>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      {allocations.map((alloc) => (
+                        <TableRow key={alloc.id}>
+                          <TableCell className="sticky left-0 bg-card z-10"></TableCell>
+                          <TableCell>
+                            <ClientSelect
+                                clients={clients}
+                                value={alloc.clientName}
+                                onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                              <Input
+                                  value={alloc.clientId}
+                                  readOnly
+                                  className="bg-muted w-24"
+                                  placeholder="Code"
+                              />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Input
+                                  type="number" step="0.05" min="0" placeholder="0.00"
+                                  className="w-20 text-center mx-auto"
+                                  value={alloc.weeklyFtes[formatDateKey(weeks[0]?.startDate)] || ''}
+                                  onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
+                                />
+                          </TableCell>
+                          {weeks.map(week => {
+                            const weekKey = formatDateKey(week.startDate);
+                            const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                            const fteValue = alloc.weeklyFtes[weekKey];
+                            return (
+                              <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-primary/10": isCurrent})}>
+                                <Input
+                                  type="number" step="0.05" min="0" placeholder="0.00"
+                                  className="w-20 text-center mx-auto"
+                                  value={fteValue || ''}
+                                  onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
+                                />
+                              </TableCell>
+                            )
+                          })}
+                          <TableCell className='text-right'>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(employee.Person_Number, alloc.id)} disabled={allocations.length === 1}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+
+                      <TableRow>
+                        <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
+                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Forecast
+                          </Button>
+                        </TableCell>
+                        <TableCell colSpan={weeks.length + 2}></TableCell>
+                      </TableRow>
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </CardContent>
     </Card>

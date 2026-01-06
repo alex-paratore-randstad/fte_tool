@@ -101,17 +101,11 @@ const ClientSelect = ({
     );
   }, [clients, searchTerm]);
 
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      setSearchTerm('');
-    }
-  };
-
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={disabled} onOpenChange={handleOpenChange}>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger><SelectValue placeholder="Select Client..." /></SelectTrigger>
       <SelectContent>
-        <SelectSearch placeholder="Search client..." value={searchTerm} onChange={setSearchTerm} />
+        <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
         {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
          {filteredClients.length === 0 && (
           <div className="p-4 text-sm text-center text-muted-foreground">
@@ -142,20 +136,14 @@ const EmployeeSelect = ({
     }
     return sortedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
-  
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      setSearchTerm('');
-    }
-  };
 
   return (
-    <Select onValueChange={onValueChange} value={value} onOpenChange={handleOpenChange}>
+    <Select onValueChange={onValueChange} value={value}>
       <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="Load Employee..." />
       </SelectTrigger>
       <SelectContent>
-          <SelectSearch placeholder="Search employee..." value={searchTerm} onChange={setSearchTerm} />
+          <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
           {filteredEmployees.map(e => (
               <SelectItem key={e.Person_Number} value={e.Person_Number}>
                   {e.Full_Name}
@@ -189,19 +177,13 @@ const ManagerSelect = ({
     return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
 
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      setSearchTerm('');
-    }
-  };
-
   return (
-    <Select onValueChange={onValueChange} onOpenChange={handleOpenChange}>
+    <Select onValueChange={onValueChange}>
         <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Load Team..." />
         </SelectTrigger>
         <SelectContent>
-            <SelectSearch placeholder="Search manager..." value={searchTerm} onChange={setSearchTerm} />
+            <SelectSearch placeholder="Search manager..." onChange={setSearchTerm} />
             {filteredManagers.map(m => (
                 <SelectItem key={m.id} value={m.id}>
                     {m.name}
