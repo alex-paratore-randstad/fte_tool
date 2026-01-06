@@ -290,48 +290,52 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
     if (!currentDate) return;
-    
+  
     setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: true }));
-
+  
     const prevMonthDate = getPreviousFiscalMonth(currentDate);
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
     if (prevMonthWeeks.length === 0) {
       setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: false }));
+      toast({ title: "No prior weeks found", description: `Could not determine previous fiscal month for ${employee.Full_Name}.`});
       return;
     }
   
     try {
       const allPrevMonthAllocations: WeeklyAllocation[] = [];
-      for (const weekKey of prevMonthWeeks.map(w => formatDateKey(w.startDate))) {
+      const sourceWeekKeys = prevMonthWeeks.map(w => formatDateKey(w.startDate));
+      
+      for (const weekKey of sourceWeekKeys) {
         const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
         if (response.ok) {
-            allPrevMonthAllocations.push(...(await response.json()));
+          allPrevMonthAllocations.push(...(await response.json()));
         } else {
-            console.warn(`No allocations found for ${weekKey}`);
+          console.warn(`No allocations found for ${weekKey}`);
         }
       }
       
       const employeeAllocations = allPrevMonthAllocations.filter(alloc => 
-        alloc.content.allocation_name.includes(`[${employee.Person_Number}]`)
+        alloc.content.employee_id === employee.Person_Number
       );
       
       if (employeeAllocations.length === 0) {
         toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.` });
+        setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: false }));
         return;
       }
   
       const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
   
       employeeAllocations.forEach(alloc => {
-          const clientKey = alloc.content.cost_center_number;
-          if (!clientAllocationsMap.has(clientKey)) {
-              clientAllocationsMap.set(clientKey, { 
-                  clientName: alloc.content.cost_center_name,
-                  weeklyFtes: new Map<string, number>()
-              });
-          }
-          const fte = parseFloat(alloc.content.allocation_amount);
-          clientAllocationsMap.get(clientKey)!.weeklyFtes.set(alloc.content.allocation_date, fte);
+        const clientKey = alloc.content.cost_center_number;
+        if (!clientAllocationsMap.has(clientKey)) {
+          clientAllocationsMap.set(clientKey, { 
+            clientName: alloc.content.cost_center_name,
+            weeklyFtes: new Map<string, number>()
+          });
+        }
+        const fte = parseFloat(alloc.content.allocation_amount);
+        clientAllocationsMap.get(clientKey)!.weeklyFtes.set(alloc.content.allocation_date, fte);
       });
       
       const newAllocationRows: AllocationRow[] = [];
@@ -344,13 +348,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         };
         
         weeks.forEach((currentWeek, index) => {
-            if (index < prevMonthWeeks.length) {
-                const sourceWeekKey = formatDateKey(prevMonthWeeks[index].startDate);
-                if (data.weeklyFtes.has(sourceWeekKey)) {
-                    const fte = data.weeklyFtes.get(sourceWeekKey)!;
-                    newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
-                }
+          if (index < prevMonthWeeks.length) {
+            const sourceWeekKey = formatDateKey(prevMonthWeeks[index].startDate);
+            if (data.weeklyFtes.has(sourceWeekKey)) {
+              const fte = data.weeklyFtes.get(sourceWeekKey)!;
+              newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
             }
+          }
         });
         newAllocationRows.push(newRow);
       });
@@ -363,18 +367,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
               : empAlloc
           )
         );
-         toast({ title: `Prior Allocations Loaded`, description: `Loaded previous month's data for ${employee.Full_Name}.`});
+        toast({ title: `Prior Allocations Loaded`, description: `Loaded previous month's data for ${employee.Full_Name}.`});
       } else {
         toast({ title: "No applicable prior allocations found", description: `No data from the previous month could be applied for ${employee.Full_Name}.` });
       }
   
     } catch (error) {
-        console.error('Failed to fetch previous month allocations:', error);
-        toast({ variant: 'destructive', title: 'Error Loading Prior Data', description: `Could not load allocations for ${employee.Full_Name}.`});
+      console.error('Failed to fetch previous month allocations:', error);
+      toast({ variant: 'destructive', title: 'Error Loading Prior Data', description: `Could not load allocations for ${employee.Full_Name}.`});
     } finally {
       setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: false }));
     }
-  
   }, [currentDate, weeks, toast]);
   
   const handleAddEmployee = (employeeId: string) => {
