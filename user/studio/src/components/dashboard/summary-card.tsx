@@ -1,9 +1,11 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { LucideIcon } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
+import type { ReactNode } from 'react';
 
 const changeTextVariants = cva(
   'text-xs',
@@ -22,7 +24,7 @@ const changeTextVariants = cva(
 
 export interface SummaryCardProps extends VariantProps<typeof changeTextVariants> {
   title: string;
-  value: string;
+  value: string | ReactNode;
   icon: LucideIcon;
   change?: string;
   onClick?: () => void;
@@ -62,3 +64,5 @@ export default function SummaryCard({
     </Card>
   );
 }
+
+    

@@ -65,17 +65,17 @@ export function DashboardContent() {
             const today = startOfWeek(new Date(), { weekStartsOn: 1 });
             const currentWeekAllocations = allocations.filter(a => a.content.allocation_date === format(today, 'yyyy-MM-dd'));
 
-            const allocatedEmployeeNames = new Set(
+            const allocatedEmployeeIds = new Set(
                 currentWeekAllocations
-                    .filter(a => a && a.content && a.content.allocation_name && a.content.allocation_amount > 0)
-                    .map(a => a.content.allocation_name)
+                    .filter(a => a && a.content && a.content.employee_id && parseFloat(a.content.allocation_amount) > 0)
+                    .map(a => a.content.employee_id)
             );
 
-            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeNames.has(e.Full_Name));
+            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.Person_Number));
             setAllocatedEmployees(allocatedEmps);
             setAllocatedFtes(allocatedEmps.length);
 
-            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeNames.has(e.Full_Name));
+            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.Person_Number));
             setUnallocatedEmployees(unallocatedEmps);
             setUnallocatedFtes(unallocatedEmps.length);
             setMissingAllocations(unallocatedEmps.length);
@@ -157,86 +157,6 @@ export function DashboardContent() {
     }
   })();
 
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-8">
-        <PageHeader title="Dashboard" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total FTEs</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Allocated FTEs</CardTitle>
-              <Briefcase className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Unallocated FTEs</CardTitle>
-              <UserMinus className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Missing Allocations</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
-          </Card>
-        </div>
-        <div className="grid grid-cols-2 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Weekly Client Allocation</CardTitle>
-              <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FteAllocationChart data={[]} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>All FTEs</CardTitle>
-              <CardDescription>Displaying employees.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead><Skeleton className="h-5 w-24" /></TableHead>
-                      <TableHead><Skeleton className="h-5 w-24" /></TableHead>
-                      <TableHead><Skeleton className="h-5 w-24" /></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Dashboard" />
@@ -244,21 +164,21 @@ export function DashboardContent() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           title="Total FTEs"
-          value={totalFtes.toString()}
+          value={loading ? <Skeleton className="h-8 w-1/2" /> : totalFtes.toString()}
           icon={Users}
           onClick={() => handleCardClick('total')}
           isActive={activeView === 'total'}
         />
         <SummaryCard
           title="Allocated FTEs"
-          value={allocatedFtes.toString()}
+          value={loading ? <Skeleton className="h-8 w-1/2" /> : allocatedFtes.toString()}
           icon={Briefcase}
           onClick={() => handleCardClick('allocated')}
           isActive={activeView === 'allocated'}
         />
         <SummaryCard
           title="Unallocated FTEs"
-          value={unallocatedFtes.toString()}
+          value={loading ? <Skeleton className="h-8 w-1/2" /> : unallocatedFtes.toString()}
           icon={UserMinus}
           variant={unallocatedFtes > 0 ? 'default' : 'default'}
           onClick={() => handleCardClick('unallocated')}
@@ -266,7 +186,7 @@ export function DashboardContent() {
         />
         <SummaryCard
           title="Missing Allocations"
-          value={missingAllocations.toString()}
+          value={loading ? <Skeleton className="h-8 w-1/2" /> : missingAllocations.toString()}
           icon={AlertTriangle}
           variant={missingAllocations > 0 ? 'destructive' : 'default'}
           onClick={() => handleCardClick('missing')}
@@ -274,20 +194,24 @@ export function DashboardContent() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card>
             <CardHeader>
               <CardTitle>Weekly Client Allocation</CardTitle>
               <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
             </CardHeader>
             <CardContent>
-              <FteAllocationChart data={allocationChartData} />
+              {loading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <FteAllocationChart data={allocationChartData} />
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{detailTitle}</CardTitle>
-              <CardDescription>{detailDescription}</CardDescription>
+              <CardTitle>{loading ? <Skeleton className="h-6 w-1/3" /> : detailTitle}</CardTitle>
+              <CardDescription>{loading ? <Skeleton className="h-4 w-2/3" /> : detailDescription}</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[400px]">
@@ -300,7 +224,15 @@ export function DashboardContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {detailData.length > 0 ? detailData.map(employee => (
+                    {loading ? (
+                       Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : detailData.length > 0 ? detailData.map(employee => (
                       <TableRow key={employee.Person_Number}>
                         <TableCell>{employee.Full_Name}</TableCell>
                         <TableCell>{employee.Market_Facing_Title}</TableCell>
@@ -322,3 +254,5 @@ export function DashboardContent() {
     </div>
   );
 }
+
+    
