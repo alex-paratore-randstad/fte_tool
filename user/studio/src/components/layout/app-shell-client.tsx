@@ -30,37 +30,6 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-
-const navGroups: NavGroup[] = [
-  {
-    title: 'Allocations',
-    roles: ['admin', 'manager', 'vp'],
-    items: [
-      { href: '/allocation', label: 'Weekly Allocation' },
-      { href: '/bulk-allocation', label: 'Bulk Allocation' },
-      { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation' },
-      { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation' },
-    ]
-  },
-  {
-    title: 'Forecasts',
-    roles: ['admin', 'manager', 'vp'],
-    items: [
-      { href: '/weekly-forecast', label: 'Weekly Forecast' },
-      { href: '/bulk-forecast', label: 'Bulk Forecast' },
-    ]
-  },
-  {
-    title: 'Management',
-    roles: ['admin', 'manager', 'vp'],
-    items: [
-      { href: '/team', label: 'Team Management', roles: ['admin', 'manager', 'vp'] },
-      { href: '/cost-centers', label: 'Client Management', roles: ['admin'] },
-      { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
-    ]
-  }
-];
-
 const getHref = (href: string) => {
     if (href === '/') return '/index.html';
     return `${href.endsWith('/') ? href : `${href}/`}index.html`;
@@ -69,6 +38,37 @@ const getHref = (href: string) => {
 export function AppShellClient({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useCurrentUser();
   const pathname = usePathname();
+
+  // Navigation structure is defined here for the mobile sidebar
+  const navGroups: NavGroup[] = [
+    {
+      title: 'Allocations',
+      roles: ['admin', 'manager', 'vp'],
+      items: [
+        { href: '/allocation', label: 'Weekly Allocation' },
+        { href: '/bulk-allocation', label: 'Bulk Allocation' },
+        { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation' },
+        { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation' },
+      ]
+    },
+    {
+      title: 'Forecasts',
+      roles: ['admin', 'manager', 'vp'],
+      items: [
+        { href: '/weekly-forecast', label: 'Weekly Forecast' },
+        { href: '/bulk-forecast', label: 'Bulk Forecast' },
+      ]
+    },
+    {
+      title: 'Management',
+      roles: ['admin', 'manager', 'vp'],
+      items: [
+        { href: '/team', label: 'Team Management', roles: ['admin', 'manager', 'vp'] },
+        { href: '/cost-centers', label: 'Client Management', roles: ['admin'] },
+        { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
+      ]
+    }
+  ];
 
   const userHasAccess = (roles?: string[]) => {
     if (loading || !currentUser.role) return false;
@@ -91,7 +91,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
           <Link href={getHref('/')} className="flex items-center gap-2 text-lg font-semibold md:text-base">
             <Logo />
           </Link>
-          <TopNav navGroups={navGroups} />
+          <TopNav />
         </nav>
         <Sheet>
           <SheetTrigger asChild>
@@ -118,20 +118,22 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                   </Link>
                   <Accordion type="multiple" className="w-full">
                     {navGroups.map(group => (
-                      <AccordionItem value={group.title} key={group.title} className="border-b-0">
-                        <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
-                          {group.title}
-                        </AccordionTrigger>
-                        <AccordionContent className="pl-4 pb-0">
-                          <div className="flex flex-col gap-1">
-                            {!loading && group.items.filter(item => userHasAccess(item.roles)).map(item => (
-                              <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
-                                {item.label}
-                              </Link>
-                            ))}
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
+                        userHasAccess(group.roles) && (
+                        <AccordionItem value={group.title} key={group.title} className="border-b-0">
+                            <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
+                            {group.title}
+                            </AccordionTrigger>
+                            <AccordionContent className="pl-4 pb-0">
+                            <div className="flex flex-col gap-1">
+                                {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                                <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
+                                    {item.label}
+                                </Link>
+                                ))}
+                            </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                        )
                     ))}
                   </Accordion>
                 </nav>

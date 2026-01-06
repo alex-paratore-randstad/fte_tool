@@ -15,8 +15,37 @@ import { Button } from '../ui/button';
 import { ChevronDown } from 'lucide-react';
 import type { NavGroup } from './app-shell-client';
 
+const navGroups: NavGroup[] = [
+  {
+    title: 'Allocations',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { href: '/allocation', label: 'Weekly Allocation' },
+      { href: '/bulk-allocation', label: 'Bulk Allocation' },
+      { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation' },
+      { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation' },
+    ]
+  },
+  {
+    title: 'Forecasts',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { href: '/weekly-forecast', label: 'Weekly Forecast' },
+      { href: '/bulk-forecast', label: 'Bulk Forecast' },
+    ]
+  },
+  {
+    title: 'Management',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { href: '/team', label: 'Team Management', roles: ['admin', 'manager', 'vp'] },
+      { href: '/cost-centers', label: 'Client Management', roles: ['admin'] },
+      { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
+    ]
+  }
+];
 
-export function TopNav({ className, navGroups, ...props }: React.HTMLAttributes<HTMLElement> & { navGroups: NavGroup[] }) {
+export function TopNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
   const pathname = usePathname();
   const { currentUser, loading } = useCurrentUser();
 
