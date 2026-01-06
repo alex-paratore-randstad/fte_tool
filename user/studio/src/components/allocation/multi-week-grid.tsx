@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, History } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, History, Loader2 } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember, WeeklyAllocation } from '@/types';
 import { cn } from '@/lib/utils';
@@ -208,6 +208,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const [internalLoading, setInternalLoading] = useState(true);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
+  const [isCopyingPrior, setIsCopyingPrior] = useState<Record<string, boolean>>({});
 
   const { currentUser, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
@@ -289,22 +290,19 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
     if (!currentDate) return;
-  
+    
+    setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: true }));
+
     const prevMonthDate = getPreviousFiscalMonth(currentDate);
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
-    if (prevMonthWeeks.length === 0) return;
-  
-    const sourceWeekKeys = prevMonthWeeks.map(w => formatDateKey(w.startDate));
-  
-    if (sourceWeekKeys.length === 0) {
-      toast({ title: "No weeks to query", description: "Could not determine previous month's weeks." });
+    if (prevMonthWeeks.length === 0) {
+      setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: false }));
       return;
     }
   
     try {
       const allPrevMonthAllocations: WeeklyAllocation[] = [];
-      // Fetch all documents for the previous month's weeks
-      for (const weekKey of sourceWeekKeys) {
+      for (const weekKey of prevMonthWeeks.map(w => formatDateKey(w.startDate))) {
         const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
         if (response.ok) {
             allPrevMonthAllocations.push(...(await response.json()));
@@ -313,9 +311,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         }
       }
       
-      const employeeIdCheck = `[${employee.Person_Number}]`;
-      // Client-side filter for the specific employee, checking for their ID in the composite name
-      const employeeAllocations = allPrevMonthAllocations.filter(alloc => alloc.content.allocation_name.startsWith(employeeIdCheck));
+      const employeeAllocations = allPrevMonthAllocations.filter(alloc => 
+        alloc.content.allocation_name.includes(`[${employee.Person_Number}]`)
+      );
       
       if (employeeAllocations.length === 0) {
         toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.` });
@@ -345,7 +343,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           weeklyFtes: {},
         };
         
-        // This logic maps previous month's Nth week to current month's Nth week
         weeks.forEach((currentWeek, index) => {
             if (index < prevMonthWeeks.length) {
                 const sourceWeekKey = formatDateKey(prevMonthWeeks[index].startDate);
@@ -374,6 +371,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     } catch (error) {
         console.error('Failed to fetch previous month allocations:', error);
         toast({ variant: 'destructive', title: 'Error Loading Prior Data', description: `Could not load allocations for ${employee.Full_Name}.`});
+    } finally {
+      setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: false }));
     }
   
   }, [currentDate, weeks, toast]);
@@ -773,8 +772,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                               <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
                                 <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
                               </Button>
-                              <Button variant="secondary" size="sm" className="w-full justify-start" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)}>
-                                <History className="mr-2 h-4 w-4" /> Load Prior Allocations
+                               <Button variant="secondary" size="sm" className="w-full justify-start" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)} disabled={isCopyingPrior[employee.Person_Number]}>
+                                <History className={cn("mr-2 h-4 w-4", isCopyingPrior[employee.Person_Number] && "hidden")} />
+                                <Loader2 className={cn("mr-2 h-4 w-4 animate-spin", !isCopyingPrior[employee.Person_Number] && "hidden")} />
+                                <span className={cn(isCopyingPrior[employee.Person_Number] && "hidden")}>Load Prior Allocations</span>
+                                <span className={cn(!isCopyingPrior[employee.Person_Number] && "hidden")}>Loading...</span>
                               </Button>
                             </div>
                           </TableCell>
