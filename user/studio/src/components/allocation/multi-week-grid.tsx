@@ -296,7 +296,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const prevMonthDate = getPreviousFiscalMonth(currentDate);
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
     if (prevMonthWeeks.length === 0) {
-        toast({ title: "No prior weeks found", description: `Could not determine previous fiscal month for ${employee.Full_Name}.`});
+        toast({ variant: 'destructive', title: "No prior weeks found", description: `Could not determine previous fiscal month for ${employee.Full_Name}.`});
         setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: false }));
         return;
     }
@@ -315,9 +315,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             }
         }
       
-        const employeeIdString = `[${employee.Person_Number}]`;
         const employeeAllocations = allPrevMonthAllocations.filter(alloc => 
-            alloc.content.allocation_name.startsWith(employeeIdString)
+            alloc.content.allocation_name?.includes(`[${employee.Person_Number}]`)
         );
       
         if (employeeAllocations.length === 0) {
@@ -639,7 +638,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                   <TableRow>
                     <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
                     <TableHead className="min-w-[200px]">Client Name</TableHead>
-                    <TableHead className="p-2 w-28">Client Code</TableHead>
                     <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                     {weeks.map(week => {
                       const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
@@ -661,7 +659,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 <TableBody>
                   {activeAllocations.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
+                        <TableCell colSpan={weeks.length + 4} className="text-center h-24 text-muted-foreground">
                             Select an employee from the dropdown above to begin building your allocation plan.
                         </TableCell>
                     </TableRow>
@@ -678,7 +676,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                             {employee.Full_Name}
                             <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
                           </TableCell>
-                          <TableCell colSpan={3}></TableCell>
+                          <TableCell colSpan={2}></TableCell>
                           {weeklyTotals.map((total, index) => {
                               const isPartTime = employee.Employment_Mode?.includes('PT');
                               const isOverallocated = total > 1.0;
@@ -726,20 +724,19 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                           <TableRow key={alloc.id}>
                             <TableCell className="sticky left-0 bg-card z-10"></TableCell>
                             <TableCell>
-                              <ClientSelect
-                                  clients={clients}
-                                  value={alloc.clientName}
-                                  onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
-                                  disabled={isRowLocked}
-                              />
-                            </TableCell>
-                            <TableCell className="p-2">
-                                <Input
-                                    value={alloc.clientId}
-                                    readOnly
-                                    className="bg-muted w-24"
-                                    placeholder="Code"
-                                />
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <ClientSelect
+                                        clients={clients}
+                                        value={alloc.clientName}
+                                        onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
+                                        disabled={isRowLocked}
+                                    />
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" align="start">
+                                   {alloc.clientId ? <p>Client Code: {alloc.clientId}</p> : <p>No client code</p>}
+                                </TooltipContent>
+                              </Tooltip>
                             </TableCell>
                             <TableCell className="text-center">
                               <Input
@@ -777,7 +774,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                         )})}
 
                         <TableRow>
-                          <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
+                          <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
                             <div className="flex gap-2">
                               <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
                                 <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
@@ -804,3 +801,4 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     </TooltipProvider>
   );
 }
+
