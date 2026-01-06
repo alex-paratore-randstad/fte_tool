@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { addMonths, subMonths, startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
+import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, History } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember, WeeklyAllocation } from '@/types';
 import { cn } from '@/lib/utils';
@@ -293,8 +293,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
     if (prevMonthWeeks.length === 0) return;
 
-    const sourceWeeks = prevMonthWeeks.slice(0, 4); // Only use first 4 weeks of prev month
-    const targetWeeks = weeks.slice(0, 4); // Only apply to first 4 weeks of current month
+    // We use the first 4 weeks as the source, regardless of month length.
+    const sourceWeeks = prevMonthWeeks.slice(0, 4); 
+    const targetWeeks = weeks.slice(0, 4);
     
     const sourceWeekKeys = new Set(sourceWeeks.map(w => formatDateKey(w.startDate)));
     if (sourceWeekKeys.size === 0) return;
@@ -312,16 +313,19 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       
       const allEmployeeAllocations: WeeklyAllocation[] = await response.json();
       
-      // 2. Filter the results on the CLIENT side to match the source weeks
-      const prevAllocs = allEmployeeAllocations.filter(alloc => 
+      // 2. Filter the results on the CLIENT side to match only the source weeks
+      const prevAllocsForSourceWeeks = allEmployeeAllocations.filter(alloc => 
         sourceWeekKeys.has(alloc.content.allocation_date)
       );
 
-      if (prevAllocs.length === 0) return;
+      if (prevAllocsForSourceWeeks.length === 0) {
+        toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.` });
+        return;
+      }
 
       const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
 
-      prevAllocs.forEach(alloc => {
+      prevAllocsForSourceWeeks.forEach(alloc => {
           const clientKey = alloc.content.cost_center_number;
           if (!clientAllocationsMap.has(clientKey)) {
               clientAllocationsMap.set(clientKey, { 
@@ -361,16 +365,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
               : empAlloc
           )
         );
-         toast({ title: `Applied Prior Allocations`, description: `Loaded previous month's allocations for ${employee.Full_Name}.`});
+         toast({ title: `Prior Allocations Loaded`, description: `Loaded previous month's data for ${employee.Full_Name}.`});
       }
 
     } catch (error) {
         console.error('Failed to fetch previous month allocations:', error);
+        toast({ variant: 'destructive', title: 'Error Loading Prior Data', description: `Could not load allocations for ${employee.Full_Name}.`});
     }
 
   }, [currentDate, weeks, toast]);
   
-  const handleAddEmployee = useCallback((employeeId: string) => {
+  const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
 
     setSelectedEmployeeToAdd(employeeId); // Keep the select controlled
@@ -394,14 +399,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         employee: employeeToAdd,
         allocations: [newAllocationRow]
       }, ...prev]);
-
-      fetchAndApplyPreviousMonthAllocations(employeeToAdd);
     }
     // Reset the select after adding
     setTimeout(() => setSelectedEmployeeToAdd(''), 0);
-  }, [allEmployees, activeAllocations, toast, fetchAndApplyPreviousMonthAllocations]);
+  };
 
-  const handleAddManagerTeam = useCallback((managerId: string) => {
+  const handleAddManagerTeam = (managerId: string) => {
     if (!managerId) return;
     const directReports = allEmployees.filter(e => e.First_Reviewer_Code === managerId);
     
@@ -414,7 +417,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           clientName: '',
           weeklyFtes: {},
         };
-        fetchAndApplyPreviousMonthAllocations(employee);
         return {
           employee,
           allocations: [newAllocationRow],
@@ -423,11 +425,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
     if (newAllocations.length > 0) {
       setActiveAllocations(prev => [...newAllocations, ...prev]);
-      toast({ title: 'Team Loaded', description: `${newAllocations.length} employees have been added and prior allocations applied.` });
+      toast({ title: 'Team Loaded', description: `${newAllocations.length} employees have been added.` });
     } else {
       toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' });
     }
-  }, [allEmployees, activeAllocations, toast, fetchAndApplyPreviousMonthAllocations]);
+  };
 
 
   const handleRemoveEmployee = (employeeId: string) => {
@@ -739,9 +741,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
                     <TableRow>
                       <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
-                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
-                        </Button>
+                        <div className="flex gap-2">
+                           <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
+                          </Button>
+                          <Button variant="secondary" size="sm" className="w-full justify-start" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)}>
+                            <History className="mr-2 h-4 w-4" /> Load Prior Allocations
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell colSpan={weeks.length + 2}></TableCell>
                     </TableRow>

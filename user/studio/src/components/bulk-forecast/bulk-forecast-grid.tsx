@@ -296,7 +296,7 @@ export function BulkForecastGrid({ onSaveSuccess }: BulkForecastGridProps) {
       setIsSubmitting(false);
     }
   };
-
+  
   const isPageLoading = loading || userLoading || !selectedMonth || !selectedYear;
 
   return (
