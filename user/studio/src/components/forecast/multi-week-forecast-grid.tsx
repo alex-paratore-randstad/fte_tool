@@ -445,7 +445,8 @@ export function MultiWeekForecastGrid({ currentDate, setCurrentDate, onSaveSucce
             submissions.push({
               content: {
                 forecast_allocation_date: weekKey,
-                forecast_allocation_name: empAlloc.employee.Full_Name,
+                forecast_allocation_name: `[${empAlloc.employee.Person_Number}] ${empAlloc.employee.Full_Name}`,
+                employee_id: empAlloc.employee.Person_Number,
                 forecast_cost_center_name: alloc.clientName,
                 forecast_cost_center_number: alloc.clientId,
                 forecast_allocation_amount: fte.toString(),
@@ -485,7 +486,7 @@ export function MultiWeekForecastGrid({ currentDate, setCurrentDate, onSaveSucce
     }
   };
 
-  if (initialLoading || internalLoading || userLoading || !currentDate || !startOfCurrentWeek || weeks.length === 0) {
+  if (initialLoading || internalLoading || userLoading) {
     return (
       <Card>
         <CardHeader>
@@ -536,7 +537,7 @@ export function MultiWeekForecastGrid({ currentDate, setCurrentDate, onSaveSucce
                 <TableHead className="p-2 w-28">Client Code</TableHead>
                 <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                 {weeks.map(week => {
-                  const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                  const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                   return (
                     <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-primary/10": isCurrent })}>
                       <div className='flex items-center justify-center gap-2'>
@@ -611,7 +612,7 @@ export function MultiWeekForecastGrid({ currentDate, setCurrentDate, onSaveSucce
                         </TableCell>
                         {weeks.map(week => {
                           const weekKey = formatDateKey(week.startDate);
-                          const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                          const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                           const fteValue = alloc.weeklyFtes[weekKey];
                           return (
                             <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-primary/10": isCurrent})}>

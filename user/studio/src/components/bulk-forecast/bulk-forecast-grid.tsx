@@ -240,6 +240,8 @@ export function BulkForecastGrid({ onSaveSuccess }: BulkForecastGridProps) {
 
     const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
       const employee = allEmployees.find(e => e.Person_Number === employeeId);
+      const compositeName = employee ? `[${employee.Person_Number}] ${employee.Full_Name}` : `[${employeeId}] Unknown`;
+      
       return fetch('/domo/datastores/v1/collections/bulk_forecast_fte/documents/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -247,7 +249,7 @@ export function BulkForecastGrid({ onSaveSuccess }: BulkForecastGridProps) {
           content: {
             bulk_forecast_id: bulkForecastId,
             employee_id: employeeId,
-            employee_name: employee?.Full_Name || 'Unknown',
+            employee_name: compositeName,
             bulk_forecast_date: forecastDate,
             forecast_monthyear: forecastMonthYear,
           }
@@ -266,6 +268,7 @@ export function BulkForecastGrid({ onSaveSuccess }: BulkForecastGridProps) {
             cost_center_number: client?.Code || 'Unknown',
             cost_center_name: row.clientName,
             forecast_percentage: row.percentage.toString(),
+            bulk_forecast_date: forecastDate,
           }
         }),
       });
@@ -438,5 +441,3 @@ export function BulkForecastGrid({ onSaveSuccess }: BulkForecastGridProps) {
     </div>
   );
 }
-
-    

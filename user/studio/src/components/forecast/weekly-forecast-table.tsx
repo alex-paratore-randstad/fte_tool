@@ -40,6 +40,13 @@ type WeeklyForecastTableProps = {
   initialLoading: boolean;
 };
 
+const parseEmployeeName = (compositeName: string): string => {
+  if (compositeName.includes('] ')) {
+    return compositeName.split('] ')[1];
+  }
+  return compositeName;
+};
+
 export function WeeklyForecastTable({ currentDate, refreshKey, initialLoading }: WeeklyForecastTableProps) {
   const [originalAllocations, setOriginalAllocations] = useState<EmployeeAllocation[]>([]);
   const [editableAllocations, setEditableAllocations] = useState<EmployeeAllocation[]>([]);
@@ -58,7 +65,7 @@ export function WeeklyForecastTable({ currentDate, refreshKey, initialLoading }:
   const filteredAllocations = useMemo(() => {
     if (!nameFilter) return editableAllocations;
     return editableAllocations.filter(alloc => 
-      alloc.employeeName.toLowerCase().includes(nameFilter.toLowerCase())
+      parseEmployeeName(alloc.employeeName).toLowerCase().includes(nameFilter.toLowerCase())
     );
   }, [editableAllocations, nameFilter]);
 
@@ -198,7 +205,7 @@ export function WeeklyForecastTable({ currentDate, refreshKey, initialLoading }:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: update.content }),
         }).then(res => {
-          if (!res.ok) throw new Error(`Failed to update forecast for ${update.content.forecast_allocation_name}`);
+          if (!res.ok) throw new Error(`Failed to update forecast for ${parseEmployeeName(update.content.forecast_allocation_name)}`);
           return res.json();
         })
       ));
@@ -212,7 +219,7 @@ export function WeeklyForecastTable({ currentDate, refreshKey, initialLoading }:
   };
 
 
-  if (initialLoading || internalLoading || !startOfCurrentWeek || !currentDate) {
+  if (initialLoading || internalLoading) {
     return (
       <Card>
         <CardHeader>
@@ -257,7 +264,7 @@ export function WeeklyForecastTable({ currentDate, refreshKey, initialLoading }:
                 <TableRow>
                     <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee / Client</TableHead>
                     {weeks.map(week => {
-                        const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                        const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                         return (
                             <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-primary/10": isCurrent })}>
                             <div className='flex items-center justify-center gap-2'>
@@ -286,7 +293,7 @@ export function WeeklyForecastTable({ currentDate, refreshKey, initialLoading }:
                         return (
                             <Fragment key={employeeName}>
                                 <TableRow className="bg-muted/50 hover:bg-muted">
-                                    <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{employeeName}</TableCell>
+                                    <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{parseEmployeeName(employeeName)}</TableCell>
                                     {weeklyTotals.map((total, index) => (
                                         <TableCell key={index} className={cn("text-center font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
                                         {total > 0 ? total.toFixed(2) : '-'}
@@ -298,7 +305,7 @@ export function WeeklyForecastTable({ currentDate, refreshKey, initialLoading }:
                                         <TableCell className="sticky left-0 bg-card z-10 pl-8">{alloc.clientName}</TableCell>
                                         {weeks.map(week => {
                                             const weekKey = formatDateKey(week.startDate);
-                                            const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                                            const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                                             const fteData = alloc.weeklyFtes[weekKey];
 
                                             return (
