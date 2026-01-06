@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { startOfWeek, isSameDay } from 'date-fns';
+import { startOfWeek, format, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useCurrentUser } from '@/hooks/use-current-user';
@@ -54,6 +54,7 @@ export function WeeklyForecastTable({ currentDate, refreshKey, initialLoading }:
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [nameFilter, setNameFilter] = useState('');
   const { toast } = useToast();
+  const { isAdmin } = useCurrentUser();
 
   useEffect(() => {
     // Set date only on client to avoid hydration mismatch

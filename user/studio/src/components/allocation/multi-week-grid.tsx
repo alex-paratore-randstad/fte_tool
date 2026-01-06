@@ -111,7 +111,7 @@ const ClientSelect = ({
     <Select value={value} onValueChange={onValueChange} disabled={disabled} onOpenChange={handleOpenChange}>
       <SelectTrigger><SelectValue placeholder="Select Client..." /></SelectTrigger>
       <SelectContent>
-        <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
+        <SelectSearch placeholder="Search client..." value={searchTerm} onChange={setSearchTerm} />
         {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
          {filteredClients.length === 0 && (
           <div className="p-4 text-sm text-center text-muted-foreground">
@@ -142,7 +142,7 @@ const EmployeeSelect = ({
     }
     return sortedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
-
+  
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       setSearchTerm('');
@@ -155,7 +155,7 @@ const EmployeeSelect = ({
           <SelectValue placeholder="Load Employee..." />
       </SelectTrigger>
       <SelectContent>
-          <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
+          <SelectSearch placeholder="Search employee..." value={searchTerm} onChange={setSearchTerm} />
           {filteredEmployees.map(e => (
               <SelectItem key={e.Person_Number} value={e.Person_Number}>
                   {e.Full_Name}
@@ -201,7 +201,7 @@ const ManagerSelect = ({
             <SelectValue placeholder="Load Team..." />
         </SelectTrigger>
         <SelectContent>
-            <SelectSearch placeholder="Search manager..." onChange={setSearchTerm} />
+            <SelectSearch placeholder="Search manager..." value={searchTerm} onChange={setSearchTerm} />
             {filteredManagers.map(m => (
                 <SelectItem key={m.id} value={m.id}>
                     {m.name}
@@ -331,9 +331,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         }
       }
       
-      const employeeCompositeName = `[${employee.Person_Number}] ${employee.Full_Name}`;
-      // Client-side filter for the specific employee
-      const employeeAllocations = allPrevMonthAllocations.filter(alloc => alloc.content.allocation_name === employeeCompositeName);
+      const employeeIdCheck = `[${employee.Person_Number}]`;
+      // Client-side filter for the specific employee, checking for their ID in the composite name
+      const employeeAllocations = allPrevMonthAllocations.filter(alloc => alloc.content.allocation_name.startsWith(employeeIdCheck));
       
       if (employeeAllocations.length === 0) {
         toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.` });
@@ -713,7 +713,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                                             </span>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                          {tooltipMessage && <p>{tooltipMessage}</p>}
+                                           <p>{tooltipMessage || ''}</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TableCell>
