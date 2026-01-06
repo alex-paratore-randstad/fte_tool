@@ -73,7 +73,7 @@ export type WeeklyAllocation = {
     allocation_name: string; // Employee full name
     cost_center_number: string;
     cost_center_name: string;
-    allocation_amount: number; // 0.0 to 1.0
+    allocation_amount: string; // This is a string from the datastore
   }
 };
 
