@@ -296,33 +296,33 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const sourceWeeks = prevMonthWeeks.slice(0, 4); 
     const targetWeeks = weeks.slice(0, 4);
     
-    const sourceWeekKeys = new Set(sourceWeeks.map(w => formatDateKey(w.startDate)));
-    if (sourceWeekKeys.size === 0) return;
+    const sourceWeekKeys = sourceWeeks.map(w => formatDateKey(w.startDate));
+    if (sourceWeekKeys.length === 0) return;
+
+    const dateFilters = sourceWeekKeys.map(key => `content.allocation_date='${key}'`).join(' or ');
     
     try {
-      const employeeFilter = `content.employee_id='${employee.Person_Number}'`;
-      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=${encodeURIComponent(employeeFilter)}`);
+      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=${encodeURIComponent(dateFilters)}`);
       
       if (!response.ok) {
-        toast({ title: "No prior allocations found", description: `Could not load data for ${employee.Full_Name}.`, variant: 'destructive' });
+        toast({ title: "No prior allocations found", description: `Could not load data for the previous month.`, variant: 'destructive' });
         return;
       }
       
-      const allEmployeeAllocations: WeeklyAllocation[] = await response.json();
-      
-      // Filter client-side for the source weeks
-      const prevAllocsForSourceWeeks = allEmployeeAllocations.filter(alloc => 
-        sourceWeekKeys.has(alloc.content.allocation_date)
-      );
+      const allPrevMonthAllocations: WeeklyAllocation[] = await response.json();
+      const employeeCompositeName = `[${employee.Person_Number}] ${employee.Full_Name}`;
 
-      if (prevAllocsForSourceWeeks.length === 0) {
+      // CLIENT-SIDE FILTERING FOR THE SPECIFIC EMPLOYEE
+      const employeeAllocations = allPrevMonthAllocations.filter(alloc => alloc.content.allocation_name === employeeCompositeName);
+      
+      if (employeeAllocations.length === 0) {
         toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.` });
         return;
       }
 
       const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
 
-      prevAllocsForSourceWeeks.forEach(alloc => {
+      employeeAllocations.forEach(alloc => {
           const clientKey = alloc.content.cost_center_number;
           if (!clientAllocationsMap.has(clientKey)) {
               clientAllocationsMap.set(clientKey, { 
