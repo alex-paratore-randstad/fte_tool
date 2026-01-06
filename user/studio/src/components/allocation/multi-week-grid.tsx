@@ -299,13 +299,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const sourceWeekKeys = sourceWeeks.map(w => `'${formatDateKey(w.startDate)}'`);
     if (sourceWeekKeys.length === 0) return;
 
-    // CORRECTED: Build a single 'q' parameter with 'and'
-    const employeeNameFilter = `content.allocation_name='${employee.Full_Name}'`;
-    const dateFilter = `content.allocation_date in (${sourceWeekKeys.join(',')})`;
-    const combinedQuery = `q=(${employeeNameFilter}) and (${dateFilter})`;
-    
+    const queryString = `(content.allocation_name='${employee.Full_Name}') and (content.allocation_date in (${sourceWeekKeys.join(',')}))`;
+    const params = new URLSearchParams({ q: queryString });
+
     try {
-      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/?${combinedQuery}`);
+      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?${params.toString()}`);
       
       if (!response.ok) {
         console.warn(`No previous allocations found for ${employee.Full_Name}`);
