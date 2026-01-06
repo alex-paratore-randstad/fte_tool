@@ -9,6 +9,7 @@ export default function CostCenterPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Client Management"
+        description="View all clients from various data sources."
       />
       <CostCenterContent />
     </div>
