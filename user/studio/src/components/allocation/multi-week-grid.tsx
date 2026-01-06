@@ -295,10 +295,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
     const sourceWeeks = prevMonthWeeks.slice(0, 4); // Only use first 4 weeks of prev month
     const targetWeeks = weeks.slice(0, 4); // Only apply to first 4 weeks of current month
-
+    
+    const sourceWeekKeys = sourceWeeks.map(w => formatDateKey(w.startDate));
+    const query = `?q=content.allocation_name='${employee.Full_Name}'&q=content.allocation_date%20in%20(${sourceWeekKeys.map(key => `'${key}'`).join(',')})`;
+    
     try {
-      // Fetch all allocations for the previous month for this employee
-      const query = `?q=content.allocation_name='${employee.Full_Name}'&q=content.allocation_date in (${sourceWeeks.map(w => `'${formatDateKey(w.startDate)}'`).join(',')})`;
       const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${query}`);
       
       if (!response.ok) {
@@ -308,34 +309,42 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       
       const prevAllocs: WeeklyAllocation[] = await response.json();
       if (prevAllocs.length === 0) return;
+      
+      // Group previous allocations by client AND then by week
+      const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
 
-      // Group previous allocations by client
-      const clientAllocations: Record<string, { fte: number, clientId: string, clientName: string}[]> = {};
       prevAllocs.forEach(alloc => {
           const clientKey = alloc.content.cost_center_number;
-          if (!clientAllocations[clientKey]) clientAllocations[clientKey] = [];
-          clientAllocations[clientKey].push({ 
-              fte: parseFloat(alloc.content.allocation_amount), 
-              clientId: alloc.content.cost_center_number,
-              clientName: alloc.content.cost_center_name
-          });
+          if (!clientAllocationsMap.has(clientKey)) {
+              clientAllocationsMap.set(clientKey, { 
+                  clientName: alloc.content.cost_center_name,
+                  weeklyFtes: new Map<string, number>()
+              });
+          }
+          const fte = parseFloat(alloc.content.allocation_amount);
+          clientAllocationsMap.get(clientKey)!.weeklyFtes.set(alloc.content.allocation_date, fte);
       });
       
-      const newAllocationRows: AllocationRow[] = Object.values(clientAllocations).map((allocs, index) => {
-          const weeklyFtes: { [weekKey: string]: number } = {};
-          // Apply the FTE from the corresponding week of the previous month
-          targetWeeks.forEach((week, weekIndex) => {
-              const prevWeekFte = allocs[weekIndex]?.fte || allocs[0]?.fte || 0; // Fallback strategy
-              weeklyFtes[formatDateKey(week.startDate)] = prevWeekFte;
-          });
-          
-          return {
-              id: `${employee.Person_Number}-prev-${index}-${Date.now()}`,
-              clientId: allocs[0].clientId,
-              clientName: allocs[0].clientName,
-              weeklyFtes: weeklyFtes,
-          };
+      const newAllocationRows: AllocationRow[] = [];
+      clientAllocationsMap.forEach((data, clientId) => {
+        const newRow: AllocationRow = {
+          id: `${employee.Person_Number}-${clientId}-${Date.now()}`,
+          clientId: clientId,
+          clientName: data.clientName,
+          weeklyFtes: {},
+        };
+        
+        // Map previous week allocations to current week's first 4 weeks
+        targetWeeks.forEach((currentWeek, index) => {
+            const sourceWeekKey = sourceWeekKeys[index];
+            if (data.weeklyFtes.has(sourceWeekKey)) {
+                const fte = data.weeklyFtes.get(sourceWeekKey)!;
+                newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
+            }
+        });
+        newAllocationRows.push(newRow);
       });
+
 
       if (newAllocationRows.length > 0) {
         setActiveAllocations(prev =>
