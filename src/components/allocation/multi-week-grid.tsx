@@ -695,7 +695,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                                             </span>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                          <p>{tooltipMessage || ''}</p>
+                                            <p>{tooltipMessage || ''}</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TableCell>
