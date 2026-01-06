@@ -50,6 +50,13 @@ type WeeklyAllocationTableProps = {
   initialLoading: boolean;
 };
 
+const parseEmployeeName = (compositeName: string): string => {
+  if (compositeName.includes('] ')) {
+    return compositeName.split('] ')[1];
+  }
+  return compositeName;
+};
+
 export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading }: WeeklyAllocationTableProps) {
   const [originalAllocations, setOriginalAllocations] = useState<EmployeeAllocation[]>([]);
   const [editableAllocations, setEditableAllocations] = useState<EmployeeAllocation[]>([]);
@@ -68,7 +75,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
   const filteredAllocations = useMemo(() => {
     if (!nameFilter) return editableAllocations;
     return editableAllocations.filter(alloc => 
-      alloc.employeeName.toLowerCase().includes(nameFilter.toLowerCase())
+      parseEmployeeName(alloc.employeeName).toLowerCase().includes(nameFilter.toLowerCase())
     );
   }, [editableAllocations, nameFilter]);
 
@@ -183,7 +190,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                 docId: editable.docId,
                 content: {
                   allocation_date: weekKey,
-                  allocation_name: empAlloc.employeeName,
+                  allocation_name: empAlloc.employeeName, // Save the full composite name
                   cost_center_name: alloc.clientName,
                   cost_center_number: alloc.clientId,
                   allocation_amount: (editable.fte || 0).toString(),
@@ -208,7 +215,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: update.content }),
         }).then(res => {
-          if (!res.ok) throw new Error(`Failed to update allocation for ${update.content.allocation_name}`);
+          if (!res.ok) throw new Error(`Failed to update allocation for ${parseEmployeeName(update.content.allocation_name)}`);
           return res.json();
         })
       ));
@@ -222,7 +229,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
   };
 
 
-  if (initialLoading || internalLoading || !startOfCurrentWeek || !currentDate) {
+  if (initialLoading || internalLoading) {
     return (
       <Card>
         <CardHeader>
@@ -267,8 +274,8 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                 <TableRow>
                     <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Client</TableHead>
                     {weeks.map(week => {
-                        const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
-                        const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                        const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                        const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                         const isLockedForUser = isPast && !isAdmin;
                         return (
                             <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
@@ -299,7 +306,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                         return (
                             <Fragment key={employeeName}>
                                 <TableRow className="bg-muted/50 hover:bg-muted">
-                                    <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{employeeName}</TableCell>
+                                    <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{parseEmployeeName(employeeName)}</TableCell>
                                     {weeklyTotals.map((total, index) => (
                                         <TableCell key={index} className={cn("text-center font-semibold", total > 1.0 ? "text-destructive" : "text-muted-foreground")}>
                                         {total > 0 ? total.toFixed(2) : '-'}
@@ -311,8 +318,8 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                                         <TableCell className="sticky left-0 bg-card z-10 pl-10">{alloc.clientName}</TableCell>
                                         {weeks.map(week => {
                                             const weekKey = formatDateKey(week.startDate);
-                                            const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
-                                            const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                                            const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                                            const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                                             const isLockedForUser = isPast && !isAdmin;
                                             const fteData = alloc.weeklyFtes[weekKey];
 

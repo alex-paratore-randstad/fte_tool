@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { AiReportTable, type AiReportData } from './ai-report-table';
+import { AiReportTable, type AiReportData } from '../cost-centers/ai-report-table';
 import { ClientGroupingsTable, type GroupedData, type TicketData } from './client-groupings-table';
 
 export function ClientContent() {

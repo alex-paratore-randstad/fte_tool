@@ -296,15 +296,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const sourceWeeks = prevMonthWeeks.slice(0, 4); // Only use first 4 weeks of prev month
     const targetWeeks = weeks.slice(0, 4); // Only apply to first 4 weeks of current month
     
-    const sourceWeekKeys = sourceWeeks.map(w => formatDateKey(w.startDate));
-    if (sourceWeekKeys.length === 0) return;
+    const sourceWeekKeys = new Set(sourceWeeks.map(w => formatDateKey(w.startDate)));
+    if (sourceWeekKeys.size === 0) return;
     
-    const employeeFilter = `content.allocation_name contains '[${employee.Person_Number}]'`;
-    const dateFilters = sourceWeekKeys.map(key => `content.allocation_date='${key}'`).join(' or ');
-    const finalQuery = `${employeeFilter} and (${dateFilters})`;
-
     try {
-      const params = new URLSearchParams({ q: finalQuery });
+      // 1. Fetch ALL allocations for the employee using a simple query
+      const employeeFilter = `content.allocation_name contains '[${employee.Person_Number}]'`;
+      const params = new URLSearchParams({ q: employeeFilter });
       const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?${params.toString()}`);
       
       if (!response.ok) {
@@ -312,7 +310,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         return;
       }
       
-      const prevAllocs: WeeklyAllocation[] = await response.json();
+      const allEmployeeAllocations: WeeklyAllocation[] = await response.json();
+      
+      // 2. Filter the results on the CLIENT side to match the source weeks
+      const prevAllocs = allEmployeeAllocations.filter(alloc => 
+        sourceWeekKeys.has(alloc.content.allocation_date)
+      );
+
       if (prevAllocs.length === 0) return;
 
       const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
@@ -533,6 +537,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
               content: {
                 allocation_date: weekKey,
                 allocation_name: `[${empAlloc.employee.Person_Number}] ${empAlloc.employee.Full_Name}`,
+                employee_id: empAlloc.employee.Person_Number,
                 cost_center_name: alloc.clientName,
                 cost_center_number: alloc.clientId,
                 allocation_amount: fte.toString(),
