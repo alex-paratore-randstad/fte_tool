@@ -64,10 +64,9 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const specialClients = ['PTO', 'Unallocated'];
-    
     // Create a stable sort: special clients first, then alphabetical.
     const sorted = [...clients].sort((a, b) => {
+      const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
       const bIsSpecial = specialClients.includes(b.DisplayName);
 
@@ -296,20 +295,7 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
     }
   };
 
-  if (loading || userLoading || !selectedMonth || !selectedYear) {
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader><Skeleton className="h-10 w-full" /></CardHeader>
-          <CardContent><Skeleton className="h-96 w-full" /></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><Skeleton className="h-10 w-full" /></CardHeader>
-          <CardContent><Skeleton className="h-96 w-full" /></CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const isPageLoading = loading || userLoading || !selectedMonth || !selectedYear;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -318,39 +304,51 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
           <CardTitle>Step 1: Select Employees</CardTitle>
           <CardDescription>Choose the employees who will share this allocation profile.</CardDescription>
           <div className="relative pt-2">
-            <Input 
-              placeholder="Search employees..." 
-              value={employeeSearchTerm}
-              onChange={e => setEmployeeSearchTerm(e.target.value)}
-            />
+            {isPageLoading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <Input 
+                placeholder="Search employees..." 
+                value={employeeSearchTerm}
+                onChange={e => setEmployeeSearchTerm(e.target.value)}
+              />
+            )}
           </div>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-96">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]"></TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Title</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredEmployees.map(emp => (
-                  <TableRow key={emp.Person_Number}>
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedEmployees.has(emp.Person_Number)}
-                        onCheckedChange={checked => handleEmployeeToggle(emp.Person_Number, !!checked)}
-                        aria-label={`Select ${emp.Full_Name}`}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{emp.Full_Name}</TableCell>
-                    <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
+            {isPageLoading ? (
+              <div className="p-4 space-y-4">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Title</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredEmployees.map(emp => (
+                    <TableRow key={emp.Person_Number}>
+                      <TableCell>
+                        <Checkbox 
+                          checked={selectedEmployees.has(emp.Person_Number)}
+                          onCheckedChange={checked => handleEmployeeToggle(emp.Person_Number, !!checked)}
+                          aria-label={`Select ${emp.Full_Name}`}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{emp.Full_Name}</TableCell>
+                      <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </ScrollArea>
         </CardContent>
         <CardFooter>
@@ -365,64 +363,72 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
           <CardDescription>Define the client percentages for the selected group.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-6">
-            <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                    <Label htmlFor="month">Month</Label>
-                    <Select value={selectedMonth} onValueChange={(value) => setSelectedMonth(value)}>
-                        <SelectTrigger id="month">
-                            <SelectValue placeholder="Select Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="year">Year</Label>
-                    <Select value={selectedYear} onValueChange={(value) => setSelectedYear(value)}>
-                        <SelectTrigger id="year">
-                            <SelectValue placeholder="Select Year" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
+          {isPageLoading ? (
+            <div className="space-y-6">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-10 w-full" />
             </div>
-            <div className="grid gap-4">
-              {allocationRows.map((row, index) => (
-                <div key={row.id} className="flex gap-2 items-center">
-                  <ClientSelect
-                    clients={clients}
-                    value={row.clientName}
-                    onValueChange={value => handleAllocationChange(row.id, 'clientName', value)}
-                  />
-                  <Input 
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={row.percentage}
-                    onChange={e => handleAllocationChange(row.id, 'percentage', e.target.value)}
-                    className="w-32 text-center"
-                    placeholder="%"
-                  />
-                  <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1}>
-                      <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              <Button variant="outline" onClick={handleAddAllocationRow}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Client
-              </Button>
-              <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
-                <AlertDescription>
-                  Total Allocation: <span className="font-bold">{totalPercentage}%</span>
-                  {totalPercentage !== 100 && " (Must equal 100%)"}
-                </AlertDescription>
-              </Alert>
+          ) : (
+            <div className="grid gap-6">
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                      <Label htmlFor="month">Month</Label>
+                      <Select value={selectedMonth!} onValueChange={(value) => setSelectedMonth(value)}>
+                          <SelectTrigger id="month">
+                              <SelectValue placeholder="Select Month" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="grid gap-2">
+                      <Label htmlFor="year">Year</Label>
+                      <Select value={selectedYear!} onValueChange={(value) => setSelectedYear(value)}>
+                          <SelectTrigger id="year">
+                              <SelectValue placeholder="Select Year" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+              </div>
+              <div className="grid gap-4">
+                {allocationRows.map((row) => (
+                  <div key={row.id} className="flex gap-2 items-center">
+                    <ClientSelect
+                      clients={clients}
+                      value={row.clientName}
+                      onValueChange={value => handleAllocationChange(row.id, 'clientName', value)}
+                    />
+                    <Input 
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={row.percentage}
+                      onChange={e => handleAllocationChange(row.id, 'percentage', e.target.value)}
+                      className="w-32 text-center"
+                      placeholder="%"
+                    />
+                    <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1}>
+                        <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" onClick={handleAddAllocationRow}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Client
+                </Button>
+                <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
+                  <AlertDescription>
+                    Total Allocation: <span className="font-bold">{totalPercentage}%</span>
+                    {totalPercentage !== 100 && " (Must equal 100%)"}
+                  </AlertDescription>
+                </Alert>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
         <CardFooter>
             <Button onClick={handleSave} disabled={isSubmitting || selectedEmployees.size === 0 || totalPercentage !== 100}>

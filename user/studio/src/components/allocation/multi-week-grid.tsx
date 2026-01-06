@@ -301,19 +301,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     if (sourceWeekKeys.size === 0) return;
     
     try {
-      // 1. Fetch ALL allocations for the employee using a simple query
       const employeeFilter = `content.allocation_name contains '[${employee.Person_Number}]'`;
       const params = new URLSearchParams({ q: employeeFilter });
       const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?${params.toString()}`);
       
       if (!response.ok) {
-        console.warn(`No previous allocations found for ${employee.Full_Name}. Status: ${response.status}`);
+        toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.`, variant: 'destructive' });
         return;
       }
       
       const allEmployeeAllocations: WeeklyAllocation[] = await response.json();
       
-      // 2. Filter the results on the CLIENT side to match only the source weeks
       const prevAllocsForSourceWeeks = allEmployeeAllocations.filter(alloc => 
         sourceWeekKeys.has(alloc.content.allocation_date)
       );
