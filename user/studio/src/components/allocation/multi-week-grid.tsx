@@ -293,17 +293,15 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
     if (prevMonthWeeks.length === 0) return;
 
-    // We use the first 4 weeks as the source, regardless of month length.
     const sourceWeeks = prevMonthWeeks.slice(0, 4); 
     const targetWeeks = weeks.slice(0, 4);
     
-    const sourceWeekKeys = new Set(sourceWeeks.map(w => formatDateKey(w.startDate)));
-    if (sourceWeekKeys.size === 0) return;
+    const sourceWeekKeys = sourceWeeks.map(w => formatDateKey(w.startDate));
+    if (sourceWeekKeys.length === 0) return;
     
     try {
       const employeeFilter = `content.allocation_name contains '[${employee.Person_Number}]'`;
-      const params = new URLSearchParams({ q: employeeFilter });
-      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?${params.toString()}`);
+      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=${encodeURIComponent(employeeFilter)}`);
       
       if (!response.ok) {
         toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.`, variant: 'destructive' });
@@ -313,7 +311,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       const allEmployeeAllocations: WeeklyAllocation[] = await response.json();
       
       const prevAllocsForSourceWeeks = allEmployeeAllocations.filter(alloc => 
-        sourceWeekKeys.has(alloc.content.allocation_date)
+        sourceWeekKeys.includes(alloc.content.allocation_date)
       );
 
       if (prevAllocsForSourceWeeks.length === 0) {
@@ -760,3 +758,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     </Card>
   );
 }
+
+    
