@@ -5,21 +5,48 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Button } from '../ui/button';
+import { ChevronDown } from 'lucide-react';
+import type { NavItem, NavGroup } from '@/types/navigation';
+import { Skeleton } from '../ui/skeleton';
 
-const navItems = [
-  { href: '/', label: 'Dashboard', roles: ['admin', 'manager', 'vp'] },
-  { href: '/allocation', label: 'Weekly Allocation', roles: ['admin', 'manager', 'vp'] },
-  { href: '/weekly-forecast', label: 'Weekly Forecast', roles: ['admin', 'manager', 'vp'] },
-  { href: '/bulk-allocation', label: 'Bulk Allocation', roles: ['admin', 'manager', 'vp'] },
-  { href: '/bulk-forecast', label: 'Bulk Forecast', roles: ['admin', 'manager', 'vp'] },
-  { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation', roles: ['admin', 'manager', 'vp'] },
-  { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation', roles: ['admin', 'manager', 'vp'] },
-  { href: '/team', label: 'Team Management', roles: ['admin', 'manager', 'vp'] },
-  { href: '/cost-centers', label: 'Client Management', roles: ['admin'] },
-  { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
+const navGroups: NavGroup[] = [
+  {
+    title: 'Allocations',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { href: '/allocation', label: 'Weekly Allocation' },
+      { href: '/bulk-allocation', label: 'Bulk Allocation' },
+      { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation' },
+      { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation' },
+    ]
+  },
+  {
+    title: 'Forecasts',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { href: '/weekly-forecast', label: 'Weekly Forecast' },
+      { href: '/bulk-forecast', label: 'Bulk Forecast' },
+    ]
+  },
+  {
+    title: 'Management',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { href: '/team', label: 'Team Management' },
+      { href: '/cost-centers', label: 'Client Management', roles: ['admin'] },
+      { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
+    ]
+  }
 ];
 
-export function TopNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
+export function TopNav() {
   const pathname = usePathname();
   const { currentUser, loading } = useCurrentUser();
 
@@ -36,35 +63,63 @@ export function TopNav({ className, ...props }: React.HTMLAttributes<HTMLElement
     return cleanedPathname === href;
   };
   
-  const filteredNavItems = navItems.filter(item => {
-    if (loading || !currentUser || !currentUser.role) return false;
-    return item.roles.includes(currentUser.role);
-  });
+  const userHasAccess = (roles?: string[]) => {
+    if (loading || !currentUser.role) return false;
+    if (!roles) return true; // No roles defined means public
+    return roles.includes(currentUser.role);
+  };
+  
+  const isGroupActive = (items: NavItem[]) => {
+      return items.some(item => isActive(item.href));
+  }
 
   if (loading) {
     return (
-       <nav className={cn('flex items-center space-x-4 lg:space-x-6', className)} {...props}>
-         {Array.from({ length: 4 }).map((_, index) => (
-           <div key={index} className="h-4 w-24 bg-muted rounded animate-pulse" />
-         ))}
-       </nav>
-    )
+       <div className='flex items-center space-x-4 lg:space-x-6'>
+         <Skeleton className="h-4 w-24 bg-muted rounded" />
+         <Skeleton className="h-4 w-24 bg-muted rounded" />
+         <Skeleton className="h-4 w-24 bg-muted rounded" />
+         <Skeleton className="h-4 w-24 bg-muted rounded" />
+       </div>
+    );
   }
 
   return (
-    <nav className={cn('flex items-center space-x-4 lg:space-x-6', className)} {...props}>
-      {filteredNavItems.map(item => (
+    <>
         <Link
-          key={item.href}
-          href={getHref(item.href)}
+          href={getHref('/')}
           className={cn(
             'text-sm font-medium transition-colors hover:text-primary',
-            isActive(item.href) ? 'text-primary' : 'text-muted-foreground'
+            isActive('/') ? 'text-primary' : 'text-muted-foreground'
           )}
         >
-          {item.label}
+          Dashboard
         </Link>
+      
+      {navGroups.map(group => (
+        <div key={group.title} className={cn(!userHasAccess(group.roles) && "hidden")}>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className={cn(
+                        "text-sm font-medium h-auto p-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
+                        isGroupActive(group.items) ? "text-primary" : "text-muted-foreground"
+                    )}>
+                        {group.title}
+                        <ChevronDown className="relative top-[1px] ml-1 h-3 w-3 transition duration-200 group-data-[state=open]:rotate-180" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                    {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                        <DropdownMenuItem key={item.href} asChild>
+                            <Link href={getHref(item.href)} className={cn(isActive(item.href) && "font-semibold")}>
+                              {item.label}
+                            </Link>
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
       ))}
-    </nav>
+    </>
   );
 }

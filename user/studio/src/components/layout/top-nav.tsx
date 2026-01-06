@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from '../ui/button';
 import { ChevronDown } from 'lucide-react';
-import type { NavGroup } from './app-shell-client';
+import type { NavGroup, NavItem } from '@/types/navigation';
+import { Skeleton } from '../ui/skeleton';
 
 const navGroups: NavGroup[] = [
   {
@@ -38,14 +39,14 @@ const navGroups: NavGroup[] = [
     title: 'Management',
     roles: ['admin', 'manager', 'vp'],
     items: [
-      { href: '/team', label: 'Team Management', roles: ['admin', 'manager', 'vp'] },
+      { href: '/team', label: 'Team Management' },
       { href: '/cost-centers', label: 'Client Management', roles: ['admin'] },
       { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
     ]
   }
 ];
 
-export function TopNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
+export function TopNav() {
   const pathname = usePathname();
   const { currentUser, loading } = useCurrentUser();
 
@@ -68,22 +69,23 @@ export function TopNav({ className, ...props }: React.HTMLAttributes<HTMLElement
     return roles.includes(currentUser.role);
   };
   
-  const isGroupActive = (items: { href: string }[]) => {
+  const isGroupActive = (items: NavItem[]) => {
       return items.some(item => isActive(item.href));
   }
 
   if (loading) {
     return (
-       <nav className={cn('flex items-center space-x-2 lg:space-x-4', className)} {...props}>
-         {Array.from({ length: 4 }).map((_, index) => (
-           <div key={index} className="h-4 w-24 bg-muted rounded animate-pulse" />
-         ))}
-       </nav>
-    )
+       <div className='flex items-center space-x-4 lg:space-x-6'>
+         <Skeleton className="h-4 w-24 bg-muted rounded" />
+         <Skeleton className="h-4 w-24 bg-muted rounded" />
+         <Skeleton className="h-4 w-24 bg-muted rounded" />
+         <Skeleton className="h-4 w-24 bg-muted rounded" />
+       </div>
+    );
   }
 
   return (
-    <nav className={cn('flex items-center space-x-2 lg:space-x-4', className)} {...props}>
+    <>
         <Link
           href={getHref('/')}
           className={cn(
@@ -94,28 +96,30 @@ export function TopNav({ className, ...props }: React.HTMLAttributes<HTMLElement
           Dashboard
         </Link>
       
-      {navGroups.filter(group => userHasAccess(group.roles)).map(group => (
-        <DropdownMenu key={group.title}>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className={cn(
-                    "text-sm font-medium h-auto p-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
-                    isGroupActive(group.items) ? "text-primary" : "text-muted-foreground"
-                )}>
-                    {group.title}
-                    <ChevronDown className="relative top-[1px] ml-1 h-3 w-3 transition duration-200 group-data-[state=open]:rotate-180" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-                {group.items.filter(item => userHasAccess(item.roles)).map(item => (
-                    <DropdownMenuItem key={item.href} asChild>
-                        <Link href={getHref(item.href)} className={cn(isActive(item.href) && "font-semibold")}>
-                          {item.label}
-                        </Link>
-                    </DropdownMenuItem>
-                ))}
-            </DropdownMenuContent>
-        </DropdownMenu>
+      {navGroups.map(group => (
+        <div key={group.title} className={cn(!userHasAccess(group.roles) && "hidden")}>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className={cn(
+                        "text-sm font-medium h-auto p-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
+                        isGroupActive(group.items) ? "text-primary" : "text-muted-foreground"
+                    )}>
+                        {group.title}
+                        <ChevronDown className="relative top-[1px] ml-1 h-3 w-3 transition duration-200 group-data-[state=open]:rotate-180" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                    {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                        <DropdownMenuItem key={item.href} asChild>
+                            <Link href={getHref(item.href)} className={cn(isActive(item.href) && "font-semibold")}>
+                              {item.label}
+                            </Link>
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
       ))}
-    </nav>
+    </>
   );
 }

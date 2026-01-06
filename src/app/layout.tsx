@@ -1,7 +1,8 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import AppShell from '@/components/layout/app-shell';
+import { AppShellClient } from '@/components/layout/app-shell-client';
 
 export const metadata: Metadata = {
   title: 'Randstad FTE',
@@ -30,7 +31,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <AppShell>{children}</AppShell>
+        <AppShellClient>{children}</AppShellClient>
         <Toaster />
       </body>
     </html>

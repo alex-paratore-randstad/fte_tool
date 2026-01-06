@@ -17,18 +17,38 @@ import {
 } from "@/components/ui/accordion"
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import type { NavGroup } from '@/types/navigation';
+import { Skeleton } from '../ui/skeleton';
 
-export type NavItem = {
-  href: string;
-  label: string;
-  roles?: ('admin' | 'manager' | 'vp')[];
-};
-
-export type NavGroup = {
-  title: string;
-  roles: ('admin' | 'manager' | 'vp')[];
-  items: NavItem[];
-};
+const navGroups: NavGroup[] = [
+  {
+    title: 'Allocations',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { href: '/allocation', label: 'Weekly Allocation' },
+      { href: '/bulk-allocation', label: 'Bulk Allocation' },
+      { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation' },
+      { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation' },
+    ]
+  },
+  {
+    title: 'Forecasts',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { href: '/weekly-forecast', label: 'Weekly Forecast' },
+      { href: '/bulk-forecast', label: 'Bulk Forecast' },
+    ]
+  },
+  {
+    title: 'Management',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { href: '/team', label: 'Team Management' },
+      { href: '/cost-centers', label: 'Client Management', roles: ['admin'] },
+      { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
+    ]
+  }
+];
 
 const getHref = (href: string) => {
     if (href === '/') return '/index.html';
@@ -38,37 +58,6 @@ const getHref = (href: string) => {
 export function AppShellClient({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useCurrentUser();
   const pathname = usePathname();
-
-  // Navigation structure is defined here for the mobile sidebar
-  const navGroups: NavGroup[] = [
-    {
-      title: 'Allocations',
-      roles: ['admin', 'manager', 'vp'],
-      items: [
-        { href: '/allocation', label: 'Weekly Allocation' },
-        { href: '/bulk-allocation', label: 'Bulk Allocation' },
-        { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation' },
-        { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation' },
-      ]
-    },
-    {
-      title: 'Forecasts',
-      roles: ['admin', 'manager', 'vp'],
-      items: [
-        { href: '/weekly-forecast', label: 'Weekly Forecast' },
-        { href: '/bulk-forecast', label: 'Bulk Forecast' },
-      ]
-    },
-    {
-      title: 'Management',
-      roles: ['admin', 'manager', 'vp'],
-      items: [
-        { href: '/team', label: 'Team Management', roles: ['admin', 'manager', 'vp'] },
-        { href: '/cost-centers', label: 'Client Management', roles: ['admin'] },
-        { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
-      ]
-    }
-  ];
 
   const userHasAccess = (roles?: string[]) => {
     if (loading || !currentUser.role) return false;
@@ -84,15 +73,22 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     return cleanedPathname === href;
   };
 
+  const isGroupActive = (items: { href: string }[]) => {
+    return items.some(item => isActive(item.href));
+  }
+  
   return (
     <div className="flex min-h-screen w-full flex-col">
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
+        {/* --- Desktop Navigation --- */}
         <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
           <Link href={getHref('/')} className="flex items-center gap-2 text-lg font-semibold md:text-base">
             <Logo />
           </Link>
           <TopNav />
         </nav>
+
+        {/* --- Mobile Navigation --- */}
         <Sheet>
           <SheetTrigger asChild>
             <Button
@@ -106,36 +102,38 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
           </SheetTrigger>
           <SheetContent side="left" className="p-0">
             <div className="flex h-full flex-col">
-              <div className="p-6">
+              <div className="p-6 border-b">
                  <Link href={getHref('/')} className="flex items-center gap-2 text-lg font-semibold">
                    <Logo />
                 </Link>
               </div>
-              <div className="flex-1 overflow-y-auto px-6">
+              <div className="flex-1 overflow-y-auto p-4">
                 <nav className="grid gap-2 text-lg font-medium">
                   <Link href={getHref('/')} className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-base", isActive('/') ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}>
                       Dashboard
                   </Link>
-                  <Accordion type="multiple" className="w-full">
-                    {navGroups.map(group => (
-                        userHasAccess(group.roles) && (
-                        <AccordionItem value={group.title} key={group.title} className="border-b-0">
-                            <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
-                            {group.title}
-                            </AccordionTrigger>
-                            <AccordionContent className="pl-4 pb-0">
-                            <div className="flex flex-col gap-1">
-                                {group.items.filter(item => userHasAccess(item.roles)).map(item => (
-                                <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
-                                    {item.label}
-                                </Link>
-                                ))}
-                            </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                        )
-                    ))}
-                  </Accordion>
+                  <Accordion type="multiple" className="w-full" defaultValue={navGroups.filter(g => isGroupActive(g.items)).map(g => g.title)}>
+                      {navGroups.map(group => (
+                          <AccordionItem value={group.title} key={group.title} className={cn("border-b-0", loading && "hidden")}>
+                              {userHasAccess(group.roles) && (
+                                <>
+                                  <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
+                                  {group.title}
+                                  </AccordionTrigger>
+                                  <AccordionContent className="pl-4 pb-0">
+                                      <div className="flex flex-col gap-1">
+                                          {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                                          <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
+                                              {item.label}
+                                          </Link>
+                                          ))}
+                                      </div>
+                                  </AccordionContent>
+                                </>
+                              )}
+                          </AccordionItem>
+                      ))}
+                    </Accordion>
                 </nav>
               </div>
             </div>

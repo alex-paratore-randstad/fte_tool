@@ -1,5 +1,4 @@
 
-
 export type Employee = {
   id: string;
   name: string;
@@ -87,4 +86,16 @@ export type WeeklyForecast = {
     forecast_cost_center_name: string;
     forecast_allocation_amount: string;
   }
+};
+
+export type NavItem = {
+  href: string;
+  label: string;
+  roles?: ('admin' | 'manager' | 'vp')[];
+};
+
+export type NavGroup = {
+  title: string;
+  roles: ('admin' | 'manager' | 'vp')[];
+  items: NavItem[];
 };
