@@ -292,13 +292,20 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
     if (prevMonthWeeks.length === 0) return;
 
-    const sourceWeeks = prevMonthWeeks.slice(0, 4); // Only use first 4 weeks of prev month
-    const targetWeeks = weeks.slice(0, 4); // Only apply to first 4 weeks of current month
+    const sourceWeeks = prevMonthWeeks.slice(0, 4);
+    const targetWeeks = weeks.slice(0, 4);
+    const sourceWeekKeys = sourceWeeks.map(w => `'${formatDateKey(w.startDate)}'`);
+    if (sourceWeekKeys.length === 0) return;
 
     try {
-      // Fetch all allocations for the previous month for this employee
-      const query = `?q=content.allocation_name='${employee.Full_Name}'&q=content.allocation_date in (${sourceWeeks.map(w => `'${formatDateKey(w.startDate)}'`).join(',')})`;
-      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${query}`);
+        const employeeFilter = `content.allocation_name='${employee.Full_Name}'`;
+        const dateFilters = `content.allocation_date in (${sourceWeekKeys.join(',')})`;
+        
+        const params = new URLSearchParams({
+            q: `${employeeFilter} and ${dateFilters}`
+        });
+        
+        const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?${params.toString()}`);
       
       if (!response.ok) {
         console.warn(`No previous allocations found for ${employee.Full_Name}`);

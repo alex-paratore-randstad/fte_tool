@@ -335,29 +335,8 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
         setIsSubmitting(false);
     }
   };
-
-  if (!currentDate) {
-    return (
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <Skeleton className="h-6 w-48 mb-2" />
-                <Skeleton className="h-4 w-96" />
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                  <Skeleton className="h-10 w-48" />
-                  <Skeleton className="h-10 w-10" />
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="h-10 w-10" />
-                  <Skeleton className="h-10 w-24" />
-              </div>
-          </div>
-        </CardHeader>
-        <CardContent><Skeleton className="h-64 w-full" /></CardContent>
-      </Card>
-    );
-  }
+  
+  const isLoading = !currentDate;
 
   return (
     <Card>
@@ -368,24 +347,37 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
             <CardDescription>Add employees to view and adjust their pre-populated ticket ratios.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <EmployeeSelect 
-                employees={availableEmployees}
-                onValueChange={handleAddEmployee}
-                value={selectedEmployeeToAdd}
-            />
-            <ManagerSelect />
-            <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isSubmitting}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium w-32 text-center">
-              {format(currentDate, 'MMMM yyyy')}
-            </span>
-            <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isSubmitting}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button onClick={handleSave} disabled={activeAllocations.length === 0 || isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save All'}
-            </Button>
+            {isLoading ? (
+              <>
+                <Skeleton className="h-10 w-[200px]" />
+                <Skeleton className="h-10 w-[200px]" />
+                <Skeleton className="h-10 w-10" />
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-10 w-10" />
+                <Skeleton className="h-10 w-24" />
+              </>
+            ) : (
+              <>
+                <EmployeeSelect 
+                    employees={availableEmployees}
+                    onValueChange={handleAddEmployee}
+                    value={selectedEmployeeToAdd}
+                />
+                <ManagerSelect />
+                <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isSubmitting}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-medium w-32 text-center">
+                  {format(currentDate, 'MMMM yyyy')}
+                </span>
+                <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isSubmitting}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button onClick={handleSave} disabled={activeAllocations.length === 0 || isSubmitting}>
+                  {isSubmitting ? 'Saving...' : 'Save All'}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -401,64 +393,71 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {activeAllocations.length === 0 && (
+              {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      <Skeleton className="h-5 w-48 mx-auto" />
+                    </TableCell>
+                  </TableRow>
+              ) : activeAllocations.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
                     Select an employee from the dropdown to begin.
                   </TableCell>
                 </TableRow>
-              )}
-              {activeAllocations.map(({ agentName, allocations }) => {
-                const totalFte = allocations.reduce((total, alloc) => total + (alloc.fte || 0), 0);
-                return (
-                  <Fragment key={agentName}>
-                    <TableRow className="bg-muted/50 hover:bg-muted">
-                      <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{agentName}</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell className={cn("text-center font-semibold", Math.abs(totalFte - 1.0) > 0.01 ? "text-destructive" : "text-muted-foreground")}>
-                        {totalFte > 0 ? totalFte.toFixed(3) : '-'}
-                      </TableCell>
-                      <TableCell className='text-right'>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(agentName)} disabled={isSubmitting}>
-                           <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-
-                    {allocations.map((alloc) => (
-                      <TableRow key={alloc.id}>
-                        <TableCell className="sticky left-0 bg-card z-10"></TableCell>
-                        <TableCell>
-                           <Input value={alloc.clientName} readOnly className="bg-muted" />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number" step="0.01" min="0" placeholder="0.00"
-                            className="w-32 text-center mx-auto"
-                            value={alloc.fte || ''}
-                            onChange={(e) => handleFteChange(agentName, alloc.id, e.target.value)}
-                            disabled={isSubmitting}
-                          />
+              ) : (
+                activeAllocations.map(({ agentName, allocations }) => {
+                  const totalFte = allocations.reduce((total, alloc) => total + (alloc.fte || 0), 0);
+                  return (
+                    <Fragment key={agentName}>
+                      <TableRow className="bg-muted/50 hover:bg-muted">
+                        <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{agentName}</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell className={cn("text-center font-semibold", Math.abs(totalFte - 1.0) > 0.01 ? "text-destructive" : "text-muted-foreground")}>
+                          {totalFte > 0 ? totalFte.toFixed(3) : '-'}
                         </TableCell>
                         <TableCell className='text-right'>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(agentName, alloc.id)} disabled={isSubmitting}>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(agentName)} disabled={isSubmitting}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
 
-                    <TableRow>
-                      <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
-                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(agentName)} disabled={isSubmitting}>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Add Manual Allocation
-                        </Button>
-                      </TableCell>
-                      <TableCell colSpan={2}></TableCell>
-                    </TableRow>
-                  </Fragment>
-                );
-              })}
+                      {allocations.map((alloc) => (
+                        <TableRow key={alloc.id}>
+                          <TableCell className="sticky left-0 bg-card z-10"></TableCell>
+                          <TableCell>
+                            <Input value={alloc.clientName} readOnly className="bg-muted" />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number" step="0.01" min="0" placeholder="0.00"
+                              className="w-32 text-center mx-auto"
+                              value={alloc.fte || ''}
+                              onChange={(e) => handleFteChange(agentName, alloc.id, e.target.value)}
+                              disabled={isSubmitting}
+                            />
+                          </TableCell>
+                          <TableCell className='text-right'>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(agentName, alloc.id)} disabled={isSubmitting}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+
+                      <TableRow>
+                        <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
+                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(agentName)} disabled={isSubmitting}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Manual Allocation
+                          </Button>
+                        </TableCell>
+                        <TableCell colSpan={2}></TableCell>
+                      </TableRow>
+                    </Fragment>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </div>
