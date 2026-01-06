@@ -299,9 +299,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const sourceWeekKeys = sourceWeeks.map(w => formatDateKey(w.startDate));
     if (sourceWeekKeys.length === 0) return;
     
-    // Build a valid query string with multiple 'or' conditions for dates
+    const employeeFilter = `content.allocation_name contains '[${employee.Person_Number}]'`;
     const dateFilters = sourceWeekKeys.map(key => `(content.allocation_date='${key}')`).join(' or ');
-    const employeeFilter = `content.employee_id='${employee.Person_Number}'`;
     const finalQuery = `(${employeeFilter}) and (${dateFilters})`;
 
     try {
@@ -533,8 +532,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             submissions.push({
               content: {
                 allocation_date: weekKey,
-                allocation_name: empAlloc.employee.Full_Name,
-                employee_id: empAlloc.employee.Person_Number, // Save the unique ID
+                allocation_name: `[${empAlloc.employee.Person_Number}] ${empAlloc.employee.Full_Name}`,
                 cost_center_name: alloc.clientName,
                 cost_center_number: alloc.clientId,
                 allocation_amount: fte.toString(),
@@ -574,7 +572,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     }
   };
 
-  if (initialLoading || internalLoading || userLoading || !currentDate || !startOfCurrentWeek || weeks.length === 0) {
+  if (initialLoading || internalLoading || userLoading) {
     return (
       <Card>
         <CardHeader>
@@ -625,8 +623,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 <TableHead className="p-2 w-28">Client Code</TableHead>
                 <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                 {weeks.map(week => {
-                  const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
-                  const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                  const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                  const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                   const isLockedForUser = isPast && !isAdmin;
                   return (
                     <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
@@ -676,10 +674,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     </TableRow>
 
                     {allocations.map((alloc) => {
-                       const isRowLocked = weeks.some(week => {
+                       const isRowLocked = startOfCurrentWeek ? weeks.some(week => {
                             const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                             return isPast && !isAdmin;
-                       });
+                       }) : false;
                       return (
                       <TableRow key={alloc.id}>
                         <TableCell className="sticky left-0 bg-card z-10"></TableCell>
@@ -710,8 +708,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                         </TableCell>
                         {weeks.map(week => {
                           const weekKey = formatDateKey(week.startDate);
-                          const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
-                           const isCurrent = isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                          const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                           const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                           const isLockedForUser = isPast && !isAdmin;
                           const fteValue = alloc.weeklyFtes[weekKey];
                           return (

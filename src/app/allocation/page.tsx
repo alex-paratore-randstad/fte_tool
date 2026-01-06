@@ -6,7 +6,6 @@ import { PageHeader } from '@/components/page-header';
 import { MultiWeekGrid } from '@/components/allocation/multi-week-grid';
 import { WeeklyAllocationTable } from '@/components/allocation/weekly-allocation-table';
 import { initializeFiscalCalendar, type FiscalCalendarEntry } from '@/lib/fiscal-calendar';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AllocationPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
@@ -39,20 +38,7 @@ export default function AllocationPage() {
     setRefreshKey(prevKey => prevKey + 1);
   };
 
-  // This condition prevents rendering the main content until the client-side
-  // useEffect has run, which avoids the hydration mismatch with the server.
-  if (!calendarInitialized || !currentDate) {
-      return (
-        <div className="flex flex-col gap-8">
-            <PageHeader
-                title="Weekly Allocation"
-                description="Allocate FTEs for the current fiscal period."
-            />
-            <Skeleton className="h-[400px] w-full" />
-            <Skeleton className="h-[300px] w-full" />
-        </div>
-      )
-  }
+  const isInitialLoading = !calendarInitialized || !currentDate;
 
   return (
     <div className="flex flex-col gap-8">
@@ -60,8 +46,17 @@ export default function AllocationPage() {
         title="Weekly Allocation"
         description="Allocate FTEs for the current fiscal period."
       />
-      <MultiWeekGrid currentDate={currentDate} setCurrentDate={setCurrentDate} onSaveSuccess={handleRefresh} />
-      <WeeklyAllocationTable currentDate={currentDate} refreshKey={refreshKey} />
+      <MultiWeekGrid 
+        currentDate={currentDate} 
+        setCurrentDate={setCurrentDate} 
+        onSaveSuccess={handleRefresh}
+        initialLoading={isInitialLoading}
+      />
+      <WeeklyAllocationTable 
+        currentDate={currentDate} 
+        refreshKey={refreshKey}
+        initialLoading={isInitialLoading}
+      />
     </div>
   );
 }
