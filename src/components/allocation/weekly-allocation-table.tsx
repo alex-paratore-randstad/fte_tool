@@ -75,7 +75,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
   const filteredAllocations = useMemo(() => {
     if (!nameFilter) return editableAllocations;
     return editableAllocations.filter(alloc => 
-      alloc.employeeName.toLowerCase().includes(nameFilter.toLowerCase())
+      parseEmployeeName(alloc.employeeName).toLowerCase().includes(nameFilter.toLowerCase())
     );
   }, [editableAllocations, nameFilter]);
 

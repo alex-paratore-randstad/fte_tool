@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { addMonths, subMonths, startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
+import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, History } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember, WeeklyAllocation } from '@/types';
 import { cn } from '@/lib/utils';
@@ -286,7 +286,95 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     if (currentDate) setCurrentDate(getNextFiscalMonth(currentDate));
   };
 
-  const handleAddEmployee = useCallback((employeeId: string) => {
+  const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
+    if (!currentDate) return;
+
+    const prevMonthDate = getPreviousFiscalMonth(currentDate);
+    const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
+    if (prevMonthWeeks.length === 0) return;
+
+    const sourceWeeks = prevMonthWeeks.slice(0, 4); 
+    const targetWeeks = weeks.slice(0, 4);
+    
+    const sourceWeekKeys = new Set(sourceWeeks.map(w => formatDateKey(w.startDate)));
+    if (sourceWeekKeys.size === 0) return;
+    
+    try {
+      // Fetch all allocations for the specific employee
+      const employeeFilter = `content.allocation_name contains '[${employee.Person_Number}]'`;
+      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=${encodeURIComponent(employeeFilter)}`);
+      
+      if (!response.ok) {
+        toast({ title: "No prior allocations found", description: `Could not load data for ${employee.Full_Name}.`, variant: 'destructive' });
+        return;
+      }
+      
+      const allEmployeeAllocations: WeeklyAllocation[] = await response.json();
+      
+      // Filter client-side for the source weeks
+      const prevAllocsForSourceWeeks = allEmployeeAllocations.filter(alloc => 
+        sourceWeekKeys.has(alloc.content.allocation_date)
+      );
+
+      if (prevAllocsForSourceWeeks.length === 0) {
+        toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.` });
+        return;
+      }
+
+      const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
+
+      prevAllocsForSourceWeeks.forEach(alloc => {
+          const clientKey = alloc.content.cost_center_number;
+          if (!clientAllocationsMap.has(clientKey)) {
+              clientAllocationsMap.set(clientKey, { 
+                  clientName: alloc.content.cost_center_name,
+                  weeklyFtes: new Map<string, number>()
+              });
+          }
+          const fte = parseFloat(alloc.content.allocation_amount);
+          clientAllocationsMap.get(clientKey)!.weeklyFtes.set(alloc.content.allocation_date, fte);
+      });
+      
+      const newAllocationRows: AllocationRow[] = [];
+      clientAllocationsMap.forEach((data, clientId) => {
+        const newRow: AllocationRow = {
+          id: `${employee.Person_Number}-${clientId}-${Date.now()}`,
+          clientId: clientId,
+          clientName: data.clientName,
+          weeklyFtes: {},
+        };
+        
+        targetWeeks.forEach((currentWeek, index) => {
+            if (index < sourceWeeks.length) {
+                const sourceWeekKey = formatDateKey(sourceWeeks[index].startDate);
+                if (data.weeklyFtes.has(sourceWeekKey)) {
+                    const fte = data.weeklyFtes.get(sourceWeekKey)!;
+                    newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
+                }
+            }
+        });
+        newAllocationRows.push(newRow);
+      });
+
+      if (newAllocationRows.length > 0) {
+        setActiveAllocations(prev =>
+          prev.map(empAlloc =>
+            empAlloc.employee.Person_Number === employee.Person_Number
+              ? { ...empAlloc, allocations: newAllocationRows }
+              : empAlloc
+          )
+        );
+         toast({ title: `Prior Allocations Loaded`, description: `Loaded previous month's data for ${employee.Full_Name}.`});
+      }
+
+    } catch (error) {
+        console.error('Failed to fetch previous month allocations:', error);
+        toast({ variant: 'destructive', title: 'Error Loading Prior Data', description: `Could not load allocations for ${employee.Full_Name}.`});
+    }
+
+  }, [currentDate, weeks, toast]);
+  
+  const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
 
     setSelectedEmployeeToAdd(employeeId); // Keep the select controlled
@@ -313,9 +401,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     }
     // Reset the select after adding
     setTimeout(() => setSelectedEmployeeToAdd(''), 0);
-  }, [allEmployees, activeAllocations, toast]);
+  };
 
-  const handleAddManagerTeam = useCallback((managerId: string) => {
+  const handleAddManagerTeam = (managerId: string) => {
     if (!managerId) return;
     const directReports = allEmployees.filter(e => e.First_Reviewer_Code === managerId);
     
@@ -340,7 +428,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     } else {
       toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' });
     }
-  }, [allEmployees, activeAllocations, toast]);
+  };
 
 
   const handleRemoveEmployee = (employeeId: string) => {
@@ -652,9 +740,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
                     <TableRow>
                       <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
-                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
-                        </Button>
+                        <div className="flex gap-2">
+                           <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
+                          </Button>
+                          <Button variant="secondary" size="sm" className="w-full justify-start" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)}>
+                            <History className="mr-2 h-4 w-4" /> Load Prior Allocations
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell colSpan={weeks.length + 2}></TableCell>
                     </TableRow>
