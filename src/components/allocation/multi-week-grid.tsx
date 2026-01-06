@@ -209,7 +209,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
 
-  const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
+  const { currentUser, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -289,22 +289,21 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
     if (!currentDate) return;
-
+  
     const prevMonthDate = getPreviousFiscalMonth(currentDate);
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
     if (prevMonthWeeks.length === 0) return;
-
-    const sourceWeeks = prevMonthWeeks.slice(0, weeks.length);
-    const targetWeeks = weeks.slice(0, sourceWeeks.length);
-    
-    const sourceWeekKeys = sourceWeeks.map(w => formatDateKey(w.startDate));
-     if (sourceWeekKeys.length === 0) {
+  
+    const sourceWeekKeys = prevMonthWeeks.map(w => formatDateKey(w.startDate));
+  
+    if (sourceWeekKeys.length === 0) {
       toast({ title: "No weeks to query", description: "Could not determine previous month's weeks." });
       return;
     }
-    
+  
     try {
       const allPrevMonthAllocations: WeeklyAllocation[] = [];
+      // Fetch all documents for the previous month's weeks
       for (const weekKey of sourceWeekKeys) {
         const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
         if (response.ok) {
@@ -315,15 +314,16 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       }
       
       const employeeCompositeName = `[${employee.Person_Number}] ${employee.Full_Name}`;
+      // Client-side filter for the specific employee
       const employeeAllocations = allPrevMonthAllocations.filter(alloc => alloc.content.allocation_name === employeeCompositeName);
       
       if (employeeAllocations.length === 0) {
         toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.` });
         return;
       }
-
+  
       const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
-
+  
       employeeAllocations.forEach(alloc => {
           const clientKey = alloc.content.cost_center_number;
           if (!clientAllocationsMap.has(clientKey)) {
@@ -345,9 +345,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           weeklyFtes: {},
         };
         
-        targetWeeks.forEach((currentWeek, index) => {
-            if (index < sourceWeeks.length) {
-                const sourceWeekKey = formatDateKey(sourceWeeks[index].startDate);
+        // This logic maps previous month's Nth week to current month's Nth week
+        weeks.forEach((currentWeek, index) => {
+            if (index < prevMonthWeeks.length) {
+                const sourceWeekKey = formatDateKey(prevMonthWeeks[index].startDate);
                 if (data.weeklyFtes.has(sourceWeekKey)) {
                     const fte = data.weeklyFtes.get(sourceWeekKey)!;
                     newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
@@ -356,7 +357,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         });
         newAllocationRows.push(newRow);
       });
-
+  
       if (newAllocationRows.length > 0) {
         setActiveAllocations(prev =>
           prev.map(empAlloc =>
@@ -366,13 +367,15 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           )
         );
          toast({ title: `Prior Allocations Loaded`, description: `Loaded previous month's data for ${employee.Full_Name}.`});
+      } else {
+        toast({ title: "No applicable prior allocations found", description: `No data from the previous month could be applied for ${employee.Full_Name}.` });
       }
-
+  
     } catch (error) {
         console.error('Failed to fetch previous month allocations:', error);
         toast({ variant: 'destructive', title: 'Error Loading Prior Data', description: `Could not load allocations for ${employee.Full_Name}.`});
     }
-
+  
   }, [currentDate, weeks, toast]);
   
   const handleAddEmployee = (employeeId: string) => {
@@ -579,22 +582,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     }
   };
 
-  if (initialLoading || internalLoading || userLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-          <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const isLoading = initialLoading || internalLoading || userLoading;
 
   return (
     <TooltipProvider>
@@ -605,63 +593,74 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
               <CardTitle>Monthly Allocation Grid</CardTitle>
               <CardDescription>Add employees to build your allocation plan. Past weeks are locked for non-admins.</CardDescription>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <EmployeeSelect 
-                  employees={availableEmployees} 
-                  onValueChange={handleAddEmployee}
-                  value={selectedEmployeeToAdd}
-              />
-              <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} />
-              <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-              <span className="text-sm font-medium w-32 text-center">
-                {fiscalMonthLabel}
-              </span>
-              <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
-              <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
-            </div>
+            {isLoading ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Skeleton className="h-10 w-[200px]" />
+                <Skeleton className="h-10 w-[200px]" />
+                <Skeleton className="h-10 w-10" />
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-10 w-10" />
+                <Skeleton className="h-10 w-24" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <EmployeeSelect 
+                    employees={availableEmployees} 
+                    onValueChange={handleAddEmployee}
+                    value={selectedEmployeeToAdd}
+                />
+                <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} />
+                <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
+                <span className="text-sm font-medium w-32 text-center">
+                  {fiscalMonthLabel}
+                </span>
+                <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
+                <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
-                  <TableHead className="min-w-[200px]">Client Name</TableHead>
-                  <TableHead className="p-2 w-28">Client Code</TableHead>
-                  <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
-                  {weeks.map(week => {
-                    const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                    const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                    const isLockedForUser = isPast && !isAdmin;
-                    return (
-                      <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
-                        <div className='flex items-center justify-center gap-2'>
-                          {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
-                          <span>W/E {week.reportingWeekDate}</span>
-                        </div>
-                        {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
-                      </TableHead>
-                    )
-                  })}
-                  <TableHead className="w-[80px]"> </TableHead>
-                </TableRow>
-              </TableHeader>
+            {isLoading ? (
+              <Skeleton className="h-64 w-full" />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
+                    <TableHead className="min-w-[200px]">Client Name</TableHead>
+                    <TableHead className="p-2 w-28">Client Code</TableHead>
+                    <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
+                    {weeks.map(week => {
+                      const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                      const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                      const isLockedForUser = isPast && !isAdmin;
+                      return (
+                        <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
+                          <div className='flex items-center justify-center gap-2'>
+                            {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                            <span>W/E {week.reportingWeekDate}</span>
+                          </div>
+                          {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
+                        </TableHead>
+                      )
+                    })}
+                    <TableHead className="w-[80px]"> </TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                {activeAllocations.length === 0 && (
+                  {activeAllocations.length === 0 ? (
                     <TableRow>
                         <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
                             Select an employee from the dropdown above to begin building your allocation plan.
                         </TableCell>
                     </TableRow>
-                )}
-                  {activeAllocations.map(({ employee, allocations }) => {
+                  ) : activeAllocations.map(({ employee, allocations }) => {
                     const weeklyTotals = weeks.map(week => {
                       const weekKey = formatDateKey(week.startDate);
                       return allocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
                     });
-
-                    const isPartTime = employee.Employment_Mode?.includes('PT');
 
                     return (
                       <Fragment key={employee.Person_Number}>
@@ -672,8 +671,16 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                           </TableCell>
                           <TableCell colSpan={3}></TableCell>
                           {weeklyTotals.map((total, index) => {
-                              const isOverallocated = total > (isPartTime ? 0.8 : 1.0);
-                              const isPartTimeWarning = isPartTime && total > 0.6 && total <= 0.8;
+                              const isPartTime = employee.Employment_Mode?.includes('PT');
+                              const isOverallocated = total > 1.0;
+                              const isPartTimeWarning = isPartTime && total >= 0.8 && total <= 1.0;
+
+                              let tooltipMessage = '';
+                              if (isOverallocated) {
+                                tooltipMessage = 'Employee allocated over 1.0 FTE.';
+                              } else if (isPartTimeWarning) {
+                                tooltipMessage = 'Part-time employee allocated at or above 0.8 FTE.';
+                              }
 
                               return (
                                 <TableCell key={index} className="text-center font-semibold">
@@ -687,16 +694,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                                                 {total > 0 ? total.toFixed(2) : '-'}
                                             </span>
                                         </TooltipTrigger>
-                                        {isPartTimeWarning && (
-                                            <TooltipContent>
-                                                <p>Part-time employee allocated over 0.6 FTE.</p>
-                                            </TooltipContent>
-                                        )}
-                                        {isOverallocated && (
-                                            <TooltipContent>
-                                              <p>{isPartTime ? "Part-time employee allocated over 0.8 FTE." : "Employee allocated over 1.0 FTE."}</p>
-                                            </TooltipContent>
-                                        )}
+                                        <TooltipContent>
+                                          <p>{tooltipMessage || ''}</p>
+                                        </TooltipContent>
                                     </Tooltip>
                                 </TableCell>
                               )
@@ -784,7 +784,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     );
                   })}
                 </TableBody>
-            </Table>
+              </Table>
+            )}
           </div>
         </CardContent>
       </Card>
