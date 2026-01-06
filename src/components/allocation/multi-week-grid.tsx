@@ -56,6 +56,7 @@ type MultiWeekGridProps = {
   currentDate: Date | null;
   setCurrentDate: (date: Date) => void;
   onSaveSuccess: () => void;
+  initialLoading: boolean;
 };
 
 // New self-contained component for the Client dropdown
@@ -198,12 +199,12 @@ const ManagerSelect = ({
 };
 
 
-export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: MultiWeekGridProps) {
+export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, initialLoading }: MultiWeekGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [clients, setClients] = useState<AiReportData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [internalLoading, setInternalLoading] = useState(true);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
 
@@ -224,7 +225,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   }, [currentDate]);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    setInternalLoading(true);
     try {
       const [empResponse, clientResponse] = await Promise.all([
         fetch(`/data/v1/gbs_ind_hr_fte_report`),
@@ -262,7 +263,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
       console.error("Failed to fetch initial data:", error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
     } finally {
-      setLoading(false);
+      setInternalLoading(false);
     }
   }, [toast]);
 
@@ -292,20 +293,20 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
     if (prevMonthWeeks.length === 0) return;
 
-    const sourceWeeks = prevMonthWeeks.slice(0, 4);
-    const targetWeeks = weeks.slice(0, 4);
-    const sourceWeekKeys = sourceWeeks.map(w => `'${formatDateKey(w.startDate)}'`);
+    const sourceWeeks = prevMonthWeeks.slice(0, 4); // Only use first 4 weeks of prev month
+    const targetWeeks = weeks.slice(0, 4); // Only apply to first 4 weeks of current month
+    
+    const sourceWeekKeys = sourceWeeks.map(w => formatDateKey(w.startDate));
     if (sourceWeekKeys.length === 0) return;
+    
+    // Build a valid query string with multiple 'or' conditions for dates
+    const dateFilters = sourceWeekKeys.map(key => `(content.allocation_date='${key}')`).join(' or ');
+    const employeeFilter = `content.employee_id='${employee.Person_Number}'`;
+    const finalQuery = `(${employeeFilter}) and (${dateFilters})`;
 
     try {
-        const employeeFilter = `content.allocation_name='${employee.Full_Name}'`;
-        const dateFilters = `content.allocation_date in (${sourceWeekKeys.join(',')})`;
-        
-        const params = new URLSearchParams({
-            q: `${employeeFilter} and ${dateFilters}`
-        });
-        
-        const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?${params.toString()}`);
+      const params = new URLSearchParams({ q: finalQuery });
+      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?${params.toString()}`);
       
       if (!response.ok) {
         console.warn(`No previous allocations found for ${employee.Full_Name}`);
@@ -315,33 +316,39 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
       const prevAllocs: WeeklyAllocation[] = await response.json();
       if (prevAllocs.length === 0) return;
 
-      // Group previous allocations by client
-      const clientAllocations: Record<string, { fte: number, clientId: string, clientName: string}[]> = {};
+      const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
+
       prevAllocs.forEach(alloc => {
           const clientKey = alloc.content.cost_center_number;
-          if (!clientAllocations[clientKey]) clientAllocations[clientKey] = [];
-          clientAllocations[clientKey].push({ 
-              fte: parseFloat(alloc.content.allocation_amount), 
-              clientId: alloc.content.cost_center_number,
-              clientName: alloc.content.cost_center_name
-          });
+          if (!clientAllocationsMap.has(clientKey)) {
+              clientAllocationsMap.set(clientKey, { 
+                  clientName: alloc.content.cost_center_name,
+                  weeklyFtes: new Map<string, number>()
+              });
+          }
+          const fte = parseFloat(alloc.content.allocation_amount);
+          clientAllocationsMap.get(clientKey)!.weeklyFtes.set(alloc.content.allocation_date, fte);
       });
       
-      const newAllocationRows: AllocationRow[] = Object.values(clientAllocations).map((allocs, index) => {
-          const weeklyFtes: { [weekKey: string]: number } = {};
-          // Apply the FTE from the corresponding week of the previous month
-          targetWeeks.forEach((week, weekIndex) => {
-              const prevWeekFte = allocs[weekIndex]?.fte || allocs[0]?.fte || 0; // Fallback strategy
-              weeklyFtes[formatDateKey(week.startDate)] = prevWeekFte;
-          });
-          
-          return {
-              id: `${employee.Person_Number}-prev-${index}-${Date.now()}`,
-              clientId: allocs[0].clientId,
-              clientName: allocs[0].clientName,
-              weeklyFtes: weeklyFtes,
-          };
+      const newAllocationRows: AllocationRow[] = [];
+      clientAllocationsMap.forEach((data, clientId) => {
+        const newRow: AllocationRow = {
+          id: `${employee.Person_Number}-${clientId}-${Date.now()}`,
+          clientId: clientId,
+          clientName: data.clientName,
+          weeklyFtes: {},
+        };
+        
+        targetWeeks.forEach((currentWeek, index) => {
+            const sourceWeekKey = sourceWeeks[index] ? formatDateKey(sourceWeeks[index].startDate) : null;
+            if (sourceWeekKey && data.weeklyFtes.has(sourceWeekKey)) {
+                const fte = data.weeklyFtes.get(sourceWeekKey)!;
+                newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
+            }
+        });
+        newAllocationRows.push(newRow);
       });
+
 
       if (newAllocationRows.length > 0) {
         setActiveAllocations(prev =>
@@ -527,6 +534,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
               content: {
                 allocation_date: weekKey,
                 allocation_name: empAlloc.employee.Full_Name,
+                employee_id: empAlloc.employee.Person_Number, // Save the unique ID
                 cost_center_name: alloc.clientName,
                 cost_center_number: alloc.clientId,
                 allocation_amount: fte.toString(),
@@ -566,7 +574,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
     }
   };
 
-  if (loading || userLoading || !currentDate || !startOfCurrentWeek || weeks.length === 0) {
+  if (initialLoading || internalLoading || userLoading || !currentDate || !startOfCurrentWeek || weeks.length === 0) {
     return (
       <Card>
         <CardHeader>

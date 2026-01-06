@@ -71,6 +71,7 @@ export type WeeklyAllocation = {
   content: {
     allocation_date: string; // e.g., '2024-08-25'
     allocation_name: string; // Employee full name
+    employee_id?: string; // Employee Person_Number
     cost_center_number: string;
     cost_center_name: string;
     allocation_amount: string; // This is a string from the datastore
