@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/table';
 import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import type { TeamMember } from '@/types';
+import type { TeamMember, WeeklyAllocation } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -284,8 +284,76 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
   const handleNextMonth = () => {
     if (currentDate) setCurrentDate(getNextFiscalMonth(currentDate));
   };
+
+  const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
+    if (!currentDate) return;
+
+    const prevMonthDate = getPreviousFiscalMonth(currentDate);
+    const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
+    if (prevMonthWeeks.length === 0) return;
+
+    const sourceWeeks = prevMonthWeeks.slice(0, 4); // Only use first 4 weeks of prev month
+    const targetWeeks = weeks.slice(0, 4); // Only apply to first 4 weeks of current month
+
+    try {
+      // Fetch all allocations for the previous month for this employee
+      const query = `?q=content.allocation_name='${employee.Full_Name}'&q=content.allocation_date in (${sourceWeeks.map(w => `'${formatDateKey(w.startDate)}'`).join(',')})`;
+      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${query}`);
+      
+      if (!response.ok) {
+        console.warn(`No previous allocations found for ${employee.Full_Name}`);
+        return;
+      }
+      
+      const prevAllocs: WeeklyAllocation[] = await response.json();
+      if (prevAllocs.length === 0) return;
+
+      // Group previous allocations by client
+      const clientAllocations: Record<string, { fte: number, clientId: string, clientName: string}[]> = {};
+      prevAllocs.forEach(alloc => {
+          const clientKey = alloc.content.cost_center_number;
+          if (!clientAllocations[clientKey]) clientAllocations[clientKey] = [];
+          clientAllocations[clientKey].push({ 
+              fte: parseFloat(alloc.content.allocation_amount), 
+              clientId: alloc.content.cost_center_number,
+              clientName: alloc.content.cost_center_name
+          });
+      });
+      
+      const newAllocationRows: AllocationRow[] = Object.values(clientAllocations).map((allocs, index) => {
+          const weeklyFtes: { [weekKey: string]: number } = {};
+          // Apply the FTE from the corresponding week of the previous month
+          targetWeeks.forEach((week, weekIndex) => {
+              const prevWeekFte = allocs[weekIndex]?.fte || allocs[0]?.fte || 0; // Fallback strategy
+              weeklyFtes[formatDateKey(week.startDate)] = prevWeekFte;
+          });
+          
+          return {
+              id: `${employee.Person_Number}-prev-${index}-${Date.now()}`,
+              clientId: allocs[0].clientId,
+              clientName: allocs[0].clientName,
+              weeklyFtes: weeklyFtes,
+          };
+      });
+
+      if (newAllocationRows.length > 0) {
+        setActiveAllocations(prev =>
+          prev.map(empAlloc =>
+            empAlloc.employee.Person_Number === employee.Person_Number
+              ? { ...empAlloc, allocations: newAllocationRows }
+              : empAlloc
+          )
+        );
+         toast({ title: `Applied Prior Allocations`, description: `Loaded previous month's allocations for ${employee.Full_Name}.`});
+      }
+
+    } catch (error) {
+        console.error('Failed to fetch previous month allocations:', error);
+    }
+
+  }, [currentDate, weeks, toast]);
   
-  const handleAddEmployee = (employeeId: string) => {
+  const handleAddEmployee = useCallback((employeeId: string) => {
     if (!employeeId) return;
 
     setSelectedEmployeeToAdd(employeeId); // Keep the select controlled
@@ -309,12 +377,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
         employee: employeeToAdd,
         allocations: [newAllocationRow]
       }, ...prev]);
+
+      fetchAndApplyPreviousMonthAllocations(employeeToAdd);
     }
     // Reset the select after adding
     setTimeout(() => setSelectedEmployeeToAdd(''), 0);
-  };
+  }, [allEmployees, activeAllocations, toast, fetchAndApplyPreviousMonthAllocations]);
 
-  const handleAddManagerTeam = (managerId: string) => {
+  const handleAddManagerTeam = useCallback((managerId: string) => {
     if (!managerId) return;
     const directReports = allEmployees.filter(e => e.First_Reviewer_Code === managerId);
     
@@ -327,6 +397,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
           clientName: '',
           weeklyFtes: {},
         };
+        fetchAndApplyPreviousMonthAllocations(employee);
         return {
           employee,
           allocations: [newAllocationRow],
@@ -335,11 +406,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess }: Mu
 
     if (newAllocations.length > 0) {
       setActiveAllocations(prev => [...newAllocations, ...prev]);
-      toast({ title: 'Team Loaded', description: `${newAllocations.length} employees have been added to the grid.` });
+      toast({ title: 'Team Loaded', description: `${newAllocations.length} employees have been added and prior allocations applied.` });
     } else {
       toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' });
     }
-  };
+  }, [allEmployees, activeAllocations, toast, fetchAndApplyPreviousMonthAllocations]);
 
 
   const handleRemoveEmployee = (employeeId: string) => {
