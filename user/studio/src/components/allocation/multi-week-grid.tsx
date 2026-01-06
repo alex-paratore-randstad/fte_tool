@@ -296,11 +296,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const sourceWeeks = prevMonthWeeks.slice(0, 4); // Only use first 4 weeks of prev month
     const targetWeeks = weeks.slice(0, 4); // Only apply to first 4 weeks of current month
     
-    const sourceWeekKeys = sourceWeeks.map(w => formatDateKey(w.startDate));
-    const query = `?q=content.allocation_name='${employee.Full_Name}'&q=content.allocation_date%20in%20(${sourceWeekKeys.map(key => `'${key}'`).join(',')})`;
-    
+    const sourceWeekKeys = sourceWeeks.map(w => `'${formatDateKey(w.startDate)}'`);
+    const employeeNameFilter = `content.allocation_name='${employee.Full_Name}'`;
+    const dateFilter = `content.allocation_date in (${sourceWeekKeys.join(',')})`;
+    const combinedQuery = `(${employeeNameFilter}) and (${dateFilter})`;
+    const encodedQuery = encodeURIComponent(combinedQuery);
+
     try {
-      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${query}`);
+      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=${encodedQuery}`);
       
       if (!response.ok) {
         console.warn(`No previous allocations found for ${employee.Full_Name}`);
@@ -336,8 +339,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         
         // Map previous week allocations to current week's first 4 weeks
         targetWeeks.forEach((currentWeek, index) => {
-            const sourceWeekKey = sourceWeekKeys[index];
-            if (data.weeklyFtes.has(sourceWeekKey)) {
+            const sourceWeekKey = sourceWeeks[index] ? formatDateKey(sourceWeeks[index].startDate) : null;
+            if (sourceWeekKey && data.weeklyFtes.has(sourceWeekKey)) {
                 const fte = data.weeklyFtes.get(sourceWeekKey)!;
                 newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
             }
@@ -747,3 +750,5 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     </Card>
   );
 }
+
+    
