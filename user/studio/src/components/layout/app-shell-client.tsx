@@ -18,8 +18,20 @@ import {
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
+export type NavItem = {
+  href: string;
+  label: string;
+  roles?: ('admin' | 'manager' | 'vp')[];
+};
 
-const navGroups = [
+export type NavGroup = {
+  title: string;
+  roles: ('admin' | 'manager' | 'vp')[];
+  items: NavItem[];
+};
+
+
+const navGroups: NavGroup[] = [
   {
     title: 'Allocations',
     roles: ['admin', 'manager', 'vp'],
@@ -79,7 +91,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
           <Link href={getHref('/')} className="flex items-center gap-2 text-lg font-semibold md:text-base">
             <Logo />
           </Link>
-          <TopNav />
+          <TopNav navGroups={navGroups} />
         </nav>
         <Sheet>
           <SheetTrigger asChild>
@@ -105,14 +117,14 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                       Dashboard
                   </Link>
                   <Accordion type="multiple" className="w-full">
-                    {navGroups.filter(g => userHasAccess(g.roles)).map(group => (
+                    {navGroups.map(group => (
                       <AccordionItem value={group.title} key={group.title} className="border-b-0">
                         <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
                           {group.title}
                         </AccordionTrigger>
                         <AccordionContent className="pl-4 pb-0">
                           <div className="flex flex-col gap-1">
-                            {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                            {!loading && group.items.filter(item => userHasAccess(item.roles)).map(item => (
                               <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
                                 {item.label}
                               </Link>
