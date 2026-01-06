@@ -296,22 +296,23 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const sourceWeeks = prevMonthWeeks.slice(0, 4); 
     const targetWeeks = weeks.slice(0, 4);
     
-    const sourceWeekKeys = sourceWeeks.map(w => formatDateKey(w.startDate));
-    if (sourceWeekKeys.length === 0) return;
+    const sourceWeekKeys = new Set(sourceWeeks.map(w => formatDateKey(w.startDate)));
+    if (sourceWeekKeys.size === 0) return;
     
     try {
-      const employeeFilter = `content.allocation_name contains '[${employee.Person_Number}]'`;
+      const employeeFilter = `content.employee_id='${employee.Person_Number}'`;
       const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=${encodeURIComponent(employeeFilter)}`);
       
       if (!response.ok) {
-        toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.`, variant: 'destructive' });
+        toast({ title: "No prior allocations found", description: `Could not load data for ${employee.Full_Name}.`, variant: 'destructive' });
         return;
       }
       
       const allEmployeeAllocations: WeeklyAllocation[] = await response.json();
       
+      // Filter client-side for the source weeks
       const prevAllocsForSourceWeeks = allEmployeeAllocations.filter(alloc => 
-        sourceWeekKeys.includes(alloc.content.allocation_date)
+        sourceWeekKeys.has(alloc.content.allocation_date)
       );
 
       if (prevAllocsForSourceWeeks.length === 0) {
@@ -343,15 +344,16 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         };
         
         targetWeeks.forEach((currentWeek, index) => {
-            const sourceWeekKey = sourceWeeks[index] ? formatDateKey(sourceWeeks[index].startDate) : null;
-            if (sourceWeekKey && data.weeklyFtes.has(sourceWeekKey)) {
-                const fte = data.weeklyFtes.get(sourceWeekKey)!;
-                newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
+            if (index < sourceWeeks.length) {
+                const sourceWeekKey = formatDateKey(sourceWeeks[index].startDate);
+                if (data.weeklyFtes.has(sourceWeekKey)) {
+                    const fte = data.weeklyFtes.get(sourceWeekKey)!;
+                    newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
+                }
             }
         });
         newAllocationRows.push(newRow);
       });
-
 
       if (newAllocationRows.length > 0) {
         setActiveAllocations(prev =>
@@ -758,5 +760,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     </Card>
   );
 }
-
-    

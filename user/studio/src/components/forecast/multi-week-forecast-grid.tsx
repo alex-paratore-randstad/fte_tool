@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { addMonths, subMonths, startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
+import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/table';
 import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import type { TeamMember } from '@/types';
+import type { TeamMember, WeeklyForecast } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -208,7 +208,7 @@ export function MultiWeekForecastGrid({ currentDate, setCurrentDate, onSaveSucce
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
 
-  const { currentUser, isManager, isAdmin, loading: userLoading } = useCurrentUser();
+  const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
 
   useEffect(() => {
