@@ -306,6 +306,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         const sourceWeekKeys = prevMonthWeeks.map(w => formatDateKey(w.startDate));
       
         for (const weekKey of sourceWeekKeys) {
+            // Fetch all allocations for the week, then filter client-side
             const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
             if (response.ok) {
                 allPrevMonthAllocations.push(...(await response.json()));
@@ -320,11 +321,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         );
       
         if (employeeAllocations.length === 0) {
-            toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.`, variant: 'default' });
+            toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.`});
             setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: false }));
             return;
         }
   
+        // Correctly group allocations by client to handle multiple rows
         const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
   
         employeeAllocations.forEach(alloc => {
@@ -336,10 +338,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 });
             }
             const fte = parseFloat(alloc.content.allocation_amount);
+            // This ensures each week's data is stored per client
             clientAllocationsMap.get(clientKey)!.weeklyFtes.set(alloc.content.allocation_date, fte);
         });
       
         const newAllocationRows: AllocationRow[] = [];
+        // Now create a row for each client
         clientAllocationsMap.forEach((data, clientId) => {
             const newRow: AllocationRow = {
                 id: `${employee.Person_Number}-${clientId}-${Date.now()}`,
@@ -348,6 +352,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 weeklyFtes: {},
             };
         
+            // Map the previous month's week data to the current month's weeks by index
             weeks.forEach((currentWeek, index) => {
                 if (index < prevMonthWeeks.length) {
                     const sourceWeekKey = formatDateKey(prevMonthWeeks[index].startDate);
@@ -799,5 +804,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     </TooltipProvider>
   );
 }
-
-    
