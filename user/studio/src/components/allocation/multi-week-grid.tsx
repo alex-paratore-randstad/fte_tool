@@ -289,30 +289,27 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
     if (!currentDate) return;
-
+  
     const prevMonthDate = getPreviousFiscalMonth(currentDate);
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
     if (prevMonthWeeks.length === 0) return;
-
-    const sourceWeeks = prevMonthWeeks.slice(0, weeks.length);
-    const targetWeeks = weeks.slice(0, sourceWeeks.length);
-    
+  
+    const sourceWeeks = prevMonthWeeks;
     const sourceWeekKeys = sourceWeeks.map(w => formatDateKey(w.startDate));
-     if (sourceWeekKeys.length === 0) {
+  
+    if (sourceWeekKeys.length === 0) {
       toast({ title: "No weeks to query", description: "Could not determine previous month's weeks." });
       return;
     }
-    
+  
     try {
-      const allPrevMonthAllocations: WeeklyAllocation[] = [];
-      for (const weekKey of sourceWeekKeys) {
-        const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
-        if (response.ok) {
-            allPrevMonthAllocations.push(...(await response.json()));
-        } else {
-            console.warn(`No allocations found for ${weekKey}`);
-        }
-      }
+      const weekQueryParts = sourceWeekKeys.map(key => `content.allocation_date='${key}'`);
+      const dateQuery = `(${weekQueryParts.join(',')})`;
+      const query = `q=${encodeURIComponent(dateQuery)}`;
+      
+      const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/query?${query}`);
+      
+      const allPrevMonthAllocations: WeeklyAllocation[] = response.ok ? await response.json() : [];
       
       const employeeCompositeName = `[${employee.Person_Number}] ${employee.Full_Name}`;
       const employeeAllocations = allPrevMonthAllocations.filter(alloc => alloc.content.allocation_name === employeeCompositeName);
@@ -321,9 +318,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.` });
         return;
       }
-
+  
       const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
-
+  
       employeeAllocations.forEach(alloc => {
           const clientKey = alloc.content.cost_center_number;
           if (!clientAllocationsMap.has(clientKey)) {
@@ -345,7 +342,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           weeklyFtes: {},
         };
         
-        targetWeeks.forEach((currentWeek, index) => {
+        // This logic maps previous month's Nth week to current month's Nth week
+        weeks.forEach((currentWeek, index) => {
             if (index < sourceWeeks.length) {
                 const sourceWeekKey = formatDateKey(sourceWeeks[index].startDate);
                 if (data.weeklyFtes.has(sourceWeekKey)) {
@@ -356,7 +354,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         });
         newAllocationRows.push(newRow);
       });
-
+  
       if (newAllocationRows.length > 0) {
         setActiveAllocations(prev =>
           prev.map(empAlloc =>
@@ -366,13 +364,15 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           )
         );
          toast({ title: `Prior Allocations Loaded`, description: `Loaded previous month's data for ${employee.Full_Name}.`});
+      } else {
+        toast({ title: "No applicable prior allocations found", description: `No data from the previous month could be applied for ${employee.Full_Name}.` });
       }
-
+  
     } catch (error) {
         console.error('Failed to fetch previous month allocations:', error);
         toast({ variant: 'destructive', title: 'Error Loading Prior Data', description: `Could not load allocations for ${employee.Full_Name}.`});
     }
-
+  
   }, [currentDate, weeks, toast]);
   
   const handleAddEmployee = (employeeId: string) => {
@@ -673,12 +673,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                                 {weeklyTotals.map((total, index) => {
                                     const isOverallocated = total > 1.0;
                                     const isPartTimeWarning = isPartTime && total >= 0.8 && total <= 1.0;
-                                    const hasWarning = isOverallocated || isPartTimeWarning;
                                     let tooltipMessage = '';
                                     if (isOverallocated) {
-                                        tooltipMessage = 'Employee allocated over 1.0 FTE.';
+                                      tooltipMessage = 'Employee allocated over 1.0 FTE.';
                                     } else if (isPartTimeWarning) {
-                                        tooltipMessage = 'Part-time employee allocated at or above 0.8 FTE.';
+                                      tooltipMessage = 'Part-time employee allocated at or above 0.8 FTE.';
                                     }
 
                                     return (
@@ -693,11 +692,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                                                     {total > 0 ? total.toFixed(2) : '-'}
                                                 </span>
                                             </TooltipTrigger>
-                                            {hasWarning && (
-                                                <TooltipContent>
-                                                    <p>{tooltipMessage}</p>
-                                                </TooltipContent>
-                                            )}
+                                            <TooltipContent>
+                                              {tooltipMessage ? <p>{tooltipMessage}</p> : null}
+                                            </TooltipContent>
                                         </Tooltip>
                                     </TableCell>
                                     )
@@ -793,5 +790,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     </TooltipProvider>
   );
 }
-
-    
