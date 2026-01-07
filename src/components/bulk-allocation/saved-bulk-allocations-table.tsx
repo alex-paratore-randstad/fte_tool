@@ -24,6 +24,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
+import { Copy } from 'lucide-react';
 
 type FteDoc = {
   id: string;
@@ -45,7 +46,7 @@ type SummaryDoc = {
   };
 };
 
-type SummaryEntry = { 
+export type SummaryEntry = { 
   id: string;
   name: string;
   number: string;
@@ -62,9 +63,10 @@ type ProcessedAllocation = {
 
 type SavedBulkAllocationsTableProps = {
   refreshKey: number;
+  onCopyTemplate: (summaries: SummaryEntry[]) => void;
 };
 
-export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTableProps) {
+export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedBulkAllocationsTableProps) {
   const [originalAllocations, setOriginalAllocations] = useState<ProcessedAllocation[]>([]);
   const [editableAllocations, setEditableAllocations] = useState<ProcessedAllocation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -295,17 +297,20 @@ export function SavedBulkAllocationsTable({ refreshKey }: SavedBulkAllocationsTa
                                     ))}
                                 </TableBody>
                              </Table>
-                             <div className="mt-4 space-y-2">
-                                <Alert variant={Math.round(totalPercentage) !== 100 ? 'destructive' : 'default'}>
-                                    <AlertDescription>
-                                    Total Allocation: <span className="font-bold">{totalPercentage}%</span>
-                                    {Math.round(totalPercentage) !== 100 && " (Must equal 100%)"}
-                                    </AlertDescription>
-                                </Alert>
+                             <div className="mt-4 space-y-2 flex items-center justify-between">
                                 <Button onClick={() => handleSaveChanges(alloc.id)} disabled={isProfileSaving || Math.round(totalPercentage) !== 100}>
                                     {isProfileSaving ? 'Saving...' : 'Save Changes'}
                                 </Button>
+                                 <Button variant="outline" size="sm" onClick={() => onCopyTemplate(alloc.summaries)}>
+                                    <Copy className="mr-2 h-4 w-4" /> Copy as Template
+                                </Button>
                              </div>
+                             <Alert variant={Math.round(totalPercentage) !== 100 ? 'destructive' : 'default'} className="mt-4">
+                                <AlertDescription>
+                                Total Allocation: <span className="font-bold">{totalPercentage}%</span>
+                                {Math.round(totalPercentage) !== 100 && " (Must equal 100%)"}
+                                </AlertDescription>
+                            </Alert>
                         </div>
                     </div>
                 </AccordionContent>

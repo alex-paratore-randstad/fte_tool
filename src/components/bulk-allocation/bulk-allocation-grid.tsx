@@ -31,6 +31,7 @@ import { SelectSearch } from '../ui/select-search';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Label } from '../ui/label';
+import type { SummaryEntry } from './saved-bulk-allocations-table';
 
 type AiReportData = {
     Code: string;
@@ -42,6 +43,7 @@ type AllocationRow = { id: string; clientName: string; percentage: number };
 
 type BulkAllocationGridProps = {
   onSaveSuccess: () => void;
+  templateToCopy: SummaryEntry[] | null;
 };
 
 const months = [
@@ -108,7 +110,7 @@ const ClientSelect = ({
 };
 
 
-export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
+export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAllocationGridProps) {
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [clients, setClients] = useState<AiReportData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -162,13 +164,26 @@ export function BulkAllocationGrid({ onSaveSuccess }: BulkAllocationGridProps) {
       setLoading(false);
     }
   }, [toast]);
+  
+  useEffect(() => {
+    if (templateToCopy) {
+      const newAllocationRows = templateToCopy.map(summary => ({
+        id: `copied-${summary.id}-${Date.now()}`,
+        clientName: summary.name,
+        percentage: summary.percentage
+      }));
+      setAllocationRows(newAllocationRows);
+      toast({ title: 'Template Copied', description: 'Allocation profile has been copied. Select employees and save.' });
+    } else {
+        // Set default allocation row only if not copying
+        setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
+    }
+  }, [templateToCopy, toast]);
 
   useEffect(() => {
     if (!userLoading) {
       fetchData();
     }
-    // Add default allocation row
-    setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
   }, [fetchData, userLoading, currentUser.id]);
 
   const filteredEmployees = useMemo(() => {
