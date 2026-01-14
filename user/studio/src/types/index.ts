@@ -1,4 +1,5 @@
 
+
 export type Employee = {
   id: string;
   name: string;
@@ -78,14 +79,14 @@ export type WeeklyAllocation = {
   }
 };
 
-export type WeeklyForecast = {
+export type WeeklyTarget = {
   id: string;
   content: {
-    forecast_allocation_date: string;
-    forecast_allocation_name: string;
-    forecast_cost_center_number: string;
-    forecast_cost_center_name: string;
-    forecast_allocation_amount: string;
+    target_date: string;
+    target_name: string;
+    target_cost_center_number: string;
+    target_cost_center_name: string;
+    target_amount: string;
   }
 };
 
@@ -100,3 +101,4 @@ export type NavGroup = {
   roles: ('admin' | 'manager' | 'vp')[];
   items: NavItem[];
 };
+

@@ -445,11 +445,11 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
             }
             submissions.push({
               content: {
-                targets_allocation_date: weekKey,
-                targets_allocation_name: `[${empAlloc.employee.Person_Number}] ${empAlloc.employee.Full_Name}`,
-                targets_cost_center_name: alloc.clientName,
-                targets_cost_center_number: alloc.clientId,
-                targets_allocation_amount: target.toString(),
+                target_date: weekKey,
+                target_name: `[${empAlloc.employee.Person_Number}] ${empAlloc.employee.Full_Name}`,
+                target_cost_center_name: alloc.clientName,
+                target_cost_center_number: alloc.clientId,
+                target_amount: target.toString(),
               }
             });
           }
@@ -533,7 +533,6 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
                 <TableRow>
                   <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
                   <TableHead className="min-w-[200px]">Client Name</TableHead>
-                  <TableHead className="p-2 w-28">Client Code</TableHead>
                   <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                   {weeks.map(week => {
                     const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
@@ -552,7 +551,7 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
               <TableBody>
               {activeTargets.length === 0 ? (
                   <TableRow>
-                      <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
+                      <TableCell colSpan={weeks.length + 4} className="text-center h-24 text-muted-foreground">
                           Select an employee from the dropdown above to begin building your target plan.
                       </TableCell>
                   </TableRow>
@@ -569,7 +568,7 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
                           {employee.Full_Name}
                           <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
                         </TableCell>
-                        <TableCell colSpan={3}></TableCell>
+                        <TableCell colSpan={2}></TableCell>
                         {weeklyTotals.map((total, index) => (
                           <TableCell key={index} className="text-center font-semibold text-muted-foreground">
                             {total > 0 ? total : '-'}
@@ -591,14 +590,6 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
                                 value={alloc.clientName}
                                 onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
                             />
-                          </TableCell>
-                          <TableCell className="p-2">
-                              <Input
-                                  value={alloc.clientId}
-                                  readOnly
-                                  className="bg-muted w-24"
-                                  placeholder="Code"
-                              />
                           </TableCell>
                           <TableCell className="text-center">
                             <Input
@@ -632,7 +623,7 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
                       ))}
 
                       <TableRow>
-                        <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
+                        <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
                           <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddTargetRow(employee.Person_Number)}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Target
                           </Button>

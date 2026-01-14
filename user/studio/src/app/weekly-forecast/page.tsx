@@ -1,13 +1,14 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
-import { MultiWeekForecastGrid } from '@/components/forecast/multi-week-forecast-grid';
-import { WeeklyForecastTable } from '@/components/forecast/weekly-forecast-table';
+import { MultiWeekTargetGrid } from '@/components/targets/multi-week-target-grid';
+import { WeeklyTargetTable } from '@/components/targets/weekly-target-table';
 import { initializeFiscalCalendar, type FiscalCalendarEntry } from '@/lib/fiscal-calendar';
 
-export default function WeeklyForecastPage() {
+export default function WeeklyTargetPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [calendarInitialized, setCalendarInitialized] = useState(false);
@@ -41,16 +42,16 @@ export default function WeeklyForecastPage() {
   return (
     <div className="flex flex-col gap-8">
        <PageHeader
-        title="Weekly Forecast"
-        description="Forecast FTEs for future fiscal periods."
+        title="Weekly Targets"
+        description="Set weekly hiring targets for future fiscal periods."
       />
-      <MultiWeekForecastGrid
+      <MultiWeekTargetGrid
         currentDate={currentDate}
         setCurrentDate={setCurrentDate}
         onSaveSuccess={handleRefresh}
         initialLoading={isInitialLoading}
       />
-      <WeeklyForecastTable
+      <WeeklyTargetTable
         currentDate={currentDate}
         refreshKey={refreshKey}
         initialLoading={isInitialLoading}
@@ -58,3 +59,4 @@ export default function WeeklyForecastPage() {
     </div>
   );
 }
+
