@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from '../ui/button';
 import { ChevronDown } from 'lucide-react';
-import type { NavItem, NavGroup } from '@/types/navigation';
+import type { NavGroup, NavItem } from '@/types/navigation';
 import { Skeleton } from '../ui/skeleton';
 
 const navGroups: NavGroup[] = [
@@ -28,11 +29,11 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    title: 'Forecasts',
+    title: 'Targets',
     roles: ['admin', 'manager', 'vp'],
     items: [
-      { href: '/weekly-forecast', label: 'Weekly Forecast' },
-      { href: '/bulk-forecast', label: 'Bulk Forecast' },
+      { href: '/weekly-targets', label: 'Weekly Targets' },
+      { href: '/bulk-targets', label: 'Bulk Targets' },
     ]
   },
   {

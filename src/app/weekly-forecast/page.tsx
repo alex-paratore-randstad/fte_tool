@@ -1,14 +1,14 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
-import { MultiWeekForecastGrid } from '@/components/forecast/multi-week-forecast-grid';
-import { WeeklyForecastTable } from '@/components/forecast/weekly-forecast-table';
+import { MultiWeekTargetGrid } from '@/components/targets/multi-week-target-grid';
+import { WeeklyTargetTable } from '@/components/targets/weekly-target-table';
 import { initializeFiscalCalendar, type FiscalCalendarEntry } from '@/lib/fiscal-calendar';
-import { Skeleton } from '@/components/ui/skeleton';
 
-export default function WeeklyForecastPage() {
+export default function WeeklyTargetPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [calendarInitialized, setCalendarInitialized] = useState(false);
@@ -37,27 +37,25 @@ export default function WeeklyForecastPage() {
     setRefreshKey(prevKey => prevKey + 1);
   };
 
-  if (!calendarInitialized || !currentDate) {
-      return (
-        <div className="flex flex-col gap-8">
-            <PageHeader
-                title="Weekly Forecast"
-                description="Forecast FTEs for future fiscal periods."
-            />
-            <Skeleton className="h-[400px] w-full" />
-            <Skeleton className="h-[300px] w-full" />
-        </div>
-      )
-  }
+  const isInitialLoading = !calendarInitialized || !currentDate;
 
   return (
     <div className="flex flex-col gap-8">
        <PageHeader
-        title="Weekly Forecast"
-        description="Forecast FTEs for future fiscal periods."
+        title="Weekly Targets"
+        description="Set weekly hiring targets for future fiscal periods."
       />
-      <MultiWeekForecastGrid currentDate={currentDate} setCurrentDate={setCurrentDate} onSaveSuccess={handleRefresh} />
-      <WeeklyForecastTable currentDate={currentDate} refreshKey={refreshKey} />
+      <MultiWeekTargetGrid
+        currentDate={currentDate}
+        setCurrentDate={setCurrentDate}
+        onSaveSuccess={handleRefresh}
+        initialLoading={isInitialLoading}
+      />
+      <WeeklyTargetTable
+        currentDate={currentDate}
+        refreshKey={refreshKey}
+        initialLoading={isInitialLoading}
+      />
     </div>
   );
 }

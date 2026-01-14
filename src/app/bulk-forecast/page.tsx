@@ -1,12 +1,13 @@
 
+
 'use client';
 
 import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
-import { BulkForecastGrid } from '@/components/bulk-forecast/bulk-forecast-grid';
-import { SavedBulkForecastsTable } from '@/components/bulk-forecast/saved-bulk-forecasts-table';
+import { BulkTargetGrid } from '@/components/targets/bulk-target-grid';
+import { SavedBulkTargetsTable } from '@/components/targets/saved-bulk-targets-table';
 
-export default function BulkForecastPage() {
+export default function BulkTargetPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRefresh = () => {
@@ -16,11 +17,11 @@ export default function BulkForecastPage() {
   return (
     <div className="flex flex-col gap-8">
        <PageHeader
-        title="Bulk Monthly Forecast"
-        description="Create a forecast profile and assign it to multiple employees at once."
+        title="Bulk Monthly Targets"
+        description="Create a hiring target profile and assign it to multiple employees at once."
       />
-      <BulkForecastGrid onSaveSuccess={handleRefresh} />
-      <SavedBulkForecastsTable refreshKey={refreshKey} />
+      <BulkTargetGrid onSaveSuccess={handleRefresh} />
+      <SavedBulkTargetsTable refreshKey={refreshKey} />
     </div>
   );
 }

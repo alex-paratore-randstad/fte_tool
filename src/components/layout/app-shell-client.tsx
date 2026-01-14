@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { UserNav } from './user-nav';
@@ -32,11 +33,11 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    title: 'Forecasts',
+    title: 'Targets',
     roles: ['admin', 'manager', 'vp'],
     items: [
-      { href: '/weekly-forecast', label: 'Weekly Forecast' },
-      { href: '/bulk-forecast', label: 'Bulk Forecast' },
+      { href: '/weekly-targets', label: 'Weekly Targets' },
+      { href: '/bulk-targets', label: 'Bulk Targets' },
     ]
   },
   {
@@ -112,28 +113,28 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                   <Link href={getHref('/')} className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-base", isActive('/') ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}>
                       Dashboard
                   </Link>
-                  {!loading && (
-                    <Accordion type="multiple" className="w-full" defaultValue={navGroups.filter(g => isGroupActive(g.items)).map(g => g.title)}>
+                  <Accordion type="multiple" className="w-full" defaultValue={navGroups.filter(g => isGroupActive(g.items)).map(g => g.title)}>
                       {navGroups.map(group => (
-                          userHasAccess(group.roles) && (
-                            <AccordionItem value={group.title} key={group.title} className="border-b-0">
-                                <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
-                                {group.title}
-                                </AccordionTrigger>
-                                <AccordionContent className="pl-4 pb-0">
-                                    <div className="flex flex-col gap-1">
-                                        {group.items.filter(item => userHasAccess(item.roles)).map(item => (
-                                        <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
-                                            {item.label}
-                                        </Link>
-                                        ))}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                          )
+                          <AccordionItem value={group.title} key={group.title} className={cn("border-b-0", loading && "hidden")}>
+                              {userHasAccess(group.roles) && (
+                                <>
+                                  <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
+                                  {group.title}
+                                  </AccordionTrigger>
+                                  <AccordionContent className="pl-4 pb-0">
+                                      <div className="flex flex-col gap-1">
+                                          {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                                          <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
+                                              {item.label}
+                                          </Link>
+                                          ))}
+                                      </div>
+                                  </AccordionContent>
+                                </>
+                              )}
+                          </AccordionItem>
                       ))}
                     </Accordion>
-                  )}
                 </nav>
               </div>
             </div>

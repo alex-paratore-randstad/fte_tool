@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -28,20 +29,20 @@ import { Alert, AlertDescription } from '../ui/alert';
 type FteDoc = {
   id: string;
   content: { 
-    bulk_forecast_id: string; 
+    bulk_target_id: string; 
     employee_name: string; 
-    forecast_monthyear?: string;
+    target_monthyear?: string;
   };
 };
 
 type SummaryDoc = {
   id: string;
   content: {
-    bulk_forecast_id: string;
+    bulk_target_id: string;
     cost_center_number: string;
     cost_center_name: string;
-    forecast_percentage: string;
-    bulk_forecast_date: string;
+    target_percentage: string;
+    bulk_target_date: string;
   };
 };
 
@@ -52,21 +53,28 @@ type SummaryEntry = {
   percentage: number;
 };
 
-type ProcessedForecast = {
+type ProcessedTarget = {
   id: string;
-  forecastDate: string;
-  forecastMonthYear?: string;
+  targetDate: string;
+  targetMonthYear?: string;
   employees: string[];
   summaries: SummaryEntry[];
 };
 
-type SavedBulkForecastsTableProps = {
+type SavedBulkTargetsTableProps = {
   refreshKey: number;
 };
 
-export function SavedBulkForecastsTable({ refreshKey }: SavedBulkForecastsTableProps) {
-  const [originalForecasts, setOriginalForecasts] = useState<ProcessedForecast[]>([]);
-  const [editableForecasts, setEditableForecasts] = useState<ProcessedForecast[]>([]);
+const parseEmployeeName = (compositeName: string): string => {
+  if (compositeName.includes('] ')) {
+    return compositeName.split('] ')[1];
+  }
+  return compositeName;
+};
+
+export function SavedBulkTargetsTable({ refreshKey }: SavedBulkTargetsTableProps) {
+  const [originalTargets, setOriginalTargets] = useState<ProcessedTarget[]>([]);
+  const [editableTargets, setEditableTargets] = useState<ProcessedTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
@@ -75,58 +83,58 @@ export function SavedBulkForecastsTable({ refreshKey }: SavedBulkForecastsTableP
     setLoading(true);
     try {
       const [fteResponse, summaryResponse] = await Promise.all([
-        fetch('/domo/datastores/v1/collections/bulk_forecast_fte/documents/'),
-        fetch('/domo/datastores/v1/collections/bulk_forecast_summary/documents/'),
+        fetch('/domo/datastores/v1/collections/bulk_target_fte/documents/'),
+        fetch('/domo/datastores/v1/collections/bulk_target_summary/documents/'),
       ]);
 
       if (!fteResponse.ok || !summaryResponse.ok) {
-        console.warn('Could not fetch bulk forecast data.');
+        console.warn('Could not fetch bulk target data.');
       }
 
       const ftes: FteDoc[] = fteResponse.ok ? await fteResponse.json() : [];
       const summaries: SummaryDoc[] = summaryResponse.ok ? await summaryResponse.json() : [];
 
       const grouped = summaries.reduce((acc, summary) => {
-        const { bulk_forecast_id, cost_center_name, cost_center_number, forecast_percentage, bulk_forecast_date } = summary.content;
+        const { bulk_target_id, cost_center_name, cost_center_number, target_percentage, bulk_target_date } = summary.content;
         
-        if (!acc[bulk_forecast_id]) {
-          acc[bulk_forecast_id] = {
-            id: bulk_forecast_id,
-            forecastDate: bulk_forecast_date,
+        if (!acc[bulk_target_id]) {
+          acc[bulk_target_id] = {
+            id: bulk_target_id,
+            targetDate: bulk_target_date,
             employees: [],
             summaries: [],
           };
         }
-        acc[bulk_forecast_id].summaries.push({
+        acc[bulk_target_id].summaries.push({
           id: summary.id,
           name: cost_center_name,
           number: cost_center_number,
-          percentage: Number(forecast_percentage) || 0,
+          percentage: Number(target_percentage) || 0,
         });
 
         return acc;
-      }, {} as Record<string, ProcessedForecast>);
+      }, {} as Record<string, ProcessedTarget>);
 
       ftes.forEach(fte => {
-        const { bulk_forecast_id, employee_name, forecast_monthyear } = fte.content;
-        if (grouped[bulk_forecast_id]) {
-          grouped[bulk_forecast_id].employees.push(employee_name);
-          if (forecast_monthyear && !grouped[bulk_forecast_id].forecastMonthYear) {
-            grouped[bulk_forecast_id].forecastMonthYear = forecast_monthyear;
+        const { bulk_target_id, employee_name, target_monthyear } = fte.content;
+        if (grouped[bulk_target_id]) {
+          grouped[bulk_target_id].employees.push(employee_name);
+          if (target_monthyear && !grouped[bulk_target_id].targetMonthYear) {
+            grouped[bulk_target_id].targetMonthYear = target_monthyear;
           }
         }
       });
       
-      const processed = Object.values(grouped).sort((a, b) => new Date(b.forecastDate).getTime() - new Date(a.forecastDate).getTime());
+      const processed = Object.values(grouped).sort((a, b) => new Date(b.targetDate).getTime() - new Date(a.targetDate).getTime());
       
-      setOriginalForecasts(processed);
-      setEditableForecasts(JSON.parse(JSON.stringify(processed)));
+      setOriginalTargets(processed);
+      setEditableTargets(JSON.parse(JSON.stringify(processed)));
 
     } catch (error) {
-      console.error('Error fetching bulk forecast data:', error);
+      console.error('Error fetching bulk target data:', error);
       toast({
         variant: 'destructive',
-        title: 'Failed to fetch saved forecasts',
+        title: 'Failed to fetch saved targets',
       });
     } finally {
       setLoading(false);
@@ -137,78 +145,79 @@ export function SavedBulkForecastsTable({ refreshKey }: SavedBulkForecastsTableP
     fetchData();
   }, [fetchData, refreshKey]);
   
-  const handlePercentageChange = (forecastId: string, summaryId: string, newPercentage: string) => {
-    setEditableForecasts(prev => prev.map(forecast => {
-      if (forecast.id === forecastId) {
-        const updatedSummaries = forecast.summaries.map(summary => {
+  const handlePercentageChange = (targetId: string, summaryId: string, newPercentage: string) => {
+    setEditableTargets(prev => prev.map(target => {
+      if (target.id === targetId) {
+        const updatedSummaries = target.summaries.map(summary => {
           if (summary.id === summaryId) {
             return { ...summary, percentage: Number(newPercentage) };
           }
           return summary;
         });
-        return { ...forecast, summaries: updatedSummaries };
+        return { ...target, summaries: updatedSummaries };
       }
-      return forecast;
+      return target;
     }));
   };
 
-  const handleSaveChanges = async (forecastId: string) => {
-    setIsSaving(prev => ({...prev, [forecastId]: true}));
+  const handleSaveChanges = async (targetId: string) => {
+    setIsSaving(prev => ({...prev, [targetId]: true}));
 
-    const editableForecast = editableForecasts.find(a => a.id === forecastId);
-    const originalForecast = originalForecasts.find(a => a.id === forecastId);
+    const editableTarget = editableTargets.find(a => a.id === targetId);
+    const originalTarget = originalTargets.find(a => a.id === targetId);
 
-    if (!editableForecast || !originalForecast) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not find forecast to save.' });
-      setIsSaving(prev => ({...prev, [forecastId]: false}));
+    if (!editableTarget || !originalTarget) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not find target to save.' });
+      setIsSaving(prev => ({...prev, [targetId]: false}));
       return;
     }
 
-    const totalPercentage = editableForecast.summaries.reduce((sum, s) => sum + s.percentage, 0);
+    const totalPercentage = editableTarget.summaries.reduce((sum, s) => sum + s.percentage, 0);
     if (Math.round(totalPercentage) !== 100) {
-      toast({ variant: 'destructive', title: 'Validation Error', description: 'Total forecast must be exactly 100%.' });
-      setIsSaving(prev => ({...prev, [forecastId]: false}));
+      toast({ variant: 'destructive', title: 'Validation Error', description: 'Total target must be exactly 100%.' });
+      setIsSaving(prev => ({...prev, [targetId]: false}));
       return;
     }
 
-    const updates = editableForecast.summaries
+    const updates = editableTarget.summaries
       .filter((summary) => {
-        const originalSummary = originalForecast.summaries.find(s => s.id === summary.id);
+        const originalSummary = originalTarget.summaries.find(s => s.id === summary.id);
         return originalSummary && summary.percentage !== originalSummary.percentage;
       })
       .map(summary => ({
           docId: summary.id,
           content: {
-              bulk_forecast_id: forecastId,
+              bulk_target_id: targetId,
               cost_center_number: summary.number,
               cost_center_name: summary.name,
-              forecast_percentage: summary.percentage.toString(),
+              target_percentage: summary.percentage.toString(),
+              bulk_target_date: editableTarget.targetDate
           }
       }));
 
     if (updates.length === 0) {
         toast({ title: 'No changes to save.' });
-        setIsSaving(prev => ({...prev, [forecastId]: false}));
+        setIsSaving(prev => ({...prev, [targetId]: false}));
         return;
     }
 
     try {
         await Promise.all(updates.map(update =>
-            fetch(`/domo/datastores/v1/collections/bulk_forecast_summary/documents/${update.docId}`, {
+            fetch(`/domo/datastores/v1/collections/bulk_target_summary/documents/${update.docId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content: update.content }),
             }).then(res => {
-                if (!res.ok) throw new Error(`Failed to update forecast for ${update.content.cost_center_name}`);
+                if (!res.ok) throw new Error(`Failed to update target for ${update.content.cost_center_name}`);
                 return res.json();
             })
         ));
-        toast({ title: 'Success', description: `${updates.length} forecast(s) updated for profile ${forecastId.substring(0,8)}.` });
+        toast({ title: 'Success', description: `${updates.length} target(s) updated for profile ${targetId.substring(0,8)}.` });
         fetchData(); // Refresh data
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
-        setIsSaving(prev => ({...prev, [forecastId]: false}));
+        setIsSaving(prev => ({...prev, [targetId]: false}));
     }
   };
 
@@ -230,28 +239,28 @@ export function SavedBulkForecastsTable({ refreshKey }: SavedBulkForecastsTableP
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Saved Bulk Forecast Profiles</CardTitle>
-        <CardDescription>History of all saved bulk forecast profiles. You can edit percentages here.</CardDescription>
+        <CardTitle>Saved Bulk Target Profiles</CardTitle>
+        <CardDescription>History of all saved bulk target profiles. You can edit percentages here.</CardDescription>
       </CardHeader>
       <CardContent>
-        {editableForecasts.length === 0 ? (
+        {editableTargets.length === 0 ? (
           <div className="text-center text-muted-foreground py-10">
-            No bulk forecast profiles found.
+            No bulk target profiles found.
           </div>
         ) : (
           <Accordion type="single" collapsible className="w-full">
-            {editableForecasts.map(forecast => {
-                const totalPercentage = forecast.summaries.reduce((sum, s) => sum + s.percentage, 0);
-                const isProfileSaving = isSaving[forecast.id];
+            {editableTargets.map(target => {
+                const totalPercentage = target.summaries.reduce((sum, s) => sum + s.percentage, 0);
+                const isProfileSaving = isSaving[target.id];
               return (
-              <AccordionItem value={forecast.id} key={forecast.id}>
+              <AccordionItem value={target.id} key={target.id}>
                 <AccordionTrigger>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                        <span className="font-mono text-sm text-primary">{forecast.id.substring(0,8)}...</span>
-                        {forecast.forecastMonthYear && <Badge>{forecast.forecastMonthYear}</Badge>}
-                        <Badge variant="secondary">{forecast.employees.length} Employees</Badge>
+                        <span className="font-mono text-sm text-primary">{target.id.substring(0,8)}...</span>
+                        {target.targetMonthYear && <Badge>{target.targetMonthYear}</Badge>}
+                        <Badge variant="secondary">{target.employees.length} Employees</Badge>
                         <span className="text-sm text-muted-foreground hidden sm:inline">
-                            Created: {new Date(forecast.forecastDate).toLocaleDateString()}
+                            Created: {new Date(target.targetDate).toLocaleDateString()}
                         </span>
                     </div>
                 </AccordionTrigger>
@@ -261,12 +270,12 @@ export function SavedBulkForecastsTable({ refreshKey }: SavedBulkForecastsTableP
                             <h4 className="font-semibold mb-2">Assigned Employees</h4>
                             <ScrollArea className="h-48">
                                 <ul className="list-disc pl-5 space-y-1 text-sm">
-                                {forecast.employees.map((emp, i) => <li key={i}>{emp}</li>)}
+                                {target.employees.map((emp, i) => <li key={i}>{parseEmployeeName(emp)}</li>)}
                                 </ul>
                             </ScrollArea>
                         </div>
                         <div>
-                             <h4 className="font-semibold mb-2">Client Forecast</h4>
+                             <h4 className="font-semibold mb-2">Client Target</h4>
                              <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -275,7 +284,7 @@ export function SavedBulkForecastsTable({ refreshKey }: SavedBulkForecastsTableP
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {forecast.summaries.map(s => (
+                                    {target.summaries.map(s => (
                                         <TableRow key={s.id}>
                                             <TableCell>{s.name}</TableCell>
                                             <TableCell className="text-right">
@@ -284,7 +293,7 @@ export function SavedBulkForecastsTable({ refreshKey }: SavedBulkForecastsTableP
                                                 min="0"
                                                 max="100"
                                                 value={s.percentage}
-                                                onChange={(e) => handlePercentageChange(forecast.id, s.id, e.target.value)}
+                                                onChange={(e) => handlePercentageChange(target.id, s.id, e.target.value)}
                                                 className="w-24 text-center ml-auto"
                                                 placeholder="%"
                                                 disabled={isProfileSaving}
@@ -297,11 +306,11 @@ export function SavedBulkForecastsTable({ refreshKey }: SavedBulkForecastsTableP
                              <div className="mt-4 space-y-2">
                                 <Alert variant={Math.round(totalPercentage) !== 100 ? 'destructive' : 'default'}>
                                     <AlertDescription>
-                                    Total Forecast: <span className="font-bold">{totalPercentage}%</span>
+                                    Total Target: <span className="font-bold">{totalPercentage}%</span>
                                     {Math.round(totalPercentage) !== 100 && " (Must equal 100%)"}
                                     </AlertDescription>
                                 </Alert>
-                                <Button onClick={() => handleSaveChanges(forecast.id)} disabled={isProfileSaving || Math.round(totalPercentage) !== 100}>
+                                <Button onClick={() => handleSaveChanges(target.id)} disabled={isProfileSaving || Math.round(totalPercentage) !== 100}>
                                     {isProfileSaving ? 'Saving...' : 'Save Changes'}
                                 </Button>
                              </div>
