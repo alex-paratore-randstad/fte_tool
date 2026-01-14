@@ -1,67 +1,41 @@
-
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { startOfWeek, format, isSameDay } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
-import { ScrollArea } from '../ui/scroll-area';
+import { useCurrentUser } from '@/hooks/use-current-user';
+import { getWeeksForFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { Alert, AlertDescription } from '../ui/alert';
+import { WeeklyTarget } from '@/types';
 
-type FteDoc = {
-  id: string;
-  content: { 
-    bulk_forecast_id: string; 
-    employee_name: string; 
-    forecast_monthyear?: string;
-  };
+const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+
+type TargetFTE = {
+  hires: number;
+  docId: string | null;
 };
 
-type SummaryDoc = {
-  id: string;
-  content: {
-    bulk_forecast_id: string;
-    cost_center_number: string;
-    cost_center_name: string;
-    forecast_percentage: string;
-    bulk_forecast_date: string;
-  };
+type TargetRow = {
+  clientId: string;
+  clientName: string;
+  weeklyTargets: { [weekKey: string]: TargetFTE };
 };
 
-type SummaryEntry = { 
-  id: string;
-  name: string;
-  number: string;
-  percentage: number;
+type EmployeeTarget = {
+  employeeName: string;
+  targets: TargetRow[];
 };
 
-type ProcessedForecast = {
-  id: string;
-  forecastDate: string;
-  forecastMonthYear?: string;
-  employees: string[];
-  summaries: SummaryEntry[];
-};
-
-type SavedBulkForecastsTableProps = {
+type WeeklyTargetTableProps = {
+  currentDate: Date | null;
   refreshKey: number;
+  initialLoading: boolean;
 };
 
 const parseEmployeeName = (compositeName: string): string => {
@@ -71,165 +45,189 @@ const parseEmployeeName = (compositeName: string): string => {
   return compositeName;
 };
 
-export function SavedBulkForecastsTable({ refreshKey }: SavedBulkForecastsTableProps) {
-  const [originalForecasts, setOriginalForecasts] = useState<ProcessedForecast[]>([]);
-  const [editableForecasts, setEditableForecasts] = useState<ProcessedForecast[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState<Record<string, boolean>>({});
+export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: WeeklyTargetTableProps) {
+  const [originalTargets, setOriginalTargets] = useState<EmployeeTarget[]>([]);
+  const [editableTargets, setEditableTargets] = useState<EmployeeTarget[]>([]);
+  const [internalLoading, setInternalLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
+  const [nameFilter, setNameFilter] = useState('');
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Set date only on client to avoid hydration mismatch
+    setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  }, []);
+  
+  const filteredTargets = useMemo(() => {
+    if (!nameFilter) return editableTargets;
+    return editableTargets.filter(alloc => 
+      parseEmployeeName(alloc.employeeName).toLowerCase().includes(nameFilter.toLowerCase())
+    );
+  }, [editableTargets, nameFilter]);
+
+  const weeks: FiscalWeek[] = useMemo(() => {
+    if (!currentDate) return [];
+    return getWeeksForFiscalMonth(currentDate);
+  }, [currentDate]);
+
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    if (weeks.length === 0) {
+        setInternalLoading(false);
+        return;
+    };
+    setInternalLoading(true);
     try {
-      const [fteResponse, summaryResponse] = await Promise.all([
-        fetch('/domo/datastores/v1/collections/bulk_forecast_fte/documents/'),
-        fetch('/domo/datastores/v1/collections/bulk_forecast_summary/documents/'),
-      ]);
-
-      if (!fteResponse.ok || !summaryResponse.ok) {
-        console.warn('Could not fetch bulk forecast data.');
-      }
-
-      const ftes: FteDoc[] = fteResponse.ok ? await fteResponse.json() : [];
-      const summaries: SummaryDoc[] = summaryResponse.ok ? await summaryResponse.json() : [];
-
-      const grouped = summaries.reduce((acc, summary) => {
-        const { bulk_forecast_id, cost_center_name, cost_center_number, forecast_percentage, bulk_forecast_date } = summary.content;
-        
-        if (!acc[bulk_forecast_id]) {
-          acc[bulk_forecast_id] = {
-            id: bulk_forecast_id,
-            forecastDate: bulk_forecast_date,
-            employees: [],
-            summaries: [],
-          };
-        }
-        acc[bulk_forecast_id].summaries.push({
-          id: summary.id,
-          name: cost_center_name,
-          number: cost_center_number,
-          percentage: Number(forecast_percentage) || 0,
-        });
-
-        return acc;
-      }, {} as Record<string, ProcessedForecast>);
-
-      ftes.forEach(fte => {
-        const { bulk_forecast_id, employee_name, forecast_monthyear } = fte.content;
-        if (grouped[bulk_forecast_id]) {
-          grouped[bulk_forecast_id].employees.push(employee_name);
-          if (forecast_monthyear && !grouped[bulk_forecast_id].forecastMonthYear) {
-            grouped[bulk_forecast_id].forecastMonthYear = forecast_monthyear;
-          }
-        }
+      const weekKeys = weeks.map(w => formatDateKey(w.startDate));
+      
+      const targetRequests = weekKeys.map(async weekKey => {
+        const response = await fetch(`/domo/datastores/v1/collections/weekly_targets/documents?q=content.target_date='${weekKey}'`);
+        if (!response.ok) {
+            console.warn(`Failed to fetch targets for ${weekKey}. This may be expected in local dev.`);
+            return [];
+        };
+        return response.json();
       });
-      
-      const processed = Object.values(grouped).sort((a, b) => new Date(b.forecastDate).getTime() - new Date(a.forecastDate).getTime());
-      
-      setOriginalForecasts(processed);
-      setEditableForecasts(JSON.parse(JSON.stringify(processed)));
 
+      const results = await Promise.all(targetRequests);
+      const allFetchedTargets: WeeklyTarget[] = results.flat();
+      
+      const groupedByEmployee = allFetchedTargets.reduce((acc, current) => {
+        const { target_name, target_cost_center_number, target_cost_center_name, target_date, target_amount } = current.content;
+        
+        if (!acc[target_name]) {
+            acc[target_name] = {};
+        }
+        if (!acc[target_name][target_cost_center_number]) {
+            acc[target_name][target_cost_center_number] = {
+                clientId: target_cost_center_number,
+                clientName: target_cost_center_name,
+                weeklyTargets: {},
+            };
+        }
+        acc[target_name][target_cost_center_number].weeklyTargets[target_date] = {
+          hires: parseInt(target_amount, 10) || 0,
+          docId: current.id,
+        };
+        return acc;
+      }, {} as Record<string, Record<string, TargetRow>>);
+
+      const structuredTargets: EmployeeTarget[] = Object.entries(groupedByEmployee).map(([employeeName, clientGroup]) => ({
+        employeeName,
+        targets: Object.values(clientGroup),
+      }));
+
+      setOriginalTargets(structuredTargets);
+      setEditableTargets(JSON.parse(JSON.stringify(structuredTargets))); // Deep copy for editing
     } catch (error) {
-      console.error('Error fetching bulk forecast data:', error);
+      console.error('Error fetching target data:', error);
       toast({
         variant: 'destructive',
-        title: 'Failed to fetch saved forecasts',
+        title: 'Failed to fetch target data',
+        description: 'Could not retrieve data from the server.'
       });
     } finally {
-      setLoading(false);
+      setInternalLoading(false);
     }
-  }, [toast]);
+  }, [weeks, toast]);
   
   useEffect(() => {
-    fetchData();
-  }, [fetchData, refreshKey]);
-  
-  const handlePercentageChange = (forecastId: string, summaryId: string, newPercentage: string) => {
-    setEditableForecasts(prev => prev.map(forecast => {
-      if (forecast.id === forecastId) {
-        const updatedSummaries = forecast.summaries.map(summary => {
-          if (summary.id === summaryId) {
-            return { ...summary, percentage: Number(newPercentage) };
+    if(currentDate) {
+        fetchData();
+    }
+  }, [currentDate, fetchData, refreshKey]);
+
+  const handleTargetChange = (employeeName: string, clientId: string, weekKey: string, newTargetValue: string) => {
+    const newTarget = parseInt(newTargetValue, 10) || 0;
+    setEditableTargets(prev => prev.map(empAlloc => {
+      if (empAlloc.employeeName === employeeName) {
+        const newTargets = empAlloc.targets.map(alloc => {
+          if (alloc.clientId === clientId) {
+            const updatedTargets = { ...alloc.weeklyTargets };
+            if (updatedTargets[weekKey]) {
+              updatedTargets[weekKey].hires = newTarget;
+            }
+            return { ...alloc, weeklyTargets: updatedTargets };
           }
-          return summary;
+          return alloc;
         });
-        return { ...forecast, summaries: updatedSummaries };
+        return { ...empAlloc, targets: newTargets };
       }
-      return forecast;
+      return empAlloc;
     }));
   };
 
-  const handleSaveChanges = async (forecastId: string) => {
-    setIsSaving(prev => ({...prev, [forecastId]: true}));
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    const updates = [];
 
-    const editableForecast = editableForecasts.find(a => a.id === forecastId);
-    const originalForecast = originalForecasts.find(a => a.id === forecastId);
-
-    if (!editableForecast || !originalForecast) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not find forecast to save.' });
-      setIsSaving(prev => ({...prev, [forecastId]: false}));
-      return;
-    }
-
-    const totalPercentage = editableForecast.summaries.reduce((sum, s) => sum + s.percentage, 0);
-    if (Math.round(totalPercentage) !== 100) {
-      toast({ variant: 'destructive', title: 'Validation Error', description: 'Total forecast must be exactly 100%.' });
-      setIsSaving(prev => ({...prev, [forecastId]: false}));
-      return;
-    }
-
-    const updates = editableForecast.summaries
-      .filter((summary) => {
-        const originalSummary = originalForecast.summaries.find(s => s.id === summary.id);
-        return originalSummary && summary.percentage !== originalSummary.percentage;
-      })
-      .map(summary => ({
-          docId: summary.id,
-          content: {
-              bulk_forecast_id: forecastId,
-              cost_center_number: summary.number,
-              cost_center_name: summary.name,
-              forecast_percentage: summary.percentage.toString(),
-              bulk_forecast_date: editableForecast.forecastDate
+    for (let empIdx = 0; empIdx < editableTargets.length; empIdx++) {
+      const empAlloc = editableTargets[empIdx];
+      for (let allocIdx = 0; allocIdx < empAlloc.targets.length; allocIdx++) {
+        const alloc = empAlloc.targets[allocIdx];
+        for (const weekKey in alloc.weeklyTargets) {
+          const editable = alloc.weeklyTargets[weekKey];
+          const originalEmp = originalTargets.find(e => e.employeeName === empAlloc.employeeName);
+          const originalAlloc = originalEmp?.targets.find(a => a.clientId === alloc.clientId);
+          
+          if (editable && editable.docId && originalAlloc) {
+            const original = originalAlloc.weeklyTargets[weekKey];
+            if (original && editable.hires !== original.hires) {
+              updates.push({
+                docId: editable.docId,
+                content: {
+                  target_date: weekKey,
+                  target_name: empAlloc.employeeName,
+                  target_cost_center_name: alloc.clientName,
+                  target_cost_center_number: alloc.clientId,
+                  target_amount: (editable.hires || 0).toString(),
+                },
+              });
+            }
           }
-      }));
+        }
+      }
+    }
 
     if (updates.length === 0) {
-        toast({ title: 'No changes to save.' });
-        setIsSaving(prev => ({...prev, [forecastId]: false}));
-        return;
+      toast({ title: 'No changes to save.' });
+      setIsSaving(false);
+      return;
     }
 
     try {
-        await Promise.all(updates.map(update =>
-            fetch(`/domo/datastores/v1/collections/bulk_forecast_summary/documents/${update.docId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: update.content }),
-            }).then(res => {
-                if (!res.ok) throw new Error(`Failed to update forecast for ${update.content.cost_center_name}`);
-                return res.json();
-            })
-        ));
-        toast({ title: 'Success', description: `${updates.length} forecast(s) updated for profile ${forecastId.substring(0,8)}.` });
-        fetchData(); // Refresh data
+      await Promise.all(updates.map(update =>
+        fetch(`/domo/datastores/v1/collections/weekly_targets/documents/${update.docId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: update.content }),
+        }).then(res => {
+          if (!res.ok) throw new Error(`Failed to update target for ${parseEmployeeName(update.content.target_name)}`);
+          return res.json();
+        })
+      ));
+      toast({ title: 'Success', description: `${updates.length} target(s) updated.` });
+      fetchData(); // Refresh data
     } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
-        setIsSaving(prev => ({...prev, [forecastId]: false}));
+      setIsSaving(false);
     }
   };
 
 
-  if (loading) {
+  if (initialLoading || internalLoading) {
     return (
       <Card>
         <CardHeader>
-          <Skeleton className="h-6 w-1/3 mb-2" />
-          <Skeleton className="h-4 w-2/3" />
+          <CardTitle>Saved Targets for this Period</CardTitle>
+          <CardDescription>Records from the weekly_targets collection for the displayed weeks.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-24 w-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
         </CardContent>
       </Card>
     );
@@ -238,88 +236,100 @@ export function SavedBulkForecastsTable({ refreshKey }: SavedBulkForecastsTableP
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Saved Bulk Forecast Profiles</CardTitle>
-        <CardDescription>History of all saved bulk forecast profiles. You can edit percentages here.</CardDescription>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <CardTitle>Saved Targets for this Period</CardTitle>
+              <CardDescription>Records from the weekly_targets collection. You can edit values and save.</CardDescription>
+            </div>
+            <Button onClick={handleSaveChanges} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+        </div>
+         <div className="pt-4">
+          <Input 
+            placeholder="Filter by employee name..."
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
       </CardHeader>
       <CardContent>
-        {editableForecasts.length === 0 ? (
-          <div className="text-center text-muted-foreground py-10">
-            No bulk forecast profiles found.
-          </div>
-        ) : (
-          <Accordion type="single" collapsible className="w-full">
-            {editableForecasts.map(forecast => {
-                const totalPercentage = forecast.summaries.reduce((sum, s) => sum + s.percentage, 0);
-                const isProfileSaving = isSaving[forecast.id];
-              return (
-              <AccordionItem value={forecast.id} key={forecast.id}>
-                <AccordionTrigger>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                        <span className="font-mono text-sm text-primary">{forecast.id.substring(0,8)}...</span>
-                        {forecast.forecastMonthYear && <Badge>{forecast.forecastMonthYear}</Badge>}
-                        <Badge variant="secondary">{forecast.employees.length} Employees</Badge>
-                        <span className="text-sm text-muted-foreground hidden sm:inline">
-                            Created: {new Date(forecast.forecastDate).toLocaleDateString()}
-                        </span>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/50 rounded-md">
-                        <div>
-                            <h4 className="font-semibold mb-2">Assigned Employees</h4>
-                            <ScrollArea className="h-48">
-                                <ul className="list-disc pl-5 space-y-1 text-sm">
-                                {forecast.employees.map((emp, i) => <li key={i}>{parseEmployeeName(emp)}</li>)}
-                                </ul>
-                            </ScrollArea>
-                        </div>
-                        <div>
-                             <h4 className="font-semibold mb-2">Client Forecast</h4>
-                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Client</TableHead>
-                                        <TableHead className="text-right w-32">Percentage</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {forecast.summaries.map(s => (
-                                        <TableRow key={s.id}>
-                                            <TableCell>{s.name}</TableCell>
-                                            <TableCell className="text-right">
-                                              <Input 
-                                                type="number"
-                                                min="0"
-                                                max="100"
-                                                value={s.percentage}
-                                                onChange={(e) => handlePercentageChange(forecast.id, s.id, e.target.value)}
-                                                className="w-24 text-center ml-auto"
-                                                placeholder="%"
-                                                disabled={isProfileSaving}
-                                              />
-                                            </TableCell>
-                                        </TableRow>
+        <div className="overflow-x-auto">
+            <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee / Client</TableHead>
+                    {weeks.map(week => {
+                        const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                        return (
+                            <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-primary/10": isCurrent })}>
+                            <div className='flex items-center justify-center gap-2'>
+                                <span>W/E {week.reportingWeekDate}</span>
+                            </div>
+                            {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
+                            </TableHead>
+                        )
+                    })}
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {filteredTargets.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={weeks.length + 1} className="text-center h-24 text-muted-foreground">
+                            {nameFilter ? 'No matching employees found.' : 'No saved target data found for this period.'}
+                        </TableCell>
+                    </TableRow>
+                ) : (
+                    filteredTargets.map(({ employeeName, targets: empTargets }) => {
+                        const weeklyTotals = weeks.map(week => {
+                            const weekKey = formatDateKey(week.startDate);
+                            return empTargets.reduce((total, alloc) => total + (alloc.weeklyTargets[weekKey]?.hires || 0), 0);
+                        });
+
+                        return (
+                            <Fragment key={employeeName}>
+                                <TableRow className="bg-muted/50 hover:bg-muted">
+                                    <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{parseEmployeeName(employeeName)}</TableCell>
+                                    {weeklyTotals.map((total, index) => (
+                                        <TableCell key={index} className="text-center font-semibold text-muted-foreground">
+                                        {total > 0 ? total : '-'}
+                                        </TableCell>
                                     ))}
-                                </TableBody>
-                             </Table>
-                             <div className="mt-4 space-y-2">
-                                <Alert variant={Math.round(totalPercentage) !== 100 ? 'destructive' : 'default'}>
-                                    <AlertDescription>
-                                    Total Forecast: <span className="font-bold">{totalPercentage}%</span>
-                                    {Math.round(totalPercentage) !== 100 && " (Must equal 100%)"}
-                                    </AlertDescription>
-                                </Alert>
-                                <Button onClick={() => handleSaveChanges(forecast.id)} disabled={isProfileSaving || Math.round(totalPercentage) !== 100}>
-                                    {isProfileSaving ? 'Saving...' : 'Save Changes'}
-                                </Button>
-                             </div>
-                        </div>
-                    </div>
-                </AccordionContent>
-              </AccordionItem>
-            )})}
-          </Accordion>
-        )}
+                                </TableRow>
+                                {empTargets.map(alloc => (
+                                    <TableRow key={`${employeeName}-${alloc.clientId}`}>
+                                        <TableCell className="sticky left-0 bg-card z-10 pl-8">{alloc.clientName}</TableCell>
+                                        {weeks.map(week => {
+                                            const weekKey = formatDateKey(week.startDate);
+                                            const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                                            const targetData = alloc.weeklyTargets[weekKey];
+
+                                            return (
+                                                <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-primary/10": isCurrent})}>
+                                                    {targetData ? (
+                                                        <Input
+                                                          type="number" step="1" min="0" placeholder="0"
+                                                          className="w-20 text-center mx-auto"
+                                                          value={targetData.hires || ''}
+                                                          onChange={(e) => handleTargetChange(employeeName, alloc.clientId, weekKey, e.target.value)}
+                                                          disabled={isSaving}
+                                                        />
+                                                    ) : (
+                                                      <div className="w-20 text-center mx-auto text-muted-foreground">-</div>
+                                                    )}
+                                                </TableCell>
+                                            )
+                                        })}
+                                    </TableRow>
+                                ))}
+                            </Fragment>
+                        )
+                    })
+                )}
+            </TableBody>
+            </Table>
+        </div>
       </CardContent>
     </Card>
   );

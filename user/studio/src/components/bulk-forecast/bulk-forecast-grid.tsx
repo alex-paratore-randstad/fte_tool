@@ -1,443 +1,336 @@
-
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, X } from 'lucide-react';
-import { useCurrentUser } from '@/hooks/use-current-user';
-import type { TeamMember } from '@/types';
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from '../ui/skeleton';
-import { ScrollArea } from '../ui/scroll-area';
-import { SelectSearch } from '../ui/select-search';
-import { v4 as uuidv4 } from 'uuid';
-import { Alert, AlertDescription } from '../ui/alert';
-import { Label } from '../ui/label';
+import { startOfWeek, format, isSameDay } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Badge } from '../ui/badge';
+import { useCurrentUser } from '@/hooks/use-current-user';
+import { getWeeksForFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import { WeeklyTarget } from '@/types';
 
-type AiReportData = {
-    Code: string;
-    Name: string;
-    DisplayName: string;
-    RollsUpTo: string;
-};
-type ForecastRow = { id: string; clientName: string; percentage: number };
+const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
-type BulkForecastGridProps = {
-  onSaveSuccess: () => void;
+type TargetFTE = {
+  hires: number;
+  docId: string | null;
 };
 
-const months = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-];
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
-
-// New self-contained component for the Client dropdown
-const ClientSelect = ({
-  clients,
-  value,
-  onValueChange
-}: {
-  clients: AiReportData[],
-  value: string,
-  onValueChange: (value: string) => void
-}) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredClients = useMemo(() => {
-    // Create a stable sort: special clients first, then alphabetical.
-    const sorted = [...clients].sort((a, b) => {
-      const specialClients = ['PTO', 'Unallocated'];
-      const aIsSpecial = specialClients.includes(a.DisplayName);
-      const bIsSpecial = specialClients.includes(b.DisplayName);
-
-      if (aIsSpecial && !bIsSpecial) return -1;
-      if (!aIsSpecial && bIsSpecial) return 1;
-      
-      // If both are special or both are not, sort by name.
-      if (aIsSpecial && bIsSpecial) {
-          return a.DisplayName === 'Unallocated' ? -1 : 1;
-      }
-      
-      return a.DisplayName.localeCompare(b.DisplayName);
-    });
-
-    if (!searchTerm) {
-      return sorted;
-    }
-    return sorted.filter(client =>
-      client.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [clients, searchTerm]);
-
-  return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger>
-          <SelectValue placeholder="Select Client..." />
-      </SelectTrigger>
-      <SelectContent>
-          <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
-          {filteredClients.map(client => <SelectItem key={client.Code} value={client.DisplayName}>{client.DisplayName}</SelectItem>)}
-          {filteredClients.length === 0 && (
-              <div className="p-4 text-sm text-center text-muted-foreground">
-                  No clients found.
-              </div>
-          )}
-      </SelectContent>
-    </Select>
-  );
+type TargetRow = {
+  clientId: string;
+  clientName: string;
+  weeklyTargets: { [weekKey: string]: TargetFTE };
 };
 
+type EmployeeTarget = {
+  employeeName: string;
+  targets: TargetRow[];
+};
 
-export function BulkForecastGrid({ onSaveSuccess }: BulkForecastGridProps) {
-  const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
-  const [clients, setClients] = useState<AiReportData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+type WeeklyTargetTableProps = {
+  currentDate: Date | null;
+  refreshKey: number;
+  initialLoading: boolean;
+};
 
-  const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
-  const [forecastRows, setForecastRows] = useState<ForecastRow[]>([]);
-  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
-  
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<string | null>(null);
+const parseEmployeeName = (compositeName: string): string => {
+  if (compositeName.includes('] ')) {
+    return compositeName.split('] ')[1];
+  }
+  return compositeName;
+};
 
-
-  const { currentUser, loading: userLoading } = useCurrentUser();
+export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: WeeklyTargetTableProps) {
+  const [originalTargets, setOriginalTargets] = useState<EmployeeTarget[]>([]);
+  const [editableTargets, setEditableTargets] = useState<EmployeeTarget[]>([]);
+  const [internalLoading, setInternalLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
+  const [nameFilter, setNameFilter] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set date state on client to avoid hydration mismatch
-    const now = new Date();
-    setSelectedMonth(months[now.getMonth()]);
-    setSelectedYear(now.getFullYear().toString());
+    // Set date only on client to avoid hydration mismatch
+    setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   }, []);
+  
+  const filteredTargets = useMemo(() => {
+    if (!nameFilter) return editableTargets;
+    return editableTargets.filter(alloc => 
+      parseEmployeeName(alloc.employeeName).toLowerCase().includes(nameFilter.toLowerCase())
+    );
+  }, [editableTargets, nameFilter]);
+
+  const weeks: FiscalWeek[] = useMemo(() => {
+    if (!currentDate) return [];
+    return getWeeksForFiscalMonth(currentDate);
+  }, [currentDate]);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    if (weeks.length === 0) {
+        setInternalLoading(false);
+        return;
+    };
+    setInternalLoading(true);
     try {
-      const [empResponse, clientResponse] = await Promise.all([
-        fetch(`/data/v1/gbs_ind_hr_fte_report`),
-        fetch(`/data/v1/ai_report`),
-      ]);
-
-      if (!empResponse.ok || !clientResponse.ok) {
-        console.warn("Could not fetch initial data.");
-      }
+      const weekKeys = weeks.map(w => formatDateKey(w.startDate));
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name).sort((a,b) => a.Full_Name.localeCompare(b.Full_Name)) : [];
-      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
+      const targetRequests = weekKeys.map(async weekKey => {
+        const response = await fetch(`/domo/datastores/v1/collections/weekly_targets/documents?q=content.target_date='${weekKey}'`);
+        if (!response.ok) {
+            console.warn(`Failed to fetch targets for ${weekKey}. This may be expected in local dev.`);
+            return [];
+        };
+        return response.json();
+      });
+
+      const results = await Promise.all(targetRequests);
+      const allFetchedTargets: WeeklyTarget[] = results.flat();
       
-      setAllEmployees(empData);
-      
-      const staticClients: AiReportData[] = [
-        { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
-        { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '' },
-      ];
-      setClients([...staticClients, ...clientData]);
-
-    } catch (error) {
-      console.error("Failed to fetch initial data:", error);
-      toast({ variant: 'destructive', title: 'Failed to fetch data' });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    if (!userLoading) {
-      fetchData();
-    }
-    // Add default forecast row
-    setForecastRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
-  }, [fetchData, userLoading, currentUser.id]);
-
-  const filteredEmployees = useMemo(() => {
-    if (!employeeSearchTerm) {
-      return allEmployees;
-    }
-    return allEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
-  }, [allEmployees, employeeSearchTerm]);
-  
-  const totalPercentage = useMemo(() => {
-    return forecastRows.reduce((sum, row) => sum + (Number(row.percentage) || 0), 0);
-  }, [forecastRows]);
-
-  const handleEmployeeToggle = (employeeId: string, isSelected: boolean) => {
-    setSelectedEmployees(prev => {
-      const newSet = new Set(prev);
-      if (isSelected) {
-        newSet.add(employeeId);
-      } else {
-        newSet.delete(employeeId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleAddForecastRow = () => {
-    setForecastRows(prev => [...prev, { id: `new-${Date.now()}`, clientName: '', percentage: 0 }]);
-  };
-
-  const handleRemoveForecastRow = (id: string) => {
-    setForecastRows(prev => prev.filter(row => row.id !== id));
-  };
-  
-  const handleForecastChange = (id: string, field: 'clientName' | 'percentage', value: string) => {
-    setForecastRows(prev => prev.map(row => {
-      if (row.id === id) {
-        if (field === 'percentage') {
-          return { ...row, [field]: Number(value) };
+      const groupedByEmployee = allFetchedTargets.reduce((acc, current) => {
+        const { target_name, target_cost_center_number, target_cost_center_name, target_date, target_amount } = current.content;
+        
+        if (!acc[target_name]) {
+            acc[target_name] = {};
         }
-        return { ...row, [field]: value };
+        if (!acc[target_name][target_cost_center_number]) {
+            acc[target_name][target_cost_center_number] = {
+                clientId: target_cost_center_number,
+                clientName: target_cost_center_name,
+                weeklyTargets: {},
+            };
+        }
+        acc[target_name][target_cost_center_number].weeklyTargets[target_date] = {
+          hires: parseInt(target_amount, 10) || 0,
+          docId: current.id,
+        };
+        return acc;
+      }, {} as Record<string, Record<string, TargetRow>>);
+
+      const structuredTargets: EmployeeTarget[] = Object.entries(groupedByEmployee).map(([employeeName, clientGroup]) => ({
+        employeeName,
+        targets: Object.values(clientGroup),
+      }));
+
+      setOriginalTargets(structuredTargets);
+      setEditableTargets(JSON.parse(JSON.stringify(structuredTargets))); // Deep copy for editing
+    } catch (error) {
+      console.error('Error fetching target data:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to fetch target data',
+        description: 'Could not retrieve data from the server.'
+      });
+    } finally {
+      setInternalLoading(false);
+    }
+  }, [weeks, toast]);
+  
+  useEffect(() => {
+    if(currentDate) {
+        fetchData();
+    }
+  }, [currentDate, fetchData, refreshKey]);
+
+  const handleTargetChange = (employeeName: string, clientId: string, weekKey: string, newTargetValue: string) => {
+    const newTarget = parseInt(newTargetValue, 10) || 0;
+    setEditableTargets(prev => prev.map(empAlloc => {
+      if (empAlloc.employeeName === employeeName) {
+        const newTargets = empAlloc.targets.map(alloc => {
+          if (alloc.clientId === clientId) {
+            const updatedTargets = { ...alloc.weeklyTargets };
+            if (updatedTargets[weekKey]) {
+              updatedTargets[weekKey].hires = newTarget;
+            }
+            return { ...alloc, weeklyTargets: updatedTargets };
+          }
+          return alloc;
+        });
+        return { ...empAlloc, targets: newTargets };
       }
-      return row;
+      return empAlloc;
     }));
   };
 
-  const handleSave = async () => {
-    if (selectedEmployees.size === 0) {
-      toast({ variant: 'destructive', title: 'No employees selected.' });
-      return;
-    }
-    if (totalPercentage !== 100) {
-      toast({ variant: 'destructive', title: 'Total forecast must be 100%.' });
-      return;
-    }
-    if (forecastRows.some(row => !row.clientName || row.percentage <= 0)) {
-        toast({ variant: 'destructive', title: 'Invalid forecast rows.', description: 'Please ensure every row has a client and a percentage greater than 0.' });
-        return;
-    }
-    if (!selectedMonth || !selectedYear) {
-      toast({ variant: 'destructive', title: 'Please select a month and year.' });
-      return;
-    }
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    const updates = [];
 
-
-    setIsSubmitting(true);
-    const bulkForecastId = uuidv4();
-    const forecastDate = new Date().toISOString();
-    const forecastMonthYear = `${selectedMonth} ${selectedYear}`;
-
-    const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
-      const employee = allEmployees.find(e => e.Person_Number === employeeId);
-      const compositeName = employee ? `[${employee.Person_Number}] ${employee.Full_Name}` : `[${employeeId}] Unknown`;
-      
-      return fetch('/domo/datastores/v1/collections/bulk_forecast_fte/documents/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: {
-            bulk_forecast_id: bulkForecastId,
-            employee_id: employeeId,
-            employee_name: compositeName,
-            bulk_forecast_date: forecastDate,
-            forecast_monthyear: forecastMonthYear,
+    for (let empIdx = 0; empIdx < editableTargets.length; empIdx++) {
+      const empAlloc = editableTargets[empIdx];
+      for (let allocIdx = 0; allocIdx < empAlloc.targets.length; allocIdx++) {
+        const alloc = empAlloc.targets[allocIdx];
+        for (const weekKey in alloc.weeklyTargets) {
+          const editable = alloc.weeklyTargets[weekKey];
+          const originalEmp = originalTargets.find(e => e.employeeName === empAlloc.employeeName);
+          const originalAlloc = originalEmp?.targets.find(a => a.clientId === alloc.clientId);
+          
+          if (editable && editable.docId && originalAlloc) {
+            const original = originalAlloc.weeklyTargets[weekKey];
+            if (original && editable.hires !== original.hires) {
+              updates.push({
+                docId: editable.docId,
+                content: {
+                  target_date: weekKey,
+                  target_name: empAlloc.employeeName,
+                  target_cost_center_name: alloc.clientName,
+                  target_cost_center_number: alloc.clientId,
+                  target_amount: (editable.hires || 0).toString(),
+                },
+              });
+            }
           }
-        }),
-      });
-    });
+        }
+      }
+    }
 
-    const summarySubmissions = forecastRows.map(row => {
-      const client = clients.find(c => c.DisplayName === row.clientName);
-      return fetch('/domo/datastores/v1/collections/bulk_forecast_summary/documents/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: {
-            bulk_forecast_id: bulkForecastId,
-            cost_center_number: client?.Code || 'Unknown',
-            cost_center_name: row.clientName,
-            forecast_percentage: row.percentage.toString(),
-            bulk_forecast_date: forecastDate,
-          }
-        }),
-      });
-    });
+    if (updates.length === 0) {
+      toast({ title: 'No changes to save.' });
+      setIsSaving(false);
+      return;
+    }
 
     try {
-      const allPromises = [...employeeSubmissions, ...summarySubmissions];
-      const results = await Promise.all(allPromises);
-
-      if (results.some(res => !res.ok)) {
-        throw new Error('One or more submissions failed.');
-      }
-      
-      toast({ title: 'Bulk Forecast Saved', description: `Assigned forecast profile to ${selectedEmployees.size} employees for ${forecastMonthYear}.` });
-      
-      // Reset form
-      setSelectedEmployees(new Set());
-      setForecastRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
-      onSaveSuccess();
-
+      await Promise.all(updates.map(update =>
+        fetch(`/domo/datastores/v1/collections/weekly_targets/documents/${update.docId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: update.content }),
+        }).then(res => {
+          if (!res.ok) throw new Error(`Failed to update target for ${parseEmployeeName(update.content.target_name)}`);
+          return res.json();
+        })
+      ));
+      toast({ title: 'Success', description: `${updates.length} target(s) updated.` });
+      fetchData(); // Refresh data
     } catch (error: any) {
-      console.error("Save error:", error);
       toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
     }
   };
-  
-  const isPageLoading = loading || userLoading || !selectedMonth || !selectedYear;
+
+
+  if (initialLoading || internalLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Saved Targets for this Period</CardTitle>
+          <CardDescription>Records from the weekly_targets collection for the displayed weeks.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-      <Card>
-        <CardHeader>
-          <CardTitle>Step 1: Select Employees</CardTitle>
-          <CardDescription>Choose the employees who will share this forecast profile.</CardDescription>
-          <div className="relative pt-2">
-            {isPageLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Input 
-                placeholder="Search employees..." 
-                value={employeeSearchTerm}
-                onChange={e => setEmployeeSearchTerm(e.target.value)}
-              />
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-96">
-            {isPageLoading ? (
-              <div className="p-4 space-y-4">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]"></TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Title</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredEmployees.map(emp => (
-                    <TableRow key={emp.Person_Number}>
-                      <TableCell>
-                        <Checkbox 
-                          checked={selectedEmployees.has(emp.Person_Number)}
-                          onCheckedChange={checked => handleEmployeeToggle(emp.Person_Number, !!checked)}
-                          aria-label={`Select ${emp.Full_Name}`}
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{emp.Full_Name}</TableCell>
-                      <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </ScrollArea>
-        </CardContent>
-        <CardFooter>
-            <div className="text-sm text-muted-foreground">
-                {selectedEmployees.size} employee(s) selected.
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <CardTitle>Saved Targets for this Period</CardTitle>
+              <CardDescription>Records from the weekly_targets collection. You can edit values and save.</CardDescription>
             </div>
-        </CardFooter>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Step 2: Define Forecast</CardTitle>
-          <CardDescription>Define the client percentages for the selected group.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isPageLoading ? (
-            <div className="space-y-6">
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : (
-            <div className="grid gap-6">
-              <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                      <Label htmlFor="month">Month</Label>
-                      <Select value={selectedMonth!} onValueChange={(value) => setSelectedMonth(value)}>
-                          <SelectTrigger id="month">
-                              <SelectValue placeholder="Select Month" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
-                  </div>
-                  <div className="grid gap-2">
-                      <Label htmlFor="year">Year</Label>
-                      <Select value={selectedYear!} onValueChange={(value) => setSelectedYear(value)}>
-                          <SelectTrigger id="year">
-                              <SelectValue placeholder="Select Year" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
-                  </div>
-              </div>
-              <div className="grid gap-4">
-                {forecastRows.map((row) => (
-                  <div key={row.id} className="flex gap-2 items-center">
-                    <ClientSelect
-                      clients={clients}
-                      value={row.clientName}
-                      onValueChange={value => handleForecastChange(row.id, 'clientName', value)}
-                    />
-                    <Input 
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={row.percentage}
-                      onChange={e => handleForecastChange(row.id, 'percentage', e.target.value)}
-                      className="w-32 text-center"
-                      placeholder="%"
-                    />
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveForecastRow(row.id)} disabled={forecastRows.length === 1}>
-                        <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button variant="outline" onClick={handleAddForecastRow}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Client
-                </Button>
-                <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
-                  <AlertDescription>
-                    Total Forecast: <span className="font-bold">{totalPercentage}%</span>
-                    {totalPercentage !== 100 && " (Must equal 100%)"}
-                  </AlertDescription>
-                </Alert>
-              </div>
-            </div>
-          )}
-        </CardContent>
-        <CardFooter>
-            <Button onClick={handleSave} disabled={isSubmitting || selectedEmployees.size === 0 || totalPercentage !== 100}>
-              {isSubmitting ? 'Saving...' : 'Save Bulk Forecast'}
+            <Button onClick={handleSaveChanges} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
-        </CardFooter>
-      </Card>
-    </div>
+        </div>
+         <div className="pt-4">
+          <Input 
+            placeholder="Filter by employee name..."
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+            <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee / Client</TableHead>
+                    {weeks.map(week => {
+                        const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                        return (
+                            <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-primary/10": isCurrent })}>
+                            <div className='flex items-center justify-center gap-2'>
+                                <span>W/E {week.reportingWeekDate}</span>
+                            </div>
+                            {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
+                            </TableHead>
+                        )
+                    })}
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {filteredTargets.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={weeks.length + 1} className="text-center h-24 text-muted-foreground">
+                            {nameFilter ? 'No matching employees found.' : 'No saved target data found for this period.'}
+                        </TableCell>
+                    </TableRow>
+                ) : (
+                    filteredTargets.map(({ employeeName, targets: empTargets }) => {
+                        const weeklyTotals = weeks.map(week => {
+                            const weekKey = formatDateKey(week.startDate);
+                            return empTargets.reduce((total, alloc) => total + (alloc.weeklyTargets[weekKey]?.hires || 0), 0);
+                        });
+
+                        return (
+                            <Fragment key={employeeName}>
+                                <TableRow className="bg-muted/50 hover:bg-muted">
+                                    <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{parseEmployeeName(employeeName)}</TableCell>
+                                    {weeklyTotals.map((total, index) => (
+                                        <TableCell key={index} className="text-center font-semibold text-muted-foreground">
+                                        {total > 0 ? total : '-'}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                                {empTargets.map(alloc => (
+                                    <TableRow key={`${employeeName}-${alloc.clientId}`}>
+                                        <TableCell className="sticky left-0 bg-card z-10 pl-8">{alloc.clientName}</TableCell>
+                                        {weeks.map(week => {
+                                            const weekKey = formatDateKey(week.startDate);
+                                            const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                                            const targetData = alloc.weeklyTargets[weekKey];
+
+                                            return (
+                                                <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-primary/10": isCurrent})}>
+                                                    {targetData ? (
+                                                        <Input
+                                                          type="number" step="1" min="0" placeholder="0"
+                                                          className="w-20 text-center mx-auto"
+                                                          value={targetData.hires || ''}
+                                                          onChange={(e) => handleTargetChange(employeeName, alloc.clientId, weekKey, e.target.value)}
+                                                          disabled={isSaving}
+                                                        />
+                                                    ) : (
+                                                      <div className="w-20 text-center mx-auto text-muted-foreground">-</div>
+                                                    )}
+                                                </TableCell>
+                                            )
+                                        })}
+                                    </TableRow>
+                                ))}
+                            </Fragment>
+                        )
+                    })
+                )}
+            </TableBody>
+            </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
