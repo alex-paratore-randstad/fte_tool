@@ -94,7 +94,7 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
       const allFetchedTargets: WeeklyTarget[] = results.flat();
       
       const groupedByEmployee = allFetchedTargets.reduce((acc, current) => {
-        const { targets_allocation_name, targets_cost_center_number, targets_cost_center_name, targets_allocation_date, targets_allocation_amount } = current.content as any;
+        const { targets_allocation_name, targets_cost_center_number, targets_cost_center_name, targets_allocation_date, targets_allocation_amount } = current.content;
         
         if (!acc[targets_allocation_name]) {
             acc[targets_allocation_name] = {};

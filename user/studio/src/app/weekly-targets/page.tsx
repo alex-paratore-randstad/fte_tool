@@ -36,9 +36,7 @@ export default function WeeklyTargetPage() {
     setRefreshKey(prevKey => prevKey + 1);
   };
   
-  // The isInitialLoading prop is removed to prevent hydration errors.
-  // Child components will handle their own loading state based on props.
-  const isLoading = !calendarInitialized || !currentDate;
+  const isInitialLoading = !calendarInitialized || !currentDate;
 
   return (
     <div className="flex flex-col gap-8">
@@ -50,12 +48,12 @@ export default function WeeklyTargetPage() {
         currentDate={currentDate}
         setCurrentDate={setCurrentDate}
         onSaveSuccess={handleRefresh}
-        initialLoading={isLoading}
+        initialLoading={isInitialLoading}
       />
       <WeeklyTargetTable
         currentDate={currentDate}
         refreshKey={refreshKey}
-        initialLoading={isLoading}
+        initialLoading={isInitialLoading}
       />
     </div>
   );
