@@ -350,27 +350,27 @@
             "syncEnabled": false
         },
         {
-            "name": "weekly_forecast",
+            "name": "weekly_targets",
             "schema": {
                 "columns": [
                     {
-                        "name": "forecast_allocation_date",
+                        "name": "targets_allocation_date",
                         "type": "DATE"
                     },
                     {
-                        "name": "forecast_allocation_name",
+                        "name": "targets_allocation_name",
                         "type": "STRING"
                     },
                     {
-                        "name": "forecast_allocation_amount",
+                        "name": "targets_allocation_amount",
                         "type": "STRING"
                     },
                     {
-                        "name": "forecast_cost_center_name",
+                        "name": "targets_cost_center_name",
                         "type": "STRING"
                     },
                     {
-                        "name": "forecast_cost_center_number",
+                        "name": "targets_cost_center_number",
                         "type": "STRING"
                     }
                 ]
@@ -450,19 +450,19 @@
             "syncEnabled": false
         },
         {
-            "name": "bulk_forecast_fte",
+            "name": "bulk_targets_fte",
             "schema": {
                 "columns": [
                     {
-                        "name": "bulk_forecast_id",
+                        "name": "bulk_targets_id",
                         "type": "STRING"
                     },
                     {
-                        "name": "bulk_forecast_date",
+                        "name": "bulk_targets_date",
                         "type": "STRING"
                     },
                     {
-                        "name": "forecast_monthyear",
+                        "name": "targets_monthyear",
                         "type": "STRING"
                     },
                     {
@@ -478,11 +478,11 @@
             "syncEnabled": false
         },
         {
-            "name": "bulk_forecast_summary",
+            "name": "bulk_targets_summary",
             "schema": {
                 "columns": [
                     {
-                        "name": "bulk_forecast_id",
+                        "name": "bulk_targets_id",
                         "type": "STRING"
                     },
                     {
@@ -494,7 +494,7 @@
                         "type": "STRING"
                     },
                     {
-                        "name": "forecast_percentage",
+                        "name": "targets_percentage",
                         "type": "STRING"
                     }
                 ]
