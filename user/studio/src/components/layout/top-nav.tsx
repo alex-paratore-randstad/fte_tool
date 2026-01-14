@@ -18,19 +18,13 @@ import { Skeleton } from '../ui/skeleton';
 
 const navGroups: NavGroup[] = [
   {
-    title: 'Allocations',
+    title: 'Planning',
     roles: ['admin', 'manager', 'vp'],
     items: [
       { href: '/allocation', label: 'Weekly Allocation' },
       { href: '/bulk-allocation', label: 'Bulk Allocation' },
       { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation' },
       { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation' },
-    ]
-  },
-  {
-    title: 'Targets',
-    roles: ['admin', 'manager', 'vp'],
-    items: [
       { href: '/weekly-targets', label: 'Weekly Targets' },
       { href: '/bulk-targets', label: 'Bulk Targets' },
     ]

@@ -22,19 +22,13 @@ import { Skeleton } from '../ui/skeleton';
 
 const navGroups: NavGroup[] = [
   {
-    title: 'Allocations',
+    title: 'Planning',
     roles: ['admin', 'manager', 'vp'],
     items: [
       { href: '/allocation', label: 'Weekly Allocation' },
       { href: '/bulk-allocation', label: 'Bulk Allocation' },
       { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation' },
       { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation' },
-    ]
-  },
-  {
-    title: 'Targets',
-    roles: ['admin', 'manager', 'vp'],
-    items: [
       { href: '/weekly-targets', label: 'Weekly Targets' },
       { href: '/bulk-targets', label: 'Bulk Targets' },
     ]
@@ -114,8 +108,12 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                   </Link>
                   <Accordion type="multiple" className="w-full" defaultValue={navGroups.filter(g => isGroupActive(g.items)).map(g => g.title)}>
                       {navGroups.map(group => (
-                          <AccordionItem value={group.title} key={group.title} className={cn("border-b-0", loading && "hidden")}>
-                              {userHasAccess(group.roles) && (
+                          <AccordionItem value={group.title} key={group.title} className="border-b-0">
+                              {loading ? (
+                                <div className="flex items-center justify-between py-2">
+                                  <Skeleton className="h-5 w-32" />
+                                </div>
+                              ) : userHasAccess(group.roles) && (
                                 <>
                                   <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
                                   {group.title}
