@@ -22,7 +22,7 @@ import { Skeleton } from '../ui/skeleton';
 
 const navGroups: NavGroup[] = [
   {
-    title: 'Planning',
+    title: 'Allocations',
     roles: ['admin', 'manager', 'vp'],
     items: [
       { href: '/allocation', label: 'Weekly Allocation' },
@@ -107,28 +107,20 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                       Dashboard
                   </Link>
                   <Accordion type="multiple" className="w-full" defaultValue={navGroups.filter(g => isGroupActive(g.items)).map(g => g.title)}>
-                      {navGroups.map(group => (
+                      {navGroups.map(group => userHasAccess(group.roles) && (
                           <AccordionItem value={group.title} key={group.title} className="border-b-0">
-                              {loading ? (
-                                <div className="flex items-center justify-between py-2">
-                                  <Skeleton className="h-5 w-32" />
+                            <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
+                              {loading ? <Skeleton className="h-5 w-32" /> : group.title}
+                            </AccordionTrigger>
+                            <AccordionContent className="pl-4 pb-0">
+                                <div className="flex flex-col gap-1">
+                                    {!loading && group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                                    <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
+                                        {item.label}
+                                    </Link>
+                                    ))}
                                 </div>
-                              ) : userHasAccess(group.roles) && (
-                                <>
-                                  <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
-                                  {group.title}
-                                  </AccordionTrigger>
-                                  <AccordionContent className="pl-4 pb-0">
-                                      <div className="flex flex-col gap-1">
-                                          {group.items.filter(item => userHasAccess(item.roles)).map(item => (
-                                          <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
-                                              {item.label}
-                                          </Link>
-                                          ))}
-                                      </div>
-                                  </AccordionContent>
-                                </>
-                              )}
+                            </AccordionContent>
                           </AccordionItem>
                       ))}
                     </Accordion>

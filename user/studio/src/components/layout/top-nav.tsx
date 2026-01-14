@@ -18,7 +18,7 @@ import { Skeleton } from '../ui/skeleton';
 
 const navGroups: NavGroup[] = [
   {
-    title: 'Planning',
+    title: 'Allocations',
     roles: ['admin', 'manager', 'vp'],
     items: [
       { href: '/allocation', label: 'Weekly Allocation' },
