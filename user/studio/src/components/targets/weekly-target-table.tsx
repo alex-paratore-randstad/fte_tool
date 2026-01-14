@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
@@ -10,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { startOfWeek, format, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
+import { useCurrentUser } from '@/hooks/use-current-user';
 import { getWeeksForFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -82,7 +82,7 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
       const weekKeys = weeks.map(w => formatDateKey(w.startDate));
       
       const targetRequests = weekKeys.map(async weekKey => {
-        const response = await fetch(`/domo/datastores/v1/collections/weekly_targets/documents?q=content.target_date='${weekKey}'`);
+        const response = await fetch(`/domo/datastores/v1/collections/weekly_targets/documents?q=content.targets_allocation_date='${weekKey}'`);
         if (!response.ok) {
             console.warn(`Failed to fetch targets for ${weekKey}. This may be expected in local dev.`);
             return [];
@@ -94,20 +94,20 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
       const allFetchedTargets: WeeklyTarget[] = results.flat();
       
       const groupedByEmployee = allFetchedTargets.reduce((acc, current) => {
-        const { target_name, target_cost_center_number, target_cost_center_name, target_date, target_amount } = current.content;
+        const { targets_allocation_name, targets_cost_center_number, targets_cost_center_name, targets_allocation_date, targets_allocation_amount } = current.content as any;
         
-        if (!acc[target_name]) {
-            acc[target_name] = {};
+        if (!acc[targets_allocation_name]) {
+            acc[targets_allocation_name] = {};
         }
-        if (!acc[target_name][target_cost_center_number]) {
-            acc[target_name][target_cost_center_number] = {
-                clientId: target_cost_center_number,
-                clientName: target_cost_center_name,
+        if (!acc[targets_allocation_name][targets_cost_center_number]) {
+            acc[targets_allocation_name][targets_cost_center_number] = {
+                clientId: targets_cost_center_number,
+                clientName: targets_cost_center_name,
                 weeklyTargets: {},
             };
         }
-        acc[target_name][target_cost_center_number].weeklyTargets[target_date] = {
-          hires: parseInt(target_amount, 10) || 0,
+        acc[targets_allocation_name][targets_cost_center_number].weeklyTargets[targets_allocation_date] = {
+          hires: parseInt(targets_allocation_amount, 10) || 0,
           docId: current.id,
         };
         return acc;
@@ -177,11 +177,11 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
               updates.push({
                 docId: editable.docId,
                 content: {
-                  target_date: weekKey,
-                  target_name: empAlloc.employeeName,
-                  target_cost_center_name: alloc.clientName,
-                  target_cost_center_number: alloc.clientId,
-                  target_amount: (editable.hires || 0).toString(),
+                  targets_allocation_date: weekKey,
+                  targets_allocation_name: empAlloc.employeeName,
+                  targets_cost_center_name: alloc.clientName,
+                  targets_cost_center_number: alloc.clientId,
+                  targets_allocation_amount: (editable.hires || 0).toString(),
                 },
               });
             }
@@ -203,7 +203,7 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: update.content }),
         }).then(res => {
-          if (!res.ok) throw new Error(`Failed to update target for ${parseEmployeeName(update.content.target_name)}`);
+          if (!res.ok) throw new Error(`Failed to update target for ${parseEmployeeName(update.content.targets_allocation_name)}`);
           return res.json();
         })
       ));
@@ -335,4 +335,3 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
     </Card>
   );
 }
-

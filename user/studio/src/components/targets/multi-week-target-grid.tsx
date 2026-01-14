@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
@@ -445,11 +444,11 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
             }
             submissions.push({
               content: {
-                target_date: weekKey,
-                target_name: `[${empAlloc.employee.Person_Number}] ${empAlloc.employee.Full_Name}`,
-                target_cost_center_name: alloc.clientName,
-                target_cost_center_number: alloc.clientId,
-                target_amount: target.toString(),
+                targets_allocation_date: weekKey,
+                targets_allocation_name: `[${empAlloc.employee.Person_Number}] ${empAlloc.employee.Full_Name}`,
+                targets_cost_center_name: alloc.clientName,
+                targets_cost_center_number: alloc.clientId,
+                targets_allocation_amount: target.toString(),
               }
             });
           }

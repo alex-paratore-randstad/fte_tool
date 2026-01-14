@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -32,6 +31,7 @@ type FteDoc = {
     bulk_targets_id: string; 
     employee_name: string; 
     targets_monthyear?: string;
+    bulk_targets_date: string;
   };
 };
 
@@ -42,7 +42,6 @@ type SummaryDoc = {
     cost_center_number: string;
     cost_center_name: string;
     targets_percentage: string;
-    bulk_targets_date: string;
   };
 };
 
@@ -94,34 +93,32 @@ export function SavedBulkTargetsTable({ refreshKey }: SavedBulkTargetsTableProps
       const ftes: FteDoc[] = fteResponse.ok ? await fteResponse.json() : [];
       const summaries: SummaryDoc[] = summaryResponse.ok ? await summaryResponse.json() : [];
 
-      const grouped = summaries.reduce((acc, summary) => {
-        const { bulk_targets_id, cost_center_name, cost_center_number, targets_percentage, bulk_targets_date } = summary.content;
+      const grouped = ftes.reduce((acc, fte) => {
+        const { bulk_targets_id, employee_name, targets_monthyear, bulk_targets_date } = fte.content;
         
         if (!acc[bulk_targets_id]) {
           acc[bulk_targets_id] = {
             id: bulk_targets_id,
             targetDate: bulk_targets_date,
+            targetMonthYear: targets_monthyear,
             employees: [],
             summaries: [],
           };
         }
-        acc[bulk_targets_id].summaries.push({
-          id: summary.id,
-          name: cost_center_name,
-          number: cost_center_number,
-          percentage: Number(targets_percentage) || 0,
-        });
+        acc[bulk_targets_id].employees.push(employee_name);
 
         return acc;
       }, {} as Record<string, ProcessedTarget>);
 
-      ftes.forEach(fte => {
-        const { bulk_targets_id, employee_name, targets_monthyear } = fte.content;
+      summaries.forEach(summary => {
+        const { bulk_targets_id, cost_center_name, cost_center_number, targets_percentage } = summary.content;
         if (grouped[bulk_targets_id]) {
-          grouped[bulk_targets_id].employees.push(employee_name);
-          if (targets_monthyear && !grouped[bulk_targets_id].targetMonthYear) {
-            grouped[bulk_targets_id].targetMonthYear = targets_monthyear;
-          }
+          grouped[bulk_targets_id].summaries.push({
+            id: summary.id,
+            name: cost_center_name,
+            number: cost_center_number,
+            percentage: Number(targets_percentage) || 0,
+          });
         }
       });
       
@@ -191,7 +188,6 @@ export function SavedBulkTargetsTable({ refreshKey }: SavedBulkTargetsTableProps
               cost_center_number: summary.number,
               cost_center_name: summary.name,
               targets_percentage: summary.percentage.toString(),
-              bulk_targets_date: editableTarget.targetDate
           }
       }));
 

@@ -101,4 +101,3 @@ export type NavGroup = {
   roles: ('admin' | 'manager' | 'vp')[];
   items: NavItem[];
 };
-
