@@ -209,11 +209,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
   const [isCopyingPrior, setIsCopyingPrior] = useState<Record<string, boolean>>({});
+  const [hasMounted, setHasMounted] = useState(false);
 
   const { currentUser, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
 
   useEffect(() => {
+    setHasMounted(true);
     // Set the date only on the client side to avoid hydration errors
     setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   }, []);
@@ -642,8 +644,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     <TableHead className="p-2 w-28">Client Code</TableHead>
                     <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                     {weeks.map(week => {
-                      const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                      const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                      const isPast = hasMounted && startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                      const isCurrent = hasMounted && startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                       const isLockedForUser = isPast && !isAdmin;
                       return (
                         <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
@@ -718,7 +720,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                         </TableRow>
 
                         {allocations.map((alloc) => {
-                          const isRowLocked = startOfCurrentWeek ? weeks.some(week => {
+                          const isRowLocked = hasMounted && startOfCurrentWeek ? weeks.some(week => {
                                 const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                                 return isPast && !isAdmin;
                           }) : false;
@@ -752,8 +754,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                             </TableCell>
                             {weeks.map(week => {
                               const weekKey = formatDateKey(week.startDate);
-                              const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                              const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                              const isPast = hasMounted && startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                              const isCurrent = hasMounted && startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                               const isLockedForUser = isPast && !isAdmin;
                               const fteValue = alloc.weeklyFtes[weekKey];
                               return (

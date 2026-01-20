@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, History, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember, WeeklyAllocation } from '@/types';
 import { cn } from '@/lib/utils';
@@ -208,7 +208,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const [internalLoading, setInternalLoading] = useState(true);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
-  const [isCopyingPrior, setIsCopyingPrior] = useState<Record<string, boolean>>({});
 
   const { currentUser, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
@@ -291,13 +290,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
     if (!currentDate) return;
   
-    setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: true }));
-  
     const prevMonthDate = getPreviousFiscalMonth(currentDate);
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
     if (prevMonthWeeks.length === 0) {
-        toast({ variant: 'destructive', title: "No prior weeks found", description: `Could not determine previous fiscal month for ${employee.Full_Name}.`});
-        setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: false }));
+        // Silently fail if no prior weeks, the user just gets a blank row.
         return;
     }
   
@@ -306,26 +302,22 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         const sourceWeekKeys = prevMonthWeeks.map(w => formatDateKey(w.startDate));
       
         for (const weekKey of sourceWeekKeys) {
-            // Fetch all allocations for the week, then filter client-side
             const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
             if (response.ok) {
                 allPrevMonthAllocations.push(...(await response.json()));
-            } else {
-                console.warn(`No allocations found for ${weekKey}`);
             }
         }
       
+        const employeeIdString = `[${employee.Person_Number}]`;
         const employeeAllocations = allPrevMonthAllocations.filter(alloc => 
-            alloc.content.allocation_name?.includes(`[${employee.Person_Number}]`)
+            alloc.content.allocation_name.startsWith(employeeIdString)
         );
       
         if (employeeAllocations.length === 0) {
-            toast({ title: "No prior allocations found", description: `No data available for ${employee.Full_Name} in the previous month.`});
-            setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: false }));
+             // No prior data, just leave the blank row.
             return;
         }
   
-        // Correctly group allocations by client to handle multiple rows
         const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
   
         employeeAllocations.forEach(alloc => {
@@ -337,12 +329,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 });
             }
             const fte = parseFloat(alloc.content.allocation_amount);
-            // This ensures each week's data is stored per client
             clientAllocationsMap.get(clientKey)!.weeklyFtes.set(alloc.content.allocation_date, fte);
         });
       
         const newAllocationRows: AllocationRow[] = [];
-        // Now create a row for each client
         clientAllocationsMap.forEach((data, clientId) => {
             const newRow: AllocationRow = {
                 id: `${employee.Person_Number}-${clientId}-${Date.now()}`,
@@ -351,7 +341,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 weeklyFtes: {},
             };
         
-            // Map the previous month's week data to the current month's weeks by index
             weeks.forEach((currentWeek, index) => {
                 if (index < prevMonthWeeks.length) {
                     const sourceWeekKey = formatDateKey(prevMonthWeeks[index].startDate);
@@ -372,24 +361,18 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     : empAlloc
                 )
             );
-            toast({ title: `Prior Allocations Loaded`, description: `Loaded previous month's data for ${employee.Full_Name}.`});
-        } else {
-            toast({ title: "No applicable prior allocations found", description: `No data from the previous month could be applied for ${employee.Full_Name}.` });
         }
-  
     } catch (error) {
         console.error('Failed to fetch previous month allocations:', error);
         toast({ variant: 'destructive', title: 'Error Loading Prior Data', description: `Could not load allocations for ${employee.Full_Name}.`});
-    } finally {
-        setIsCopyingPrior(prev => ({ ...prev, [employee.Person_Number]: false }));
     }
   
   }, [currentDate, weeks, toast]);
   
-  const handleAddEmployee = (employeeId: string) => {
+  const handleAddEmployee = async (employeeId: string) => {
     if (!employeeId) return;
 
-    setSelectedEmployeeToAdd(employeeId); // Keep the select controlled
+    setSelectedEmployeeToAdd(employeeId); 
 
     const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
     
@@ -399,47 +382,43 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           toast({ variant: 'destructive', title: 'Employee already in grid' });
           return;
       }
-      const newAllocationRow: AllocationRow = {
-        id: `${employeeId}-new-${Date.now()}`,
-        clientId: '',
-        clientName: '',
-        weeklyFtes: {},
+      
+      const newBlankAllocation: EmployeeAllocation = {
+        employee: employeeToAdd,
+        allocations: [{ id: `${employeeId}-new-${Date.now()}`, clientId: '', clientName: '', weeklyFtes: {} }]
       };
       
-      setActiveAllocations(prev => [{
-        employee: employeeToAdd,
-        allocations: [newAllocationRow]
-      }, ...prev]);
+      setActiveAllocations(prev => [newBlankAllocation, ...prev]);
+
+      await fetchAndApplyPreviousMonthAllocations(employeeToAdd);
     }
-    // Reset the select after adding
     setTimeout(() => setSelectedEmployeeToAdd(''), 0);
   };
 
   const handleAddManagerTeam = (managerId: string) => {
     if (!managerId) return;
-    const directReports = allEmployees.filter(e => e.First_Reviewer_Code === managerId);
+    const teamMembers = allEmployees.filter(e => e.First_Reviewer_Code === managerId);
     
-    const newAllocations = directReports
-      .filter(employee => !activeAllocations.some(a => a.employee.Person_Number === employee.Person_Number))
-      .map(employee => {
-        const newAllocationRow: AllocationRow = {
-          id: `${employee.Person_Number}-new-${Date.now()}`,
-          clientId: '',
-          clientName: '',
-          weeklyFtes: {},
-        };
-        return {
-          employee,
-          allocations: [newAllocationRow],
-        };
-      });
+    const employeesToAdd = teamMembers.filter(
+        employee => !activeAllocations.some(a => a.employee.Person_Number === employee.Person_Number)
+    );
 
-    if (newAllocations.length > 0) {
-      setActiveAllocations(prev => [...newAllocations, ...prev]);
-      toast({ title: 'Team Loaded', description: `${newAllocations.length} employees have been added.` });
-    } else {
+    if (employeesToAdd.length === 0) {
       toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' });
+      return;
     }
+
+    const newBlankAllocations = employeesToAdd.map(employee => ({
+        employee,
+        allocations: [{ id: `${employee.Person_Number}-new-${Date.now()}`, clientId: '', clientName: '', weeklyFtes: {} }],
+    }));
+
+    setActiveAllocations(prev => [...newBlankAllocations, ...prev]);
+    toast({ title: 'Team Loaded', description: `Loading prior data for ${employeesToAdd.length} employees...` });
+
+    employeesToAdd.forEach(employee => {
+        fetchAndApplyPreviousMonthAllocations(employee);
+    });
   };
 
 
@@ -638,6 +617,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                   <TableRow>
                     <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
                     <TableHead className="min-w-[200px]">Client Name</TableHead>
+                    <TableHead className="p-2 w-28">Client Code</TableHead>
                     <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
                     {weeks.map(week => {
                       const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
@@ -659,7 +639,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 <TableBody>
                   {activeAllocations.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={weeks.length + 4} className="text-center h-24 text-muted-foreground">
+                        <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
                             Select an employee from the dropdown above to begin building your allocation plan.
                         </TableCell>
                     </TableRow>
@@ -676,7 +656,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                             {employee.Full_Name}
                             <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
                           </TableCell>
-                          <TableCell colSpan={2}></TableCell>
+                          <TableCell colSpan={3}></TableCell>
                           {weeklyTotals.map((total, index) => {
                               const isPartTime = employee.Employment_Mode?.includes('PT');
                               const isOverallocated = total > 1.0;
@@ -724,19 +704,20 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                           <TableRow key={alloc.id}>
                             <TableCell className="sticky left-0 bg-card z-10"></TableCell>
                             <TableCell>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <ClientSelect
-                                        clients={clients}
-                                        value={alloc.clientName}
-                                        onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
-                                        disabled={isRowLocked}
-                                    />
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" align="start">
-                                   {alloc.clientId ? <p>Client Code: {alloc.clientId}</p> : <p>No client code</p>}
-                                </TooltipContent>
-                              </Tooltip>
+                              <ClientSelect
+                                  clients={clients}
+                                  value={alloc.clientName}
+                                  onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
+                                  disabled={isRowLocked}
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                                <Input
+                                    value={alloc.clientId}
+                                    readOnly
+                                    className="bg-muted w-24"
+                                    placeholder="Code"
+                                />
                             </TableCell>
                             <TableCell className="text-center">
                               <Input
@@ -774,18 +755,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                         )})}
 
                         <TableRow>
-                          <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
+                          <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
+                            <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
                                 <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
-                              </Button>
-                               <Button variant="secondary" size="sm" className="w-full justify-start" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)} disabled={isCopyingPrior[employee.Person_Number]}>
-                                <History className={cn("mr-2 h-4 w-4", isCopyingPrior[employee.Person_Number] && "hidden")} />
-                                <Loader2 className={cn("mr-2 h-4 w-4 animate-spin", !isCopyingPrior[employee.Person_Number] && "hidden")} />
-                                <span className={cn(isCopyingPrior[employee.Person_Number] && "hidden")}>Load Prior Allocations</span>
-                                <span className={cn(!isCopyingPrior[employee.Person_Number] && "hidden")}>Loading...</span>
-                              </Button>
-                            </div>
+                            </Button>
                           </TableCell>
                           <TableCell colSpan={weeks.length + 2}></TableCell>
                         </TableRow>
@@ -801,4 +774,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     </TooltipProvider>
   );
 }
-

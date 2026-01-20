@@ -64,10 +64,12 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
   const [isSaving, setIsSaving] = useState(false);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [nameFilter, setNameFilter] = useState('');
+  const [hasMounted, setHasMounted] = useState(false);
   const { toast } = useToast();
   const { isAdmin } = useCurrentUser();
 
   useEffect(() => {
+    setHasMounted(true);
     // Set date only on client to avoid hydration mismatch
     setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   }, []);
@@ -274,8 +276,8 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                 <TableRow>
                     <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Employee / Client</TableHead>
                     {weeks.map(week => {
-                        const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                        const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                        const isPast = hasMounted && startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                        const isCurrent = hasMounted && startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                         const isLockedForUser = isPast && !isAdmin;
                         return (
                             <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
@@ -318,8 +320,8 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                                         <TableCell className="sticky left-0 bg-card z-10 pl-10">{alloc.clientName}</TableCell>
                                         {weeks.map(week => {
                                             const weekKey = formatDateKey(week.startDate);
-                                            const isPast = startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                                            const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                                            const isPast = hasMounted && startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                                            const isCurrent = hasMounted && startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                                             const isLockedForUser = isPast && !isAdmin;
                                             const fteData = alloc.weeklyFtes[weekKey];
 
