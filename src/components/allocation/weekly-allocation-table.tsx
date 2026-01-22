@@ -282,10 +282,10 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                         return (
                             <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
                             <div className='flex items-center justify-center gap-2'>
-                                {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                                <Lock className={cn("h-3.5 w-3.5 text-muted-foreground", !isLockedForUser && "invisible")} />
                                 <span>W/E {week.reportingWeekDate}</span>
                             </div>
-                            {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
+                            <Badge variant="default" className={cn("w-fit mx-auto mt-1", !isCurrent && "invisible")}>Current</Badge>
                             </TableHead>
                         )
                     })}

@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, Copy } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember, WeeklyAllocation } from '@/types';
 import { cn } from '@/lib/utils';
@@ -310,7 +310,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         );
       
         if (employeeAllocations.length === 0) {
-            // No allocations found for this period, so we just leave the blank row.
             return;
         }
   
@@ -349,6 +348,86 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         toast({ variant: 'destructive', title: 'Error Loading Data', description: `Could not load allocations for ${employee.Full_Name}.`});
     }
   }, [currentDate, toast, weeks]);
+
+  const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
+    if (!currentDate) return;
+  
+    const prevMonthDate = getPreviousFiscalMonth(currentDate);
+    const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
+    if (prevMonthWeeks.length === 0) {
+        return;
+    }
+  
+    try {
+        const allPrevMonthAllocations: WeeklyAllocation[] = [];
+        const sourceWeekKeys = prevMonthWeeks.map(w => formatDateKey(w.startDate));
+      
+        for (const weekKey of sourceWeekKeys) {
+            const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
+            if (response.ok) {
+                allPrevMonthAllocations.push(...(await response.json()));
+            }
+        }
+      
+        const employeeIdString = `[${employee.Person_Number}]`;
+        const employeeAllocations = allPrevMonthAllocations.filter(alloc => 
+            alloc.content.allocation_name.startsWith(employeeIdString)
+        );
+      
+        if (employeeAllocations.length === 0) {
+            return;
+        }
+  
+        const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
+  
+        employeeAllocations.forEach(alloc => {
+            const clientKey = alloc.content.cost_center_number;
+            if (!clientAllocationsMap.has(clientKey)) {
+                clientAllocationsMap.set(clientKey, { 
+                    clientName: alloc.content.cost_center_name,
+                    weeklyFtes: new Map<string, number>()
+                });
+            }
+            const fte = parseFloat(alloc.content.allocation_amount);
+            clientAllocationsMap.get(clientKey)!.weeklyFtes.set(alloc.content.allocation_date, fte);
+        });
+      
+        const newAllocationRows: AllocationRow[] = [];
+        clientAllocationsMap.forEach((data, clientId) => {
+            const newRow: AllocationRow = {
+                id: uuidv4(),
+                clientId: clientId,
+                clientName: data.clientName,
+                weeklyFtes: {},
+            };
+        
+            weeks.forEach((currentWeek, index) => {
+                if (index < prevMonthWeeks.length) {
+                    const sourceWeekKey = formatDateKey(prevMonthWeeks[index].startDate);
+                    if (data.weeklyFtes.has(sourceWeekKey)) {
+                        const fte = data.weeklyFtes.get(sourceWeekKey)!;
+                        newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
+                    }
+                }
+            });
+            newAllocationRows.push(newRow);
+        });
+  
+        if (newAllocationRows.length > 0) {
+            setActiveAllocations(prev =>
+                prev.map(empAlloc =>
+                    empAlloc.employee.Person_Number === employee.Person_Number
+                    ? { ...empAlloc, allocations: newAllocationRows }
+                    : empAlloc
+                )
+            );
+            toast({ title: 'Prior Allocations Loaded', description: `Copied allocations for ${employee.Full_Name} from the previous month.`});
+        }
+    } catch (error) {
+        console.error('Failed to fetch previous month allocations:', error);
+        toast({ variant: 'destructive', title: 'Error Loading Prior Data', description: `Could not load prior allocations for ${employee.Full_Name}.`});
+    }
+  }, [currentDate, weeks, toast]);
   
   const handleAddEmployee = async (employeeId: string) => {
     if (!employeeId) return;
@@ -607,10 +686,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                       return (
                         <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
                           <div className='flex items-center justify-center gap-2'>
-                            {isLockedForUser && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                            <Lock className={cn("h-3.5 w-3.5 text-muted-foreground", !isLockedForUser && "invisible")} />
                             <span>W/E {week.reportingWeekDate}</span>
                           </div>
-                          {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
+                          <Badge variant="default" className={cn("w-fit mx-auto mt-1", !isCurrent && "invisible")}>Current</Badge>
                         </TableHead>
                       )
                     })}
@@ -633,9 +712,21 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     return (
                       <Fragment key={employee.Person_Number}>
                         <TableRow className="bg-muted/50 hover:bg-muted">
-                          <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">
-                            {employee.Full_Name}
-                            <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
+                          <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10 flex items-center gap-2">
+                            <div>
+                                {employee.Full_Name}
+                                <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
+                            </div>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)}>
+                                        <Copy className="h-3.5 w-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Copy Prior Month's Allocations</p>
+                                </TooltipContent>
+                            </Tooltip>
                           </TableCell>
                           <TableCell colSpan={3}></TableCell>
                           {weeklyTotals.map((total, index) => {
