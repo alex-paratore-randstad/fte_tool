@@ -290,8 +290,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     if (currentDate) setCurrentDate(getNextFiscalMonth(currentDate));
   };
 
-  const loadAllocationsForEmployee = useCallback(async (employee: TeamMember) => {
-    if (!currentDate || weeks.length === 0) return;
+  const fetchAllocationsForEmployee = useCallback(async (employee: TeamMember): Promise<AllocationRow[]> => {
+    const blankRow = { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} };
+    if (!currentDate || weeks.length === 0) return [blankRow];
   
     try {
         const allCurrentMonthAllocations: WeeklyAllocation[] = [];
@@ -310,7 +311,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         );
       
         if (employeeAllocations.length === 0) {
-            return;
+            return [blankRow];
         }
   
         const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: { [weekKey: string]: number } }>();
@@ -334,18 +335,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             weeklyFtes: data.weeklyFtes,
         }));
   
-        if (newAllocationRows.length > 0) {
-            setActiveAllocations(prev =>
-                prev.map(empAlloc =>
-                    empAlloc.employee.Person_Number === employee.Person_Number
-                    ? { ...empAlloc, allocations: newAllocationRows }
-                    : empAlloc
-                )
-            );
-        }
+        return newAllocationRows.length > 0 ? newAllocationRows : [blankRow];
     } catch (error) {
         console.error('Failed to fetch current month allocations:', error);
         toast({ variant: 'destructive', title: 'Error Loading Data', description: `Could not load allocations for ${employee.Full_Name}.`});
+        return [blankRow];
     }
   }, [currentDate, toast, weeks]);
 
@@ -355,6 +349,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const prevMonthDate = getPreviousFiscalMonth(currentDate);
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
     if (prevMonthWeeks.length === 0) {
+        toast({ title: 'No Prior Data', description: `No allocation data found for the previous month.`});
         return;
     }
   
@@ -375,6 +370,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         );
       
         if (employeeAllocations.length === 0) {
+            toast({ title: 'No Prior Data', description: `No allocations found for ${employee.Full_Name} in the prior month.`});
             return;
         }
   
@@ -401,6 +397,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 weeklyFtes: {},
             };
         
+            // Map prior month's weeks to current month's weeks by index
             weeks.forEach((currentWeek, index) => {
                 if (index < prevMonthWeeks.length) {
                     const sourceWeekKey = formatDateKey(prevMonthWeeks[index].startDate);
@@ -431,11 +428,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   
   const handleAddEmployee = async (employeeId: string) => {
     if (!employeeId) return;
-
     setSelectedEmployeeToAdd(employeeId); 
 
     const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
-    
     if (employeeToAdd) {
       const isAlreadyActive = activeAllocations.some(a => a.employee.Person_Number === employeeId);
       if (isAlreadyActive) {
@@ -443,19 +438,18 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           return;
       }
       
-      const newBlankAllocation: EmployeeAllocation = {
+      const allocationRows = await fetchAllocationsForEmployee(employeeToAdd);
+      const newEmployeeAllocation: EmployeeAllocation = {
         employee: employeeToAdd,
-        allocations: [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }]
+        allocations: allocationRows
       };
       
-      setActiveAllocations(prev => [newBlankAllocation, ...prev]);
-
-      await loadAllocationsForEmployee(employeeToAdd);
+      setActiveAllocations(prev => [newEmployeeAllocation, ...prev]);
     }
     setTimeout(() => setSelectedEmployeeToAdd(''), 0);
   };
 
-  const handleAddManagerTeam = (managerId: string) => {
+  const handleAddManagerTeam = async (managerId: string) => {
     if (!managerId) return;
     const teamMembers = allEmployees.filter(e => e.First_Reviewer_Code === managerId);
     
@@ -467,18 +461,16 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' });
       return;
     }
-
-    const newBlankAllocations = employeesToAdd.map(employee => ({
-        employee,
-        allocations: [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }],
-    }));
-
-    setActiveAllocations(prev => [...newBlankAllocations, ...prev]);
+    
     toast({ title: 'Team Loaded', description: `Loading existing data for ${employeesToAdd.length} employees...` });
+    
+    const newEmployeeAllocations: EmployeeAllocation[] = [];
+    for(const employee of employeesToAdd) {
+        const allocationRows = await fetchAllocationsForEmployee(employee);
+        newEmployeeAllocations.push({ employee, allocations: allocationRows });
+    }
 
-    employeesToAdd.forEach(employee => {
-        loadAllocationsForEmployee(employee);
-    });
+    setActiveAllocations(prev => [...newEmployeeAllocations, ...prev]);
   };
 
 
@@ -753,9 +745,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                                                 {total > 0 ? total.toFixed(2) : '-'}
                                             </span>
                                         </TooltipTrigger>
-                                        <TooltipContent>
-                                           <p>{tooltipMessage || ''}</p>
-                                        </TooltipContent>
+                                        {tooltipMessage && (
+                                            <TooltipContent>
+                                                <p>{tooltipMessage}</p>
+                                            </TooltipContent>
+                                        )}
                                     </Tooltip>
                                 </TableCell>
                               )
