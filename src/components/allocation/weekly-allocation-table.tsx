@@ -333,7 +333,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                                                           className={cn("w-24 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
                                                           value={fteData.fte || ''}
                                                           onChange={(e) => handleFteChange(employeeName, alloc.clientId, weekKey, e.target.value)}
-                                                          disabled={isLockedForUser || isSaving} readOnly={isLockedForUser}
+                                                          disabled={!hasMounted || isLockedForUser || isSaving} readOnly={!hasMounted || isLockedForUser}
                                                         />
                                                     ) : (
                                                       <div className="w-24 text-center mx-auto text-muted-foreground">-</div>
