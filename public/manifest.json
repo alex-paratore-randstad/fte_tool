@@ -344,6 +344,10 @@
                     {
                         "name": "cost_center_number",
                         "type": "STRING"
+                    },
+                    {
+                        "name": "no_charge_flag",
+                        "type": "STRING"
                     }
                 ]
             },

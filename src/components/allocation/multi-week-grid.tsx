@@ -32,6 +32,7 @@ import { Skeleton } from '../ui/skeleton';
 import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { v4 as uuidv4 } from 'uuid';
+import { Checkbox } from '../ui/checkbox';
 
 type AiReportData = {
     Code: string;
@@ -47,6 +48,7 @@ type AllocationRow = {
   clientId: string;
   clientName: string;
   weeklyFtes: { [weekKey: string]: number };
+  weeklyNoCharge: { [weekKey: string]: boolean };
 };
 
 type EmployeeAllocation = {
@@ -291,7 +293,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   };
 
   const fetchAllocationsForEmployee = useCallback(async (employee: TeamMember): Promise<AllocationRow[]> => {
-    const blankRow = { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} };
+    const blankRow = { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, weeklyNoCharge: {} };
     if (!currentDate || weeks.length === 0) return [blankRow];
   
     try {
@@ -313,18 +315,21 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             return [blankRow];
         }
   
-        const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: { [weekKey: string]: number } }>();
+        const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: { [weekKey: string]: number }, weeklyNoCharge: { [weekKey: string]: boolean } }>();
   
         employeeAllocations.forEach(alloc => {
             const clientKey = alloc.content.cost_center_number;
             if (!clientAllocationsMap.has(clientKey)) {
                 clientAllocationsMap.set(clientKey, { 
                     clientName: alloc.content.cost_center_name,
-                    weeklyFtes: {}
+                    weeklyFtes: {},
+                    weeklyNoCharge: {}
                 });
             }
             const fte = parseFloat(alloc.content.allocation_amount);
             clientAllocationsMap.get(clientKey)!.weeklyFtes[alloc.content.allocation_date] = fte;
+            const noCharge = alloc.content.no_charge_flag === 'Y';
+            clientAllocationsMap.get(clientKey)!.weeklyNoCharge[alloc.content.allocation_date] = noCharge;
         });
       
         const newAllocationRows: AllocationRow[] = Array.from(clientAllocationsMap.entries()).map(([clientId, data]) => ({
@@ -332,6 +337,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             clientId: clientId,
             clientName: data.clientName,
             weeklyFtes: data.weeklyFtes,
+            weeklyNoCharge: data.weeklyNoCharge,
         }));
   
         return newAllocationRows.length > 0 ? newAllocationRows : [blankRow];
@@ -372,18 +378,21 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             return;
         }
   
-        const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
+        const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number>, weeklyNoCharge: Map<string, boolean> }>();
   
         employeeAllocations.forEach(alloc => {
             const clientKey = alloc.content.cost_center_number;
             if (!clientAllocationsMap.has(clientKey)) {
                 clientAllocationsMap.set(clientKey, { 
                     clientName: alloc.content.cost_center_name,
-                    weeklyFtes: new Map<string, number>()
+                    weeklyFtes: new Map<string, number>(),
+                    weeklyNoCharge: new Map<string, boolean>()
                 });
             }
             const fte = parseFloat(alloc.content.allocation_amount);
             clientAllocationsMap.get(clientKey)!.weeklyFtes.set(alloc.content.allocation_date, fte);
+            const noCharge = alloc.content.no_charge_flag === 'Y';
+            clientAllocationsMap.get(clientKey)!.weeklyNoCharge.set(alloc.content.allocation_date, noCharge);
         });
       
         const newAllocationRows: AllocationRow[] = [];
@@ -393,6 +402,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 clientId: clientId,
                 clientName: data.clientName,
                 weeklyFtes: {},
+                weeklyNoCharge: {},
             };
         
             // Map prior month's weeks to current month's weeks by index
@@ -402,6 +412,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     if (data.weeklyFtes.has(sourceWeekKey)) {
                         const fte = data.weeklyFtes.get(sourceWeekKey)!;
                         newRow.weeklyFtes[formatDateKey(currentWeek.startDate)] = fte;
+                    }
+                    if (data.weeklyNoCharge.has(sourceWeekKey)) {
+                        const noCharge = data.weeklyNoCharge.get(sourceWeekKey)!;
+                        newRow.weeklyNoCharge[formatDateKey(currentWeek.startDate)] = noCharge;
                     }
                 }
             });
@@ -494,6 +508,21 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         return empAlloc;
     }));
   };
+  
+  const handleNoChargeChange = (employeeId: string, allocId: string, weekKey: string, isChecked: boolean) => {
+    setActiveAllocations(prev => prev.map(empAlloc => {
+        if (empAlloc.employee.Person_Number === employeeId) {
+            const newAllocations = empAlloc.allocations.map(alloc => {
+                if (alloc.id === allocId) {
+                    return { ...alloc, weeklyNoCharge: { ...alloc.weeklyNoCharge, [weekKey]: isChecked } };
+                }
+                return alloc;
+            });
+            return { ...empAlloc, allocations: newAllocations };
+        }
+        return empAlloc;
+    }));
+  };
 
   const handleMonthlyFteChange = (employeeId: string, allocId: string, monthlyFteValue: string) => {
     if (!startOfCurrentWeek) return;
@@ -548,6 +577,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 clientId: '',
                 clientName: '',
                 weeklyFtes: {},
+                weeklyNoCharge: {},
             };
             return { ...empAlloc, allocations: [...empAlloc.allocations, newAlloc] };
         }
@@ -586,6 +616,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 cost_center_name: alloc.clientName,
                 cost_center_number: alloc.clientId,
                 allocation_amount: fte.toString(),
+                no_charge_flag: alloc.weeklyNoCharge?.[weekKey] ? 'Y' : null,
               }
             });
           }
@@ -677,10 +708,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                       const isCurrent = hasMounted && startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                       const isLockedForUser = isPast && !isAdmin;
                       return (
-                        <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
+                        <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[170px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
                           <div className='flex items-center justify-center gap-2'>
                             <Lock className={cn("h-3.5 w-3.5 text-muted-foreground", !isLockedForUser && "invisible")} />
                             <span>W/E {week.reportingWeekDate}</span>
+                          </div>
+                          <div className="flex justify-center items-center text-xs font-normal text-muted-foreground pt-1 gap-8">
+                              <span>FTE</span>
+                              <span>No Charge</span>
                           </div>
                           <Badge variant="default" className={cn("w-fit mx-auto mt-1", !isCurrent && "invisible")}>Current</Badge>
                         </TableHead>
@@ -692,7 +727,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 <TableBody>
                   {activeAllocations.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
+                        <TableCell colSpan={weeks.length * 2 + 5} className="text-center h-24 text-muted-foreground">
                             Select an employee from the dropdown above to begin building your allocation plan.
                         </TableCell>
                     </TableRow>
@@ -735,7 +770,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                               }
 
                               return (
-                                <TableCell key={index} className="text-center font-semibold">
+                                <TableCell key={index} className="text-center font-semibold" colSpan={1}>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <span className={cn(
@@ -803,13 +838,20 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                               const fteValue = alloc.weeklyFtes[weekKey];
                               return (
                                 <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
-                                  <Input
-                                    type="number" step="0.05" min="0" placeholder="0.00"
-                                    className={cn("w-20 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
-                                    value={fteValue || ''}
-                                    onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
-                                    disabled={!hasMounted || isLockedForUser} readOnly={!hasMounted || isLockedForUser}
-                                  />
+                                  <div className="flex items-center justify-center gap-4">
+                                      <Input
+                                        type="number" step="0.05" min="0" placeholder="0.00"
+                                        className={cn("w-20 text-center", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
+                                        value={fteValue || ''}
+                                        onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
+                                        disabled={!hasMounted || isLockedForUser} readOnly={!hasMounted || isLockedForUser}
+                                      />
+                                      <Checkbox
+                                        checked={alloc.weeklyNoCharge?.[weekKey] || false}
+                                        onCheckedChange={(checked) => handleNoChargeChange(employee.Person_Number, alloc.id, weekKey, !!checked)}
+                                        disabled={!hasMounted || isLockedForUser}
+                                      />
+                                  </div>
                                 </TableCell>
                               )
                             })}
