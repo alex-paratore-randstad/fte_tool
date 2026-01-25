@@ -21,15 +21,18 @@ export default function WeeklyTargetPage() {
         if (response.ok) {
           const calendarData: Omit<FiscalCalendarEntry, 'parsedDate'>[] = await response.json();
           initializeFiscalCalendar(calendarData);
+          setCalendarInitialized(true);
+          setCurrentDate(new Date());
         } else {
           const errorPayload = { status: response.status, statusText: response.statusText };
           writeLog('WeeklyForecastPage', 'warning', 'Failed to load 4-4-5 calendar data, using fallback.', errorPayload);
           console.error("Failed to load 4-4-5 calendar data, using fallback.");
+          setCalendarInitialized(true);
+          setCurrentDate(new Date());
         }
       } catch (error) {
         writeLog('WeeklyForecastPage', 'error', 'Error initializing fiscal calendar', error);
         console.error("Error initializing calendar:", error);
-      } finally {
         setCalendarInitialized(true);
         setCurrentDate(new Date());
       }
