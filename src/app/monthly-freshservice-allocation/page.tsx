@@ -5,11 +5,13 @@ import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { MonthlyFreshserviceGrid } from '@/components/monthly-freshservice-allocation/monthly-freshservice-grid';
 import { SavedFreshserviceAllocationsTable } from '@/components/monthly-freshservice-allocation/saved-freshservice-allocations-table';
+import { writeLog } from '@/lib/logger';
 
 export default function MonthlyFreshserviceAllocationPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRefresh = () => {
+    writeLog('MonthlyFreshserviceAllocationPage', 'info', 'Refreshing saved allocations table', {});
     setRefreshKey(prevKey => prevKey + 1);
   };
 
@@ -23,4 +25,3 @@ export default function MonthlyFreshserviceAllocationPage() {
       <SavedFreshserviceAllocationsTable refreshKey={refreshKey} />
     </div>
   );
-}

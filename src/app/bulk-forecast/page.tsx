@@ -6,11 +6,13 @@ import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { BulkTargetGrid } from '@/components/targets/bulk-target-grid';
 import { SavedBulkTargetsTable } from '@/components/targets/saved-bulk-targets-table';
+import { writeLog } from '@/lib/logger';
 
 export default function BulkTargetPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRefresh = () => {
+    writeLog('BulkForecastPage', 'info', 'Refreshing saved bulk targets table', {});
     setRefreshKey(prevKey => prevKey + 1);
   };
 

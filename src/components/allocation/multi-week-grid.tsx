@@ -33,6 +33,7 @@ import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, g
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { v4 as uuidv4 } from 'uuid';
 import { Checkbox } from '../ui/checkbox';
+import { writeLog } from '@/lib/logger';
 
 type AiReportData = {
     Code: string;
@@ -238,8 +239,15 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         fetch(`/data/v1/ai_report`),
       ]);
 
-      if (!empResponse.ok || !clientResponse.ok) {
-        console.warn("Could not fetch initial data. This may be expected in local dev.");
+      if (!empResponse.ok) {
+        const errorPayload = { status: empResponse.status, statusText: empResponse.statusText };
+        writeLog('MultiWeekGrid', 'warning', 'Could not fetch employee data', errorPayload);
+        console.warn("Could not fetch employee data. This may be expected in local dev.");
+      }
+      if (!clientResponse.ok) {
+        const errorPayload = { status: clientResponse.status, statusText: clientResponse.statusText };
+        writeLog('MultiWeekGrid', 'warning', 'Could not fetch client data', errorPayload);
+        console.warn("Could not fetch client data. This may be expected in local dev.");
       }
       
       const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name).sort((a, b) => a.Full_Name.localeCompare(b.Full_Name)) : [];
@@ -266,7 +274,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       setActiveAllocations([]);
 
     } catch (error) {
-      console.error("Failed to fetch initial data:", error);
+      writeLog('MultiWeekGrid', 'error', 'Failed to fetch initial data', error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
     } finally {
       setInternalLoading(false);
@@ -342,7 +350,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   
         return newAllocationRows.length > 0 ? newAllocationRows : [blankRow];
     } catch (error) {
-        console.error('Failed to fetch current month allocations:', error);
+        writeLog('MultiWeekGrid', 'error', `Could not load allocations for ${employee.Full_Name}`, error);
         toast({ variant: 'destructive', title: 'Error Loading Data', description: `Could not load allocations for ${employee.Full_Name}.`});
         return [blankRow];
     }
@@ -433,7 +441,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             toast({ title: 'Prior Allocations Loaded', description: `Copied allocations for ${employee.Full_Name} from the previous month.`});
         }
     } catch (error) {
-        console.error('Failed to fetch previous month allocations:', error);
+        writeLog('MultiWeekGrid', 'error', `Could not load prior allocations for ${employee.Full_Name}`, error);
         toast({ variant: 'destructive', title: 'Error Loading Prior Data', description: `Could not load prior allocations for ${employee.Full_Name}.`});
     }
   }, [currentDate, weeks, toast]);
@@ -646,9 +654,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             title: 'Allocations Saved',
             description: `${submissions.length} allocation entries have been saved successfully.`,
         });
+        writeLog('MultiWeekGrid', 'success', 'Allocations saved successfully', { count: submissions.length });
         onSaveSuccess();
     } catch (error: any) {
-        console.error("Save error:", error);
+        writeLog('MultiWeekGrid', 'error', 'Save failed', error);
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     }
   };

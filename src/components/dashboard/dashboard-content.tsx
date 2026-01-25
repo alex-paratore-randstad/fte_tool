@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import { startOfWeek, subWeeks, format } from 'date-fns';
 import { PageHeader } from '../page-header';
+import { writeLog } from '@/lib/logger';
 
 type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
 
@@ -47,9 +48,11 @@ export function DashboardContent() {
         ]);
 
         if (!empResponse.ok) {
+          writeLog('DashboardContent', 'warning', 'Could not fetch employee data', { status: empResponse.status });
           console.warn("Could not fetch employee data. This may be expected in local dev.");
         }
          if (!allocResponse.ok) {
+          writeLog('DashboardContent', 'warning', 'Could not fetch allocation data', { status: allocResponse.status });
           console.warn("Could not fetch allocation data. This may be expected in local dev.");
         }
 
@@ -109,7 +112,7 @@ export function DashboardContent() {
             setAllocationChartData(weeklyData);
 
         } catch (processingError) {
-             console.error("Failed to process dashboard data:", processingError);
+             writeLog('DashboardContent', 'error', 'Failed to process dashboard data', processingError);
              toast({
                 variant: 'destructive',
                 title: 'Failed to process data',
@@ -123,7 +126,7 @@ export function DashboardContent() {
         }
 
       } catch (error) {
-        console.error("Failed to fetch dashboard data:", error);
+        writeLog('DashboardContent', 'error', 'Failed to load dashboard data', error);
         toast({
           variant: 'destructive',
           title: 'Failed to load dashboard',

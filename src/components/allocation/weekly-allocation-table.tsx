@@ -15,6 +15,7 @@ import { getWeeksForFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
+import { writeLog } from '@/lib/logger';
 
 type WeeklyAllocationDoc = {
   id: string;
@@ -101,6 +102,8 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
       const allocationRequests = weekKeys.map(async weekKey => {
         const response = await fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`);
         if (!response.ok) {
+            const errorPayload = { weekKey, status: response.status, statusText: response.statusText };
+            writeLog('WeeklyAllocationTable', 'warning', `Failed to fetch allocations for week ${weekKey}`, errorPayload);
             console.warn(`Failed to fetch allocations for ${weekKey}. This may be expected in local dev.`);
             return [];
         };
@@ -139,7 +142,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
       setOriginalAllocations(structuredAllocations);
       setEditableAllocations(JSON.parse(JSON.stringify(structuredAllocations))); // Deep copy for editing
     } catch (error) {
-      console.error('Error fetching allocation data:', error);
+      writeLog('WeeklyAllocationTable', 'error', 'Error fetching allocation data', error);
       toast({
         variant: 'destructive',
         title: 'Failed to fetch allocation data',
@@ -246,8 +249,10 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
         })
       ));
       toast({ title: 'Success', description: `${updates.length} allocation(s) updated.` });
+      writeLog('WeeklyAllocationTable', 'success', 'Saved allocation changes', { count: updates.length });
       fetchData(); // Refresh data
     } catch (error: any) {
+      writeLog('WeeklyAllocationTable', 'error', 'Failed to save allocation changes', error);
       toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
       setIsSaving(false);

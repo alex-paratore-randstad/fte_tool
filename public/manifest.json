@@ -1,6 +1,6 @@
 {
     "name": "Randstad FTE Prototype",
-    "version": "0.0.12",
+    "version": "0.0.16",
     "fullpage": true,
     "size": {
         "width": 5,
@@ -551,6 +551,38 @@
                     },
                     {
                         "name": "allocation_percentage",
+                        "type": "STRING"
+                    }
+                ]
+            },
+            "syncEnabled": false
+        },
+        {
+            "name": "fte_logging",
+            "schema": {
+                "columns": [
+                    {
+                        "name": "log_id",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "page_name",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "log_date",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "log_type",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "log_message",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "log_raw",
                         "type": "STRING"
                     }
                 ]

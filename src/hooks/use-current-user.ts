@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Employee, TeamMember } from '@/types';
+import { writeLog } from '@/lib/logger';
 
 // The 'id' property of the mock Employee type will be used to simulate
 // the 'Person_Number' or 'First_Reviewer_Code' from the live data.
@@ -40,16 +41,19 @@ export function useCurrentUser() {
                 const allEmployees: TeamMember[] = await response.json();
                 const impersonatedEmp = allEmployees.find(e => e.Person_Number === impersonatedUserId);
                 if (impersonatedEmp) {
-                    setCurrentUser({
+                    const impersonatedUser = {
                         id: impersonatedEmp.Person_Number,
                         name: impersonatedEmp.Full_Name,
                         title: impersonatedEmp.Market_Facing_Title,
                         role: 'manager' // Assume impersonated users are managers
-                    });
+                    };
+                    setCurrentUser(impersonatedUser);
+                    writeLog('useCurrentUser', 'info', 'User impersonation successful', { impersonatedUserId: impersonatedUser.id, name: impersonatedUser.name });
                     return; // Exit after setting impersonated user
                 }
             }
             // If fetch fails or user not found, fall through to default behavior
+            writeLog('useCurrentUser', 'warning', 'Impersonation failed, falling back to live user.', { impersonatedUserId });
             console.warn("Impersonation failed, falling back.");
         }
         
@@ -72,6 +76,7 @@ export function useCurrentUser() {
                 role: role,
             });
         } else {
+             writeLog('useCurrentUser', 'info', 'Failed to fetch live user, using dev persona', { status: response.status });
              // --- Admin Persona (Default for Dev) ---
             setCurrentUser({ 
                 id: 'dev-admin', 
@@ -81,6 +86,7 @@ export function useCurrentUser() {
             });
         }
       } catch (error) {
+        writeLog('useCurrentUser', 'error', 'Error fetching user, falling back to dev persona', error);
         console.warn("Error fetching user, falling back to dev persona.", error);
         // --- Admin Persona (Default for Dev) ---
         setCurrentUser({ 

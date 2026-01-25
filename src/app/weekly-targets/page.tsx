@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/page-header';
 import { MultiWeekTargetGrid } from '@/components/targets/multi-week-target-grid';
 import { WeeklyTargetTable } from '@/components/targets/weekly-target-table';
 import { initializeFiscalCalendar, type FiscalCalendarEntry } from '@/lib/fiscal-calendar';
+import { writeLog } from '@/lib/logger';
 
 export default function WeeklyTargetPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
@@ -20,9 +21,12 @@ export default function WeeklyTargetPage() {
           const calendarData: Omit<FiscalCalendarEntry, 'parsedDate'>[] = await response.json();
           initializeFiscalCalendar(calendarData);
         } else {
+          const errorPayload = { status: response.status, statusText: response.statusText };
+          writeLog('WeeklyTargetPage', 'warning', 'Failed to load 4-4-5 calendar data, using fallback.', errorPayload);
           console.error("Failed to load 4-4-5 calendar data, using fallback.");
         }
       } catch (error) {
+        writeLog('WeeklyTargetPage', 'error', 'Error initializing fiscal calendar', error);
         console.error("Error initializing calendar:", error);
       } finally {
         setCalendarInitialized(true);
