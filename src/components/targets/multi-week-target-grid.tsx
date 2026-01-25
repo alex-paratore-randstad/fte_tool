@@ -120,11 +120,13 @@ const ClientSelect = ({
 const EmployeeSelect = ({ 
   employees, 
   onValueChange,
-  value
+  value,
+  disabled
 }: { 
   employees: TeamMember[], 
   onValueChange: (value: string) => void,
   value: string,
+  disabled?: boolean
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -137,7 +139,7 @@ const EmployeeSelect = ({
   }, [employees, searchTerm]);
   
   return (
-    <Select onValueChange={onValueChange} value={value}>
+    <Select onValueChange={onValueChange} value={value} disabled={disabled}>
       <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="Load Employee..." />
       </SelectTrigger>
@@ -161,10 +163,12 @@ const EmployeeSelect = ({
 // New self-contained component for the Manager dropdown
 const ManagerSelect = ({ 
   managers, 
-  onValueChange 
+  onValueChange,
+  disabled
 }: { 
   managers: {id: string, name: string}[], 
-  onValueChange: (value: string) => void 
+  onValueChange: (value: string) => void,
+  disabled?: boolean
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -177,7 +181,7 @@ const ManagerSelect = ({
   }, [managers, searchTerm]);
 
   return (
-    <Select onValueChange={onValueChange}>
+    <Select onValueChange={onValueChange} disabled={disabled}>
         <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Load Team..." />
         </SelectTrigger>
@@ -210,6 +214,8 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
 
   const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
+  
+  const isLoading = initialLoading || internalLoading || userLoading;
 
   useEffect(() => {
     // Set the date only on the client side to avoid hydration errors
@@ -485,8 +491,6 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
     }
   };
 
-  const isLoading = initialLoading || internalLoading || userLoading;
-
   return (
     <Card>
       <CardHeader>
@@ -495,38 +499,29 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
             <CardTitle>Monthly Target Grid</CardTitle>
             <CardDescription>Add employees to build your hiring target plan.</CardDescription>
           </div>
-          {isLoading ? (
-             <div className="flex items-center gap-2 flex-wrap">
-                <Skeleton className="h-10 w-[200px]" />
-                <Skeleton className="h-10 w-[200px]" />
-                <Skeleton className="h-10 w-10" />
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-10 w-10" />
-                <Skeleton className="h-10 w-24" />
-              </div>
-          ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              <EmployeeSelect 
-                  employees={availableEmployees} 
-                  onValueChange={handleAddEmployee}
-                  value={selectedEmployeeToAdd}
-              />
-              <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} />
-              <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-              <span className="text-sm font-medium w-32 text-center">
-                {fiscalMonthLabel}
-              </span>
-              <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
-              <Button onClick={handleSave} disabled={activeTargets.length === 0}>Save All</Button>
-            </div>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <EmployeeSelect 
+                employees={availableEmployees} 
+                onValueChange={handleAddEmployee}
+                value={selectedEmployeeToAdd}
+                disabled={isLoading}
+            />
+            <ManagerSelect 
+                managers={managers} 
+                onValueChange={handleAddManagerTeam} 
+                disabled={isLoading}
+            />
+            <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isLoading}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-sm font-medium w-32 text-center">
+              {isLoading ? <Skeleton className="h-5 w-24 mx-auto" /> : fiscalMonthLabel}
+            </span>
+            <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isLoading}><ChevronRight className="h-4 w-4" /></Button>
+            <Button onClick={handleSave} disabled={isLoading || activeTargets.length === 0}>Save All</Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
-          {isLoading ? (
-            <Skeleton className="h-64 w-full" />
-          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -548,7 +543,17 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
                 </TableRow>
               </TableHeader>
               <TableBody>
-              {activeTargets.length === 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={weeks.length + 4}>
+                    <div className="space-y-4 py-8">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : activeTargets.length === 0 ? (
                   <TableRow>
                       <TableCell colSpan={weeks.length + 4} className="text-center h-24 text-muted-foreground">
                           Select an employee from the dropdown above to begin building your target plan.
@@ -634,7 +639,6 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
                 })}
               </TableBody>
             </Table>
-          )}
         </div>
       </CardContent>
     </Card>

@@ -55,6 +55,8 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
   const [nameFilter, setNameFilter] = useState('');
   const { toast } = useToast();
 
+  const isLoading = initialLoading || internalLoading;
+
   useEffect(() => {
     // Set date only on client to avoid hydration mismatch
     setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -216,24 +218,6 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
     }
   };
 
-
-  if (initialLoading || internalLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Saved Targets for this Period</CardTitle>
-          <CardDescription>Records from the weekly_targets collection for the displayed weeks.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-40 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -242,7 +226,7 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
               <CardTitle>Saved Targets for this Period</CardTitle>
               <CardDescription>Records from the weekly_targets collection. You can edit values and save.</CardDescription>
             </div>
-            <Button onClick={handleSaveChanges} disabled={isSaving}>
+            <Button onClick={handleSaveChanges} disabled={isSaving || isLoading}>
               {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
         </div>
@@ -252,6 +236,7 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
             className="max-w-sm"
+            disabled={isLoading}
           />
         </div>
       </CardHeader>
@@ -275,7 +260,17 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {filteredTargets.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={weeks.length + 1}>
+                      <div className="space-y-4 py-8">
+                        <Skeleton className="h-8 w-full" />
+                        <Skeleton className="h-8 w-full" />
+                        <Skeleton className="h-8 w-full" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredTargets.length === 0 ? (
                     <TableRow>
                         <TableCell colSpan={weeks.length + 1} className="text-center h-24 text-muted-foreground">
                             {nameFilter ? 'No matching employees found.' : 'No saved target data found for this period.'}

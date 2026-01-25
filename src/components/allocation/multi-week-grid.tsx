@@ -125,11 +125,13 @@ const ClientSelect = ({
 const EmployeeSelect = ({ 
   employees, 
   onValueChange,
-  value
+  value,
+  disabled,
 }: { 
   employees: TeamMember[], 
   onValueChange: (value: string) => void,
   value: string,
+  disabled?: boolean,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -142,7 +144,7 @@ const EmployeeSelect = ({
   }, [employees, searchTerm]);
 
   return (
-    <Select onValueChange={onValueChange} value={value}>
+    <Select onValueChange={onValueChange} value={value} disabled={disabled}>
       <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="Load Employee..." />
       </SelectTrigger>
@@ -166,10 +168,12 @@ const EmployeeSelect = ({
 // New self-contained component for the Manager dropdown
 const ManagerSelect = ({ 
   managers, 
-  onValueChange 
+  onValueChange,
+  disabled
 }: { 
   managers: {id: string, name: string}[], 
-  onValueChange: (value: string) => void 
+  onValueChange: (value: string) => void,
+  disabled?: boolean
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -182,7 +186,7 @@ const ManagerSelect = ({
   }, [managers, searchTerm]);
 
   return (
-    <Select onValueChange={onValueChange}>
+    <Select onValueChange={onValueChange} disabled={disabled}>
         <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Load Team..." />
         </SelectTrigger>
@@ -216,6 +220,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   const { currentUser, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
+  
+  const isLoading = initialLoading || internalLoading || userLoading;
 
   useEffect(() => {
     setHasMounted(true);
@@ -662,8 +668,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     }
   };
 
-  const isLoading = initialLoading || internalLoading || userLoading;
-
   return (
     <TooltipProvider>
       <Card>
@@ -673,219 +677,215 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
               <CardTitle>Monthly Allocation Grid</CardTitle>
               <CardDescription>Add employees to build your allocation plan. Past weeks are locked for non-admins.</CardDescription>
             </div>
-            {isLoading ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Skeleton className="h-10 w-[200px]" />
-                <Skeleton className="h-10 w-[200px]" />
-                <Skeleton className="h-10 w-10" />
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-10 w-10" />
-                <Skeleton className="h-10 w-24" />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 flex-wrap">
-                <EmployeeSelect 
-                    employees={availableEmployees} 
-                    onValueChange={handleAddEmployee}
-                    value={selectedEmployeeToAdd}
-                />
-                <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} />
-                <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-                <span className="text-sm font-medium w-32 text-center">
-                  {fiscalMonthLabel}
-                </span>
-                <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
-                <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
-              </div>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              <EmployeeSelect 
+                  employees={availableEmployees} 
+                  onValueChange={handleAddEmployee}
+                  value={selectedEmployeeToAdd}
+                  disabled={isLoading}
+              />
+              <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} disabled={isLoading} />
+              <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isLoading}><ChevronLeft className="h-4 w-4" /></Button>
+              <span className="text-sm font-medium w-32 text-center">
+                {isLoading ? <Skeleton className="h-5 w-24 mx-auto" /> : fiscalMonthLabel}
+              </span>
+              <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isLoading}><ChevronRight className="h-4 w-4" /></Button>
+              <Button onClick={handleSave} disabled={isLoading || activeAllocations.length === 0}>Save All</Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            {isLoading ? (
-              <Skeleton className="h-64 w-full" />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
-                    <TableHead className="min-w-[200px]">Client Name</TableHead>
-                    <TableHead className="p-2 w-28">Client Code</TableHead>
-                    <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
-                    {weeks.map(week => {
-                      const isPast = hasMounted && startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                      const isCurrent = hasMounted && startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                      const isLockedForUser = isPast && !isAdmin;
-                      return (
-                        <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[170px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
-                          <div className='flex items-center justify-center gap-2'>
-                            <Lock className={cn("h-3.5 w-3.5 text-muted-foreground", !isLockedForUser && "invisible")} />
-                            <span>W/E {week.reportingWeekDate}</span>
-                          </div>
-                          <div className="flex justify-center items-center text-xs font-normal text-muted-foreground pt-1 gap-8">
-                              <span>FTE</span>
-                              <span>No Charge</span>
-                          </div>
-                          <Badge variant="default" className={cn("w-fit mx-auto mt-1", !isCurrent && "invisible")}>Current</Badge>
-                        </TableHead>
-                      )
-                    })}
-                    <TableHead className="w-[80px]"> </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {activeAllocations.length === 0 ? (
-                    <TableRow>
-                        <TableCell colSpan={weeks.length * 2 + 5} className="text-center h-24 text-muted-foreground">
-                            Select an employee from the dropdown above to begin building your allocation plan.
-                        </TableCell>
-                    </TableRow>
-                  ) : activeAllocations.map(({ employee, allocations }) => {
-                    const weeklyTotals = weeks.map(week => {
-                      const weekKey = formatDateKey(week.startDate);
-                      return allocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
-                    });
-
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
+                  <TableHead className="min-w-[200px]">Client Name</TableHead>
+                  <TableHead className="p-2 w-28">Client Code</TableHead>
+                  <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
+                  {weeks.map(week => {
+                    const isPast = hasMounted && startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                    const isCurrent = hasMounted && startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                    const isLockedForUser = isPast && !isAdmin;
                     return (
-                      <Fragment key={employee.Person_Number}>
-                        <TableRow className="bg-muted/50 hover:bg-muted">
-                          <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10 flex items-center gap-2">
-                            <div>
-                                {employee.Full_Name}
-                                <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
-                            </div>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)}>
-                                        <Copy className="h-3.5 w-3.5" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Copy Prior Month's Allocations</p>
-                                </TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell colSpan={3}></TableCell>
-                          {weeklyTotals.map((total, index) => {
-                              const isPartTime = employee.Employment_Mode?.includes('PT');
-                              const isOverallocated = total > 1.0;
-                              const isPartTimeWarning = isPartTime && total >= 0.8 && total <= 1.0;
-                              
-                              let tooltipMessage = '';
-                              if (isOverallocated) {
-                                tooltipMessage = 'Employee allocated over 1.0 FTE.';
-                              } else if (isPartTimeWarning) {
-                                tooltipMessage = 'Part-time employee allocated at or above 0.8 FTE.';
-                              }
+                      <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[170px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
+                        <div className='flex items-center justify-center gap-2'>
+                          <Lock className={cn("h-3.5 w-3.5 text-muted-foreground", !isLockedForUser && "invisible")} />
+                          <span>W/E {week.reportingWeekDate}</span>
+                        </div>
+                        <div className="flex justify-center items-center text-xs font-normal text-muted-foreground pt-1 gap-8">
+                            <span>FTE</span>
+                            <span>No Charge</span>
+                        </div>
+                        <Badge variant="default" className={cn("w-fit mx-auto mt-1", !isCurrent && "invisible")}>Current</Badge>
+                      </TableHead>
+                    )
+                  })}
+                  <TableHead className="w-[80px]"> </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={weeks.length + 5}>
+                      <div className="space-y-4 py-8">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : activeAllocations.length === 0 ? (
+                  <TableRow>
+                      <TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">
+                          Select an employee from the dropdown above to begin building your allocation plan.
+                      </TableCell>
+                  </TableRow>
+                ) : activeAllocations.map(({ employee, allocations }) => {
+                  const weeklyTotals = weeks.map(week => {
+                    const weekKey = formatDateKey(week.startDate);
+                    return allocations.reduce((total, alloc) => total + (alloc.weeklyFtes[weekKey] || 0), 0);
+                  });
 
-                              return (
-                                <TableCell key={index} className="text-center font-semibold" colSpan={1}>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className={cn(
-                                                "text-muted-foreground",
-                                                isPartTimeWarning && "text-warning",
-                                                isOverallocated && "text-destructive"
-                                            )}>
-                                                {total > 0 ? total.toFixed(2) : '-'}
-                                            </span>
-                                        </TooltipTrigger>
-                                        {tooltipMessage && (
-                                            <TooltipContent>
-                                                <p>{tooltipMessage}</p>
-                                            </TooltipContent>
-                                        )}
-                                    </Tooltip>
-                                </TableCell>
-                              )
+                  return (
+                    <Fragment key={employee.Person_Number}>
+                      <TableRow className="bg-muted/50 hover:bg-muted">
+                        <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10 flex items-center gap-2">
+                          <div>
+                              {employee.Full_Name}
+                              <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
+                          </div>
+                          <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)}>
+                                      <Copy className="h-3.5 w-3.5" />
+                                  </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                  <p>Copy Prior Month's Allocations</p>
+                              </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell colSpan={3}></TableCell>
+                        {weeklyTotals.map((total, index) => {
+                            const isPartTime = employee.Employment_Mode?.includes('PT');
+                            const isOverallocated = total > 1.0;
+                            const isPartTimeWarning = isPartTime && total >= 0.8 && total <= 1.0;
+                            
+                            let tooltipMessage = '';
+                            if (isOverallocated) {
+                              tooltipMessage = 'Employee allocated over 1.0 FTE.';
+                            } else if (isPartTimeWarning) {
+                              tooltipMessage = 'Part-time employee allocated at or above 0.8 FTE.';
+                            }
+
+                            return (
+                              <TableCell key={index} className="text-center font-semibold" colSpan={1}>
+                                  <Tooltip>
+                                      <TooltipTrigger asChild>
+                                          <span className={cn(
+                                              "text-muted-foreground",
+                                              isPartTimeWarning && "text-warning",
+                                              isOverallocated && "text-destructive"
+                                          )}>
+                                              {total > 0 ? total.toFixed(2) : '-'}
+                                          </span>
+                                      </TooltipTrigger>
+                                      {tooltipMessage && (
+                                          <TooltipContent>
+                                              <p>{tooltipMessage}</p>
+                                          </TooltipContent>
+                                      )}
+                                  </Tooltip>
+                              </TableCell>
+                            )
+                        })}
+                        <TableCell className='text-right'>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.Person_Number)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+
+                      {allocations.map((alloc) => {
+                        const isRowLocked = hasMounted && startOfCurrentWeek ? weeks.some(week => {
+                              const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
+                              return isPast && !isAdmin;
+                        }) : false;
+                        return (
+                        <TableRow key={alloc.id}>
+                          <TableCell className="sticky left-0 bg-card z-10"></TableCell>
+                          <TableCell>
+                            <ClientSelect
+                                clients={clients}
+                                value={alloc.clientName}
+                                onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
+                                disabled={!hasMounted || isRowLocked}
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                              <Input
+                                  value={alloc.clientId}
+                                  readOnly
+                                  className="bg-muted w-24"
+                                  placeholder="Code"
+                              />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Input
+                                  type="number" step="0.05" min="0" placeholder="0.00"
+                                  className="w-20 text-center mx-auto"
+                                  value={alloc.weeklyFtes[formatDateKey(weeks[0]?.startDate)] || ''}
+                                  onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
+                                  disabled={!hasMounted || isRowLocked}
+                                />
+                          </TableCell>
+                          {weeks.map(week => {
+                            const weekKey = formatDateKey(week.startDate);
+                            const isPast = hasMounted && startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                            const isCurrent = hasMounted && startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
+                            const isLockedForUser = isPast && !isAdmin;
+                            const fteValue = alloc.weeklyFtes[weekKey];
+                            return (
+                              <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
+                                <div className="flex items-center justify-center gap-4">
+                                    <Input
+                                      type="number" step="0.05" min="0" placeholder="0.00"
+                                      className={cn("w-20 text-center", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
+                                      value={fteValue || ''}
+                                      onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
+                                      disabled={!hasMounted || isLockedForUser} readOnly={!hasMounted || isLockedForUser}
+                                    />
+                                    <Checkbox
+                                      checked={alloc.weeklyNoCharge?.[weekKey] || false}
+                                      onCheckedChange={(checked) => handleNoChargeChange(employee.Person_Number, alloc.id, weekKey, !!checked)}
+                                      disabled={!hasMounted || isLockedForUser}
+                                    />
+                                </div>
+                              </TableCell>
+                            )
                           })}
                           <TableCell className='text-right'>
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.Person_Number)}>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(employee.Person_Number, alloc.id)} disabled={!hasMounted || allocations.length === 1 || isRowLocked}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </TableCell>
                         </TableRow>
+                      )})}
 
-                        {allocations.map((alloc) => {
-                          const isRowLocked = hasMounted && startOfCurrentWeek ? weeks.some(week => {
-                                const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
-                                return isPast && !isAdmin;
-                          }) : false;
-                          return (
-                          <TableRow key={alloc.id}>
-                            <TableCell className="sticky left-0 bg-card z-10"></TableCell>
-                            <TableCell>
-                              <ClientSelect
-                                  clients={clients}
-                                  value={alloc.clientName}
-                                  onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
-                                  disabled={!hasMounted || isRowLocked}
-                              />
-                            </TableCell>
-                            <TableCell className="p-2">
-                                <Input
-                                    value={alloc.clientId}
-                                    readOnly
-                                    className="bg-muted w-24"
-                                    placeholder="Code"
-                                />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Input
-                                    type="number" step="0.05" min="0" placeholder="0.00"
-                                    className="w-20 text-center mx-auto"
-                                    value={alloc.weeklyFtes[formatDateKey(weeks[0]?.startDate)] || ''}
-                                    onChange={(e) => handleMonthlyFteChange(employee.Person_Number, alloc.id, e.target.value)}
-                                    disabled={!hasMounted || isRowLocked}
-                                  />
-                            </TableCell>
-                            {weeks.map(week => {
-                              const weekKey = formatDateKey(week.startDate);
-                              const isPast = hasMounted && startOfCurrentWeek ? isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                              const isCurrent = hasMounted && startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                              const isLockedForUser = isPast && !isAdmin;
-                              const fteValue = alloc.weeklyFtes[weekKey];
-                              return (
-                                <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
-                                  <div className="flex items-center justify-center gap-4">
-                                      <Input
-                                        type="number" step="0.05" min="0" placeholder="0.00"
-                                        className={cn("w-20 text-center", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
-                                        value={fteValue || ''}
-                                        onChange={(e) => handleFteChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
-                                        disabled={!hasMounted || isLockedForUser} readOnly={!hasMounted || isLockedForUser}
-                                      />
-                                      <Checkbox
-                                        checked={alloc.weeklyNoCharge?.[weekKey] || false}
-                                        onCheckedChange={(checked) => handleNoChargeChange(employee.Person_Number, alloc.id, weekKey, !!checked)}
-                                        disabled={!hasMounted || isLockedForUser}
-                                      />
-                                  </div>
-                                </TableCell>
-                              )
-                            })}
-                            <TableCell className='text-right'>
-                              <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(employee.Person_Number, alloc.id)} disabled={!hasMounted || allocations.length === 1 || isRowLocked}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        )})}
-
-                        <TableRow>
-                          <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
-                            <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
-                            </Button>
-                          </TableCell>
-                          <TableCell colSpan={weeks.length + 2}></TableCell>
-                        </TableRow>
-                      </Fragment>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
+                      <TableRow>
+                        <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}>
+                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.Person_Number)}>
+                              <PlusCircle className="mr-2 h-4 w-4" /> Add Allocation
+                          </Button>
+                        </TableCell>
+                        <TableCell colSpan={weeks.length + 2}></TableCell>
+                      </TableRow>
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>

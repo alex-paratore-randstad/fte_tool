@@ -25,3 +25,4 @@ export default function MonthlyRatioAllocationPage() {
       <SavedTicketAllocationsTable refreshKey={refreshKey} />
     </div>
   );
+}

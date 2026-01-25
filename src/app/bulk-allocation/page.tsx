@@ -34,3 +34,4 @@ export default function BulkAllocationPage() {
       <SavedBulkAllocationsTable refreshKey={refreshKey} onCopyTemplate={handleCopyTemplate} />
     </div>
   );
+}

@@ -25,3 +25,4 @@ export default function TitleManagementPage() {
       <SavedTitleUpdatesTable refreshKey={refreshKey} />
     </div>
   );
+}

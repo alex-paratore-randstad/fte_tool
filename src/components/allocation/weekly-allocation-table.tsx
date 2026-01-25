@@ -72,6 +72,8 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
   const { toast } = useToast();
   const { isAdmin } = useCurrentUser();
 
+  const isLoading = initialLoading || internalLoading;
+
   useEffect(() => {
     setHasMounted(true);
     // Set date only on client to avoid hydration mismatch
@@ -259,24 +261,6 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
     }
   };
 
-
-  if (initialLoading || internalLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Saved Allocations for this Period</CardTitle>
-          <CardDescription>Records from the weekly_allocation collection for the displayed weeks.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-40 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -285,7 +269,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
               <CardTitle>Saved Allocations for this Period</CardTitle>
               <CardDescription>Records from the weekly_allocation collection. You can edit values and save.</CardDescription>
             </div>
-            <Button onClick={handleSaveChanges} disabled={isSaving}>
+            <Button onClick={handleSaveChanges} disabled={isSaving || isLoading}>
               {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
         </div>
@@ -295,6 +279,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
             className="max-w-sm"
+            disabled={isLoading}
           />
         </div>
       </CardHeader>
@@ -325,7 +310,17 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {filteredAllocations.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={weeks.length + 1}>
+                      <div className="space-y-4 py-8">
+                        <Skeleton className="h-8 w-full" />
+                        <Skeleton className="h-8 w-full" />
+                        <Skeleton className="h-8 w-full" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredAllocations.length === 0 ? (
                     <TableRow>
                         <TableCell colSpan={weeks.length + 1} className="text-center h-24 text-muted-foreground">
                             {nameFilter ? 'No matching employees found.' : 'No saved allocation data found for this period.'}
