@@ -1,5 +1,5 @@
 
-import { startOfWeek, addMonths, subMonths, parse, addDays, subDays, endOfWeek, format, isWithinInterval } from 'date-fns';
+import { startOfWeek, addMonths, subMonths, parse, addDays, subDays, endOfWeek, format, isWithinInterval, isValid } from 'date-fns';
 
 export type FiscalCalendarEntry = {
   Week_Number: string;
@@ -28,11 +28,24 @@ let parsedCalendar: FiscalCalendarEntry[] = [];
 export function initializeFiscalCalendar(data: Omit<FiscalCalendarEntry, 'parsedDate' | 'Date' | 'Day'>[]): void {
   if (parsedCalendar.length > 0) return; // Already initialized
 
-  parsedCalendar = data.map(d => ({
-      ...d,
-      // The Reporting_Week_Date format from the dataset is 'YYYY-MM-DD'
-      parsedDate: parse(d.Reporting_Week_Date, 'yyyy-MM-dd', new Date()),
-    }))
+  parsedCalendar = data
+    .map(d => {
+      // Validate the date before parsing to prevent crashes
+      if (!d.Reporting_Week_Date) {
+        console.warn('Skipping calendar entry due to missing Reporting_Week_Date:', d);
+        return null;
+      }
+      const parsed = parse(d.Reporting_Week_Date, 'yyyy-MM-dd', new Date());
+      if (!isValid(parsed)) {
+        console.warn('Skipping calendar entry due to invalid Reporting_Week_Date:', d);
+        return null;
+      }
+      return {
+        ...d,
+        parsedDate: parsed,
+      };
+    })
+    .filter((d): d is FiscalCalendarEntry => d !== null) // Filter out any null (invalid) entries
     .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 }
 
@@ -43,6 +56,11 @@ export function initializeFiscalCalendar(data: Omit<FiscalCalendarEntry, 'parsed
  * @returns The fiscal calendar entry for the given date, or undefined if not found.
  */
 export function getFiscalDataForDate(date: Date): Omit<FiscalCalendarEntry, 'parsedDate'> | undefined {
+    // Add a guard to prevent operations on an invalid date
+    if (!isValid(date)) {
+        console.warn('getFiscalDataForDate called with an invalid date.');
+        return undefined;
+    }
     // Find the week where the given date falls between its start (Monday) and end (Sunday)
     const entry = parsedCalendar.find(d => {
         const weekEnd = d.parsedDate;
