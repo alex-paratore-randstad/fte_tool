@@ -21,16 +21,15 @@ import type { TeamMember } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '../ui/button';
 import { SelectSearch } from '../ui/select-search';
 
 type FilterOptions = {
+  employees: string[];
   teams: string[];
   titles: string[];
   managers: string[];
-  regions: string[];
 }
 
 const FilterSelect = ({ placeholder, options, value, onValueChange }: { placeholder: string, options: string[], value: string, onValueChange: (value: string) => void }) => {
@@ -62,14 +61,13 @@ export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    name: '',
+    employee: '',
     team: '',
     title: '',
     manager: '',
-    region: '',
   });
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-      teams: [], titles: [], managers: [], regions: []
+      employees: [], teams: [], titles: [], managers: []
   });
   const { toast } = useToast();
 
@@ -102,10 +100,10 @@ export function TeamContent() {
             Array.from(new Set(data.map(item => item[key]).filter(Boolean))).sort((a,b) => a.localeCompare(b));
         
         setFilterOptions({
+            employees: getUniqueSorted('Full_Name'),
             teams: getUniqueSorted('Team_Name'),
             titles: getUniqueSorted('Market_Facing_Title'),
             managers: getUniqueSorted('First_Reviewer_Name'),
-            regions: getUniqueSorted('Region'),
         });
         
       } catch (error) {
@@ -126,11 +124,10 @@ export function TeamContent() {
   const filteredMembers = useMemo(() => {
     return teamMembers.filter(member => {
       return (
-        (filters.name === '' || member.Full_Name?.toLowerCase().includes(filters.name.toLowerCase())) &&
+        (filters.employee === '' || member.Full_Name === filters.employee) &&
         (filters.team === '' || member.Team_Name === filters.team) &&
         (filters.title === '' || member.Market_Facing_Title === filters.title) &&
-        (filters.manager === '' || member.First_Reviewer_Name === filters.manager) &&
-        (filters.region === '' || member.Region === filters.region)
+        (filters.manager === '' || member.First_Reviewer_Name === filters.manager)
       );
     });
   }, [teamMembers, filters]);
@@ -140,7 +137,7 @@ export function TeamContent() {
   };
 
   const clearFilters = () => {
-    setFilters({ name: '', team: '', title: '', manager: '', region: '' });
+    setFilters({ employee: '', team: '', title: '', manager: '' });
   };
 
 
@@ -172,13 +169,8 @@ export function TeamContent() {
         <CardDescription>
           This page displays the current team roster from the live dataset. Use the filters below to refine the results.
         </CardDescription>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
-            <Input 
-                placeholder="Filter by Name..."
-                value={filters.name}
-                onChange={e => handleFilterChange('name', e.target.value)}
-            />
-            <FilterSelect placeholder="Filter by Region..." options={filterOptions.regions} value={filters.region} onValueChange={value => handleFilterChange('region', value)} />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-4">
+            <FilterSelect placeholder="Filter by Name..." options={filterOptions.employees} value={filters.employee} onValueChange={value => handleFilterChange('employee', value)} />
             <FilterSelect placeholder="Filter by Team..." options={filterOptions.teams} value={filters.team} onValueChange={value => handleFilterChange('team', value)} />
             <FilterSelect placeholder="Filter by Title..." options={filterOptions.titles} value={filters.title} onValueChange={value => handleFilterChange('title', value)} />
             <FilterSelect placeholder="Filter by Manager..." options={filterOptions.managers} value={filters.manager} onValueChange={value => handleFilterChange('manager', value)} />
