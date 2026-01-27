@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { format, startOfMonth, addMonths, subMonths } from 'date-fns';
 import { TeamMember } from '@/types';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type TicketAllocationData = {
   agent_name: string;
@@ -82,16 +83,18 @@ const EmployeeSelect = ({
       </SelectTrigger>
       <SelectContent>
           <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
-          {filteredEmployees.map(e => (
-              <SelectItem key={e.Person_Number} value={e.Full_Name}>
-                  {e.Full_Name}
-              </SelectItem>
-          ))}
-          {filteredEmployees.length === 0 && (
-              <div className="p-4 text-sm text-center text-muted-foreground">
-                  No employees found.
-              </div>
-          )}
+          <ScrollArea className="h-64">
+            {filteredEmployees.map(e => (
+                <SelectItem key={e.Person_Number} value={e.Full_Name}>
+                    {e.Full_Name}
+                </SelectItem>
+            ))}
+            {filteredEmployees.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No employees found.
+                </div>
+            )}
+          </ScrollArea>
       </SelectContent>
     </Select>
   );
@@ -465,3 +468,5 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     </Card>
   );
 }
+
+    

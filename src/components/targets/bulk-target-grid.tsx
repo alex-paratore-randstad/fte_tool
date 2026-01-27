@@ -96,12 +96,14 @@ const ClientSelect = ({
       </SelectTrigger>
       <SelectContent>
           <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
-          {filteredClients.map(client => <SelectItem key={client.Code} value={client.DisplayName}>{client.DisplayName}</SelectItem>)}
-          {filteredClients.length === 0 && (
-              <div className="p-4 text-sm text-center text-muted-foreground">
-                  No clients found.
-              </div>
-          )}
+          <ScrollArea className="h-64">
+            {filteredClients.map(client => <SelectItem key={client.Code} value={client.DisplayName}>{client.DisplayName}</SelectItem>)}
+            {filteredClients.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No clients found.
+                </div>
+            )}
+          </ScrollArea>
       </SelectContent>
     </Select>
   );
@@ -440,3 +442,5 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
     </div>
   );
 }
+
+    

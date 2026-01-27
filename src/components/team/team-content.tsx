@@ -44,8 +44,15 @@ const FilterSelect = ({ placeholder, options, value, onValueChange }: { placehol
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
       <SelectContent>
-        <SelectSearch onChange={setSearchTerm} />
-        {filteredOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+        <SelectSearch placeholder="Search..." onChange={setSearchTerm} />
+        <ScrollArea className="h-64">
+            {filteredOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+            {filteredOptions.length === 0 && (
+              <div className="p-4 text-sm text-center text-muted-foreground">
+                  No results found.
+              </div>
+            )}
+        </ScrollArea>
       </SelectContent>
     </Select>
   );
@@ -210,3 +217,5 @@ export function TeamContent() {
     </Card>
   );
 }
+
+    

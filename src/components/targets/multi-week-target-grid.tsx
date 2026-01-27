@@ -30,6 +30,7 @@ import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type AiReportData = {
     Code: string;
@@ -105,12 +106,14 @@ const ClientSelect = ({
       <SelectTrigger><SelectValue placeholder="Select Client..." /></SelectTrigger>
       <SelectContent>
         <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
-        {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
-         {filteredClients.length === 0 && (
-          <div className="p-4 text-sm text-center text-muted-foreground">
-              No clients found.
-          </div>
-        )}
+        <ScrollArea className="h-64">
+          {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
+           {filteredClients.length === 0 && (
+            <div className="p-4 text-sm text-center text-muted-foreground">
+                No clients found.
+            </div>
+          )}
+        </ScrollArea>
       </SelectContent>
     </Select>
   );
@@ -145,16 +148,18 @@ const EmployeeSelect = ({
       </SelectTrigger>
       <SelectContent>
           <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
-          {filteredEmployees.map(e => (
-              <SelectItem key={e.Person_Number} value={e.Person_Number}>
-                  {e.Full_Name}
-              </SelectItem>
-          ))}
-          {filteredEmployees.length === 0 && (
-              <div className="p-4 text-sm text-center text-muted-foreground">
-                  No employees found.
-              </div>
-          )}
+          <ScrollArea className="h-64">
+            {filteredEmployees.map(e => (
+                <SelectItem key={e.Person_Number} value={e.Person_Number}>
+                    {e.Full_Name}
+                </SelectItem>
+            ))}
+            {filteredEmployees.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No employees found.
+                </div>
+            )}
+          </ScrollArea>
       </SelectContent>
     </Select>
   );
@@ -187,16 +192,18 @@ const ManagerSelect = ({
         </SelectTrigger>
         <SelectContent>
             <SelectSearch placeholder="Search manager..." onChange={setSearchTerm} />
-            {filteredManagers.map(m => (
-                <SelectItem key={m.id} value={m.id}>
-                    {m.name}
-                </SelectItem>
-            ))}
-             {filteredManagers.length === 0 && (
-              <div className="p-4 text-sm text-center text-muted-foreground">
-                  No managers found.
-              </div>
-            )}
+            <ScrollArea className="h-64">
+              {filteredManagers.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                  </SelectItem>
+              ))}
+               {filteredManagers.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No managers found.
+                </div>
+              )}
+            </ScrollArea>
         </SelectContent>
     </Select>
   );
@@ -644,3 +651,5 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
     </Card>
   );
 }
+
+    

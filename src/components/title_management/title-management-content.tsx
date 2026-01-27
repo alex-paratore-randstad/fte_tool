@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TeamMember } from '@/types';
 import { SelectSearch } from '../ui/select-search';
+import { ScrollArea } from '../ui/scroll-area';
 
 type UpdatedTitle = {
   updated_titles: string;
@@ -33,16 +34,18 @@ const EmployeeSelect = ({ employees, value, onValueChange, disabled }: { employe
             </SelectTrigger>
             <SelectContent>
                 <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
-                {filteredEmployees.map(emp => (
-                    <SelectItem key={emp.Person_Number} value={emp.Full_Name}>
-                        {emp.Full_Name}
-                    </SelectItem>
-                ))}
-                {filteredEmployees.length === 0 && (
-                <div className="p-4 text-sm text-center text-muted-foreground">
-                    No employees found.
-                </div>
-                )}
+                <ScrollArea className="h-64">
+                    {filteredEmployees.map(emp => (
+                        <SelectItem key={emp.Person_Number} value={emp.Full_Name}>
+                            {emp.Full_Name}
+                        </SelectItem>
+                    ))}
+                    {filteredEmployees.length === 0 && (
+                    <div className="p-4 text-sm text-center text-muted-foreground">
+                        No employees found.
+                    </div>
+                    )}
+                </ScrollArea>
             </SelectContent>
         </Select>
     );
@@ -63,16 +66,18 @@ const TitleSelect = ({ titles, value, onValueChange, disabled }: { titles: Updat
             </SelectTrigger>
             <SelectContent>
                 <SelectSearch placeholder="Search title..." onChange={setSearchTerm} />
-                {filteredTitles.map(t => (
-                    <SelectItem key={t.updated_titles} value={t.updated_titles}>
-                        {t.updated_titles}
-                    </SelectItem>
-                ))}
-                {filteredTitles.length === 0 && (
-                <div className="p-4 text-sm text-center text-muted-foreground">
-                    No titles found.
-                </div>
-                )}
+                <ScrollArea className="h-64">
+                    {filteredTitles.map(t => (
+                        <SelectItem key={t.updated_titles} value={t.updated_titles}>
+                            {t.updated_titles}
+                        </SelectItem>
+                    ))}
+                    {filteredTitles.length === 0 && (
+                    <div className="p-4 text-sm text-center text-muted-foreground">
+                        No titles found.
+                    </div>
+                    )}
+                </ScrollArea>
             </SelectContent>
         </Select>
     );
@@ -251,3 +256,5 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
     </Card>
   );
 }
+
+    
