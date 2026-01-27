@@ -8,21 +8,13 @@ import { MultiWeekTargetGrid } from '@/components/targets/multi-week-target-grid
 import { WeeklyTargetTable } from '@/components/targets/weekly-target-table';
 import { initializeFiscalCalendar, type FiscalCalendarEntry } from '@/lib/fiscal-calendar';
 import { writeLog } from '@/lib/logger';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function WeeklyForecastPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [calendarInitialized, setCalendarInitialized] = useState(false);
-  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hasMounted) return;
-    
     async function initCalendar() {
       try {
         const response = await fetch('/data/v1/global_445_calendar');
@@ -46,25 +38,12 @@ export default function WeeklyForecastPage() {
       }
     }
     initCalendar();
-  }, [hasMounted]);
+  }, []);
 
   const handleRefresh = () => {
     setRefreshKey(prevKey => prevKey + 1);
   };
   
-  if (!hasMounted) {
-    return (
-       <div className="flex flex-col gap-8">
-        <PageHeader
-          title="Weekly Forecasts"
-          description="Set weekly hiring forecasts for future fiscal periods."
-        />
-        <Skeleton className="h-[400px] w-full" />
-        <Skeleton className="h-[400px] w-full" />
-      </div>
-    )
-  }
-
   const isInitialLoading = !calendarInitialized || !currentDate;
 
   return (

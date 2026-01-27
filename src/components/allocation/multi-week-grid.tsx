@@ -777,13 +777,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                         {weeklyTotals.map((total, index) => {
                             const isPartTime = employee.Employment_Mode?.includes('PT');
                             const isOverallocated = total > 1.0;
-                            const isPartTimeWarning = isPartTime && total >= 0.8 && total <= 1.0;
+                            const isPartTimeWarning = isPartTime && total >= 0.6 && total <= 1.0;
                             
                             let tooltipMessage = '';
                             if (isOverallocated) {
                               tooltipMessage = 'Employee allocated over 1.0 FTE.';
                             } else if (isPartTimeWarning) {
-                              tooltipMessage = 'Part-time employee allocated at or above 0.8 FTE.';
+                              tooltipMessage = 'Part-time employee allocated at or above 0.6 FTE.';
                             }
 
                             return (

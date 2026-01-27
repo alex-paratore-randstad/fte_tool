@@ -7,21 +7,13 @@ import { MultiWeekGrid } from '@/components/allocation/multi-week-grid';
 import { WeeklyAllocationTable } from '@/components/allocation/weekly-allocation-table';
 import { initializeFiscalCalendar, type FiscalCalendarEntry } from '@/lib/fiscal-calendar';
 import { writeLog } from '@/lib/logger';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AllocationPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [calendarInitialized, setCalendarInitialized] = useState(false);
-  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hasMounted) return;
-
     async function initCalendar() {
       try {
         const response = await fetch('/data/v1/global_445_calendar');
@@ -45,25 +37,12 @@ export default function AllocationPage() {
       }
     }
     initCalendar();
-  }, [hasMounted]);
+  }, []);
 
   const handleRefresh = () => {
     setRefreshKey(prevKey => prevKey + 1);
   };
   
-  if (!hasMounted) {
-    return (
-       <div className="flex flex-col gap-8">
-         <PageHeader
-          title="Weekly Allocation"
-          description="Allocate FTEs for the current fiscal period."
-        />
-        <Skeleton className="h-[400px] w-full" />
-        <Skeleton className="h-[400px] w-full" />
-      </div>
-    )
-  }
-
   const isInitialLoading = !calendarInitialized || !currentDate;
 
   return (
