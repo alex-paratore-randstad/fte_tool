@@ -68,17 +68,28 @@ export function DashboardContent() {
             const today = startOfWeek(new Date(), { weekStartsOn: 1 });
             const currentWeekAllocations = allocations.filter(a => a.content.allocation_date === format(today, 'yyyy-MM-dd'));
 
-            const allocatedEmployeeNames = new Set(
-                currentWeekAllocations
-                    .filter(a => a && a.content && a.content.allocation_name && parseFloat(a.content.allocation_amount) > 0)
-                    .map(a => a.content.allocation_name)
-            );
+            const allocatedEmployeeIds = new Set<string>();
 
-            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeNames.has(e.Full_Name));
+            currentWeekAllocations
+              .filter(a => a?.content && parseFloat(a.content.allocation_amount) > 0)
+              .forEach(a => {
+                if (a.content.employee_id) {
+                  allocatedEmployeeIds.add(a.content.employee_id);
+                } else if (a.content.allocation_name) {
+                  // Fallback for older data without employee_id
+                  const match = a.content.allocation_name.match(/\[(.*?)\]/);
+                  if (match && match[1]) {
+                    allocatedEmployeeIds.add(match[1]);
+                  }
+                }
+              });
+
+
+            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.Person_Number));
             setAllocatedEmployees(allocatedEmps);
             setAllocatedFtes(allocatedEmps.length);
 
-            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeNames.has(e.Full_Name));
+            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.Person_Number));
             setUnallocatedEmployees(unallocatedEmps);
             setUnallocatedFtes(unallocatedEmps.length);
             setMissingAllocations(unallocatedEmps.length);

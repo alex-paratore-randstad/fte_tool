@@ -185,10 +185,15 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     const activeEmployeeNames = new Set(activeAllocations.map(a => a.agentName));
     const uniqueAgentNamesFromTickets = Array.from(new Set(allTicketData.map(t => t.agent_name)));
     
-    // We only want to show employees who have ticket data for the selected month
-    return allEmployees
+    const dynamicEmployees = allEmployees
         .filter(e => uniqueAgentNamesFromTickets.includes(e.Full_Name) && !activeEmployeeNames.has(e.Full_Name))
         .map(e => ({ Person_Number: e.Person_Number, Full_Name: e.Full_Name }));
+
+    const tempWorkerOption = { Person_Number: 'TEMP_WORKER', Full_Name: 'Temp Worker' };
+    if (!activeEmployeeNames.has(tempWorkerOption.Full_Name)) {
+        return [tempWorkerOption, ...dynamicEmployees];
+    }
+    return dynamicEmployees;
   }, [allEmployees, allTicketData, activeAllocations]);
 
   const handleAddEmployee = (employeeName: string) => {
@@ -200,6 +205,20 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     if (isAlreadyActive) {
       toast({ variant: 'destructive', title: 'Employee already in grid' });
       return;
+    }
+
+    if (employeeName === 'Temp Worker') {
+        const newEmployeeAllocation: EmployeeAllocation = {
+            agentName: employeeName,
+            allocations: [{
+                id: `temp-worker-new-${Date.now()}`,
+                clientName: '',
+                fte: 1.0
+            }],
+        };
+        setActiveAllocations(prev => [newEmployeeAllocation, ...prev]);
+        setTimeout(() => setSelectedEmployeeToAdd(''), 0);
+        return;
     }
     
     // Find ticket data for the selected employee
@@ -462,5 +481,3 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     </Card>
   );
 }
-
-    

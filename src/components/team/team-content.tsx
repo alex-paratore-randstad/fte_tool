@@ -93,11 +93,26 @@ export function TeamContent() {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data: TeamMember[] = await response.json();
-        setTeamMembers(data);
+        
+        const tempWorker: TeamMember = {
+          'Person_Number': 'TEMP_WORKER',
+          'Full_Name': 'Temp Worker',
+          'Employment_Status': 'Active',
+          'Employment_Mode': 'Temporary',
+          'Team_Name': 'Temporary',
+          'Vertical_Name': 'N/A',
+          'Market_Facing_Title': 'Temporary Staff',
+          'First_Reviewer_Name': 'N/A',
+          'Official_Email': 'N/A',
+          'First_Reviewer_Code': 'N/A',
+        } as TeamMember;
+
+        const allData = [tempWorker, ...data];
+        setTeamMembers(allData);
 
         // Derive filter options from the data
         const getUniqueSorted = (key: keyof TeamMember) => 
-            Array.from(new Set(data.map(item => item[key]).filter(Boolean))).sort((a,b) => a.localeCompare(b));
+            Array.from(new Set(allData.map(item => item[key]).filter(Boolean))).sort((a,b) => a.localeCompare(b));
         
         setFilterOptions({
             employees: getUniqueSorted('Full_Name'),
@@ -194,5 +209,3 @@ export function TeamContent() {
     </Card>
   );
 }
-
-    

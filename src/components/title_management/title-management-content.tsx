@@ -113,7 +113,13 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       const empData: TeamMember[] = await empResponse.json();
       const titleData: any[] = await titleResponse.json();
       
-      setEmployees(empData.filter(e => e && e.Full_Name).sort((a,b) => a.Full_Name.localeCompare(b.Full_Name)));
+      const tempWorker: TeamMember = {
+        'Person_Number': 'TEMP_WORKER',
+        'Full_Name': 'Temp Worker',
+        'Market_Facing_Title': 'Temporary Staff',
+      } as TeamMember;
+      
+      setEmployees([tempWorker, ...empData.filter(e => e && e.Full_Name).sort((a,b) => a.Full_Name.localeCompare(b.Full_Name))]);
       setTitles(titleData.filter(t => t && t['updated_titles']));
 
     } catch (error: any) {
@@ -256,5 +262,3 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
     </Card>
   );
 }
-
-    

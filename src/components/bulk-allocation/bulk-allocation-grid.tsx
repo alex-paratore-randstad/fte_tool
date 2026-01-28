@@ -153,7 +153,12 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name).sort((a,b) => a.Full_Name.localeCompare(b.Full_Name)) : [];
       const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
       
-      setAllEmployees(empData);
+      const tempWorker: TeamMember = {
+        'Person_Number': 'TEMP_WORKER',
+        'Full_Name': 'Temp Worker',
+        'Market_Facing_Title': 'Temporary Staff',
+      } as TeamMember;
+      setAllEmployees([tempWorker, ...empData]);
       
       const staticClients: AiReportData[] = [
         { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
@@ -452,5 +457,3 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     </div>
   );
 }
-
-    
