@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
+import { useState, Fragment, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -228,27 +228,16 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
             <CardDescription>Allocations are pre-populated from monthly ticket ratios. Adjust as needed.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {isLoading ? (
-                 <>
-                    <Skeleton className="h-10 w-10" />
-                    <Skeleton className="h-6 w-32" />
-                    <Skeleton className="h-10 w-10" />
-                    <Skeleton className="h-10 w-24" />
-                </>
-            ) : (
-                <>
-                <Button variant="outline" size="icon" onClick={handlePrevMonth}>
-                <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm font-medium w-32 text-center">
-                {currentDate ? format(currentDate, 'MMMM yyyy') : <Skeleton className="h-5 w-24"/>}
-                </span>
-                <Button variant="outline" size="icon" onClick={handleNextMonth}>
-                <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
-                </>
-            )}
+            <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isLoading}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium w-32 text-center">
+              {currentDate ? format(currentDate, 'MMMM yyyy') : <Skeleton className="h-5 w-24"/>}
+            </span>
+            <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isLoading}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button onClick={handleSave} disabled={isLoading || activeAllocations.length === 0}>Save All</Button>
           </div>
         </div>
       </CardHeader>

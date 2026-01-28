@@ -60,11 +60,13 @@ type MonthlyFreshserviceGridProps = {
 const EmployeeSelect = ({ 
   employees, 
   onValueChange,
-  value
+  value,
+  disabled
 }: { 
   employees: { Person_Number: string, Full_Name: string }[], 
   onValueChange: (value: string) => void,
   value: string,
+  disabled?: boolean
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -77,7 +79,7 @@ const EmployeeSelect = ({
   }, [employees, searchTerm]);
 
   return (
-    <Select onValueChange={onValueChange} value={value}>
+    <Select onValueChange={onValueChange} value={value} disabled={disabled}>
       <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="Load Employee..." />
       </SelectTrigger>
@@ -101,8 +103,8 @@ const EmployeeSelect = ({
 };
 
 // Placeholder Manager Select
-const ManagerSelect = () => (
-    <Select disabled>
+const ManagerSelect = ({ disabled }: { disabled?: boolean }) => (
+    <Select disabled={disabled}>
         <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Load Team (Future)..." />
         </SelectTrigger>
@@ -117,11 +119,13 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
 
   const { toast } = useToast();
 
   const fetchDataForMonth = useCallback(async (date: Date) => {
+    setIsLoading(true);
     try {
       const selectedMonth = format(date, 'MMM');
       const selectedYear = format(date, 'yyyy');
@@ -159,6 +163,8 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
       setActiveAllocations([]);
       setAllTicketData([]);
       setAllEmployees([]);
+    } finally {
+      setIsLoading(false);
     }
   }, [toast]);
   
@@ -339,7 +345,7 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     }
   };
 
-  const isLoading = !currentDate;
+  const isGridLoading = isLoading || !currentDate;
 
   return (
     <Card>
@@ -350,37 +356,25 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
             <CardDescription>Add employees to view and adjust their pre-populated ticket ratios.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {isLoading ? (
-              <>
-                <Skeleton className="h-10 w-[200px]" />
-                <Skeleton className="h-10 w-[200px]" />
-                <Skeleton className="h-10 w-10" />
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-10 w-10" />
-                <Skeleton className="h-10 w-24" />
-              </>
-            ) : (
-              <>
-                <EmployeeSelect 
-                    employees={availableEmployees}
-                    onValueChange={handleAddEmployee}
-                    value={selectedEmployeeToAdd}
-                />
-                <ManagerSelect />
-                <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isSubmitting}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm font-medium w-32 text-center">
-                  {format(currentDate, 'MMMM yyyy')}
-                </span>
-                <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isSubmitting}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button onClick={handleSave} disabled={activeAllocations.length === 0 || isSubmitting}>
-                  {isSubmitting ? 'Saving...' : 'Save All'}
-                </Button>
-              </>
-            )}
+            <EmployeeSelect 
+                employees={availableEmployees}
+                onValueChange={handleAddEmployee}
+                value={selectedEmployeeToAdd}
+                disabled={isGridLoading || isSubmitting}
+            />
+            <ManagerSelect disabled={isGridLoading || isSubmitting}/>
+            <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isGridLoading || isSubmitting}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium w-32 text-center">
+              {currentDate ? format(currentDate, 'MMMM yyyy') : <Skeleton className="h-5 w-24" />}
+            </span>
+            <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isGridLoading || isSubmitting}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button onClick={handleSave} disabled={activeAllocations.length === 0 || isSubmitting || isGridLoading}>
+              {isSubmitting ? 'Saving...' : 'Save All'}
+            </Button>
           </div>
         </div>
       </CardHeader>
@@ -396,10 +390,10 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isGridLoading ? (
                 <TableRow>
                   <TableCell colSpan={4} className="h-24 text-center">
-                    <Skeleton className="h-5 w-48 mx-auto" />
+                     <Skeleton className="h-5 w-48 mx-auto" />
                   </TableCell>
                 </TableRow>
               ) : activeAllocations.length === 0 ? (

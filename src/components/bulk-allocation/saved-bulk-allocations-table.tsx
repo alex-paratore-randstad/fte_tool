@@ -99,11 +99,15 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
             summaries: [],
           };
         }
+        
+        const percNumber = Number(allocation_percentage) || 0;
+        const decimalPerc = percNumber > 1 ? percNumber / 100 : percNumber;
+
         acc[bulk_allocation_id].summaries.push({
           id: summary.id,
           name: cost_center_name,
           number: cost_center_number,
-          percentage: Number(allocation_percentage) || 0,
+          percentage: decimalPerc,
         });
 
         return acc;
@@ -166,9 +170,9 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       return;
     }
 
-    const totalPercentage = editableAlloc.summaries.reduce((sum, s) => sum + s.percentage, 0);
-    if (Math.round(totalPercentage) !== 100) {
-      toast({ variant: 'destructive', title: 'Validation Error', description: 'Total allocation must be exactly 100%.' });
+    const totalAllocation = editableAlloc.summaries.reduce((sum, s) => sum + s.percentage, 0);
+    if (Math.abs(totalAllocation - 1.0) > 0.01) {
+      toast({ variant: 'destructive', title: 'Validation Error', description: 'Total allocation must be exactly 1.00.' });
       setIsSaving(prev => ({...prev, [allocId]: false}));
       return;
     }
@@ -176,7 +180,9 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
     const updates = editableAlloc.summaries
       .filter((summary) => {
         const originalSummary = originalAlloc.summaries.find(s => s.id === summary.id);
-        return originalSummary && summary.percentage !== originalSummary.percentage;
+        if (!originalSummary) return false;
+        // Compare with a tolerance for floating point issues
+        return Math.abs(summary.percentage - originalSummary.percentage) > 0.001;
       })
       .map(summary => ({
           docId: summary.id,
@@ -234,7 +240,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
     <Card>
       <CardHeader>
         <CardTitle>Saved Bulk Allocation Profiles</CardTitle>
-        <CardDescription>History of all saved bulk allocation profiles. You can edit percentages here.</CardDescription>
+        <CardDescription>History of all saved bulk allocation profiles. You can edit allocations here.</CardDescription>
       </CardHeader>
       <CardContent>
         {editableAllocations.length === 0 ? (
@@ -244,7 +250,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
         ) : (
           <Accordion type="single" collapsible className="w-full">
             {editableAllocations.map(alloc => {
-                const totalPercentage = alloc.summaries.reduce((sum, s) => sum + s.percentage, 0);
+                const totalAllocation = alloc.summaries.reduce((sum, s) => sum + s.percentage, 0);
                 const isProfileSaving = isSaving[alloc.id];
               return (
               <AccordionItem value={alloc.id} key={alloc.id}>
@@ -274,7 +280,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Client</TableHead>
-                                        <TableHead className="text-right w-32">Percentage</TableHead>
+                                        <TableHead className="text-right w-32">Allocation</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -285,11 +291,12 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                               <Input 
                                                 type="number"
                                                 min="0"
-                                                max="100"
+                                                max="1"
+                                                step="0.01"
                                                 value={s.percentage}
                                                 onChange={(e) => handlePercentageChange(alloc.id, s.id, e.target.value)}
                                                 className="w-24 text-center ml-auto"
-                                                placeholder="%"
+                                                placeholder="0.00"
                                                 disabled={isProfileSaving}
                                               />
                                             </TableCell>
@@ -298,17 +305,17 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                 </TableBody>
                              </Table>
                              <div className="mt-4 space-y-2 flex items-center justify-between">
-                                <Button onClick={() => handleSaveChanges(alloc.id)} disabled={isProfileSaving || Math.round(totalPercentage) !== 100}>
+                                <Button onClick={() => handleSaveChanges(alloc.id)} disabled={isProfileSaving || Math.abs(totalAllocation - 1.0) > 0.01}>
                                     {isProfileSaving ? 'Saving...' : 'Save Changes'}
                                 </Button>
                                  <Button variant="outline" size="sm" onClick={() => onCopyTemplate(alloc.summaries)}>
                                     <Copy className="mr-2 h-4 w-4" /> Copy as Template
                                 </Button>
                              </div>
-                             <Alert variant={Math.round(totalPercentage) !== 100 ? 'destructive' : 'default'} className="mt-4">
+                             <Alert variant={Math.abs(totalAllocation - 1.0) > 0.01 ? 'destructive' : 'default'} className="mt-4">
                                 <AlertDescription>
-                                Total Allocation: <span className="font-bold">{totalPercentage}%</span>
-                                {Math.round(totalPercentage) !== 100 && " (Must equal 100%)"}
+                                Total Allocation: <span className="font-bold">{totalAllocation.toFixed(2)}</span>
+                                {Math.abs(totalAllocation - 1.0) > 0.01 && " (Must equal 1.00)"}
                                 </AlertDescription>
                             </Alert>
                         </div>

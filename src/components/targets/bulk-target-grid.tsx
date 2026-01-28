@@ -55,11 +55,13 @@ const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString
 const ClientSelect = ({
   clients,
   value,
-  onValueChange
+  onValueChange,
+  disabled
 }: {
   clients: AiReportData[],
   value: string,
-  onValueChange: (value: string) => void
+  onValueChange: (value: string) => void,
+  disabled?: boolean
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -90,7 +92,7 @@ const ClientSelect = ({
   }, [clients, searchTerm]);
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger>
           <SelectValue placeholder="Select Client..." />
       </SelectTrigger>
@@ -307,36 +309,35 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
           <CardTitle>Step 1: Select Employees</CardTitle>
           <CardDescription>Choose the employees who will share this target profile.</CardDescription>
           <div className="relative pt-2">
-            {isPageLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Input 
-                placeholder="Search employees..." 
-                value={employeeSearchTerm}
-                onChange={e => setEmployeeSearchTerm(e.target.value)}
-              />
-            )}
+            <Input 
+              placeholder="Search employees..." 
+              value={employeeSearchTerm}
+              onChange={e => setEmployeeSearchTerm(e.target.value)}
+              disabled={isPageLoading}
+            />
           </div>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-96">
-            {isPageLoading ? (
-              <div className="p-4 space-y-4">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]"></TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Title</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredEmployees.map(emp => (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Title</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isPageLoading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-5 w-5 rounded" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  filteredEmployees.map(emp => (
                     <TableRow key={emp.Person_Number}>
                       <TableCell>
                         <Checkbox 
@@ -348,10 +349,10 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
                       <TableCell className="font-medium">{emp.Full_Name}</TableCell>
                       <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </ScrollArea>
         </CardContent>
         <CardFooter>
@@ -366,75 +367,69 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
           <CardDescription>Define the client percentages for the selected group.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isPageLoading ? (
-            <div className="space-y-6">
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-10 w-full" />
+          <div className="grid gap-6">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="month">Month</Label>
+                    <Select value={selectedMonth!} onValueChange={(value) => setSelectedMonth(value)} disabled={isPageLoading}>
+                        <SelectTrigger id="month">
+                            <SelectValue placeholder="Select Month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="year">Year</Label>
+                    <Select value={selectedYear!} onValueChange={(value) => setSelectedYear(value)} disabled={isPageLoading}>
+                        <SelectTrigger id="year">
+                            <SelectValue placeholder="Select Year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
-          ) : (
-            <div className="grid gap-6">
-              <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                      <Label htmlFor="month">Month</Label>
-                      <Select value={selectedMonth!} onValueChange={(value) => setSelectedMonth(value)}>
-                          <SelectTrigger id="month">
-                              <SelectValue placeholder="Select Month" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
-                  </div>
-                  <div className="grid gap-2">
-                      <Label htmlFor="year">Year</Label>
-                      <Select value={selectedYear!} onValueChange={(value) => setSelectedYear(value)}>
-                          <SelectTrigger id="year">
-                              <SelectValue placeholder="Select Year" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
-                  </div>
-              </div>
-              <div className="grid gap-4">
-                {targetRows.map((row) => (
-                  <div key={row.id} className="flex gap-2 items-center">
-                    <ClientSelect
-                      clients={clients}
-                      value={row.clientName}
-                      onValueChange={value => handleTargetChange(row.id, 'clientName', value)}
-                    />
-                    <Input 
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={row.percentage}
-                      onChange={e => handleTargetChange(row.id, 'percentage', e.target.value)}
-                      className="w-32 text-center"
-                      placeholder="%"
-                    />
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveTargetRow(row.id)} disabled={targetRows.length === 1}>
-                        <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button variant="outline" onClick={handleAddTargetRow}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Client
-                </Button>
-                <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
-                  <AlertDescription>
-                    Total Target: <span className="font-bold">{totalPercentage}%</span>
-                    {totalPercentage !== 100 && " (Must equal 100%)"}
-                  </AlertDescription>
-                </Alert>
-              </div>
+            <div className="grid gap-4">
+              {targetRows.map((row) => (
+                <div key={row.id} className="flex gap-2 items-center">
+                  <ClientSelect
+                    clients={clients}
+                    value={row.clientName}
+                    onValueChange={value => handleTargetChange(row.id, 'clientName', value)}
+                    disabled={isPageLoading || isSubmitting}
+                  />
+                  <Input 
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={row.percentage}
+                    onChange={e => handleTargetChange(row.id, 'percentage', e.target.value)}
+                    className="w-32 text-center"
+                    placeholder="%"
+                    disabled={isPageLoading || isSubmitting}
+                  />
+                  <Button variant="ghost" size="icon" onClick={() => handleRemoveTargetRow(row.id)} disabled={targetRows.length === 1 || isPageLoading || isSubmitting}>
+                      <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button variant="outline" onClick={handleAddTargetRow} disabled={isPageLoading || isSubmitting}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Client
+              </Button>
+              <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
+                <AlertDescription>
+                  Total Target: <span className="font-bold">{totalPercentage}%</span>
+                  {totalPercentage !== 100 && " (Must equal 100%)"}
+                </AlertDescription>
+              </Alert>
             </div>
-          )}
+          </div>
         </CardContent>
         <CardFooter>
-            <Button onClick={handleSave} disabled={isSubmitting || selectedEmployees.size === 0 || totalPercentage !== 100}>
+            <Button onClick={handleSave} disabled={isPageLoading || isSubmitting || selectedEmployees.size === 0 || totalPercentage !== 100}>
               {isSubmitting ? 'Saving...' : 'Save Bulk Targets'}
             </Button>
         </CardFooter>

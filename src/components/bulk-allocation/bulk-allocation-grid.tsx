@@ -57,11 +57,13 @@ const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString
 const ClientSelect = ({
   clients,
   value,
-  onValueChange
+  onValueChange,
+  disabled,
 }: {
   clients: AiReportData[],
   value: string,
-  onValueChange: (value: string) => void
+  onValueChange: (value: string) => void,
+  disabled?: boolean;
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -92,7 +94,7 @@ const ClientSelect = ({
   }, [clients, searchTerm]);
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger>
           <SelectValue placeholder="Select Client..." />
       </SelectTrigger>
@@ -178,7 +180,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       toast({ title: 'Template Copied', description: 'Allocation profile has been copied. Select employees and save.' });
     } else {
         // Set default allocation row only if not copying
-        setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
+        setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 1.0 }]);
     }
   }, [templateToCopy, toast]);
 
@@ -195,7 +197,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     return allEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
   }, [allEmployees, employeeSearchTerm]);
   
-  const totalPercentage = useMemo(() => {
+  const totalAllocation = useMemo(() => {
     return allocationRows.reduce((sum, row) => sum + (Number(row.percentage) || 0), 0);
   }, [allocationRows]);
 
@@ -236,12 +238,12 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       toast({ variant: 'destructive', title: 'No employees selected.' });
       return;
     }
-    if (totalPercentage !== 100) {
-      toast({ variant: 'destructive', title: 'Total allocation must be 100%.' });
+    if (Math.abs(totalAllocation - 1.0) > 0.01) {
+      toast({ variant: 'destructive', title: 'Total allocation must be 1.0.' });
       return;
     }
     if (allocationRows.some(row => !row.clientName || row.percentage <= 0)) {
-        toast({ variant: 'destructive', title: 'Invalid allocation rows.', description: 'Please ensure every row has a client and a percentage greater than 0.' });
+        toast({ variant: 'destructive', title: 'Invalid allocation rows.', description: 'Please ensure every row has a client and an allocation greater than 0.' });
         return;
     }
     if (!selectedMonth || !selectedYear) {
@@ -301,7 +303,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       
       // Reset form
       setSelectedEmployees(new Set());
-      setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
+      setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 1.0 }]);
       onSaveSuccess();
 
     } catch (error: any) {
@@ -312,20 +314,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     }
   };
 
-  if (loading || userLoading || !selectedMonth || !selectedYear) {
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader><Skeleton className="h-10 w-full" /></CardHeader>
-          <CardContent><Skeleton className="h-96 w-full" /></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><Skeleton className="h-10 w-full" /></CardHeader>
-          <CardContent><Skeleton className="h-96 w-full" /></CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const isPageLoading = loading || userLoading || !selectedMonth || !selectedYear;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -338,6 +327,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
               placeholder="Search employees..." 
               value={employeeSearchTerm}
               onChange={e => setEmployeeSearchTerm(e.target.value)}
+              disabled={isPageLoading}
             />
           </div>
         </CardHeader>
@@ -352,19 +342,29 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEmployees.map(emp => (
-                  <TableRow key={emp.Person_Number}>
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedEmployees.has(emp.Person_Number)}
-                        onCheckedChange={checked => handleEmployeeToggle(emp.Person_Number, !!checked)}
-                        aria-label={`Select ${emp.Full_Name}`}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{emp.Full_Name}</TableCell>
-                    <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
-                  </TableRow>
-                ))}
+                {isPageLoading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-5 w-5 rounded" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  filteredEmployees.map(emp => (
+                    <TableRow key={emp.Person_Number}>
+                      <TableCell>
+                        <Checkbox 
+                          checked={selectedEmployees.has(emp.Person_Number)}
+                          onCheckedChange={checked => handleEmployeeToggle(emp.Person_Number, !!checked)}
+                          aria-label={`Select ${emp.Full_Name}`}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{emp.Full_Name}</TableCell>
+                      <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </ScrollArea>
@@ -378,14 +378,14 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       <Card>
         <CardHeader>
           <CardTitle>Step 2: Define Allocation</CardTitle>
-          <CardDescription>Define the client percentages for the selected group.</CardDescription>
+          <CardDescription>Define the client allocation for the selected group. Must sum to 1.0.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6">
             <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                     <Label htmlFor="month">Month</Label>
-                    <Select value={selectedMonth} onValueChange={(value) => setSelectedMonth(value)}>
+                    <Select value={selectedMonth || ''} onValueChange={(value) => setSelectedMonth(value)} disabled={isPageLoading}>
                         <SelectTrigger id="month">
                             <SelectValue placeholder="Select Month" />
                         </SelectTrigger>
@@ -396,7 +396,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="year">Year</Label>
-                    <Select value={selectedYear} onValueChange={(value) => setSelectedYear(value)}>
+                    <Select value={selectedYear || ''} onValueChange={(value) => setSelectedYear(value)} disabled={isPageLoading}>
                         <SelectTrigger id="year">
                             <SelectValue placeholder="Select Year" />
                         </SelectTrigger>
@@ -413,35 +413,38 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                     clients={clients}
                     value={row.clientName}
                     onValueChange={value => handleAllocationChange(row.id, 'clientName', value)}
+                    disabled={isPageLoading || isSubmitting}
                   />
                   <Input 
                     type="number"
                     min="0"
-                    max="100"
+                    max="1"
+                    step="0.01"
                     value={row.percentage}
                     onChange={e => handleAllocationChange(row.id, 'percentage', e.target.value)}
                     className="w-32 text-center"
-                    placeholder="%"
+                    placeholder="0.00"
+                    disabled={isPageLoading || isSubmitting}
                   />
-                  <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1}>
+                  <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1 || isPageLoading || isSubmitting}>
                       <X className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
-              <Button variant="outline" onClick={handleAddAllocationRow}>
+              <Button variant="outline" onClick={handleAddAllocationRow} disabled={isPageLoading || isSubmitting}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Client
               </Button>
-              <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
+              <Alert variant={Math.abs(totalAllocation - 1.0) > 0.01 ? 'destructive' : 'default'}>
                 <AlertDescription>
-                  Total Allocation: <span className="font-bold">{totalPercentage}%</span>
-                  {totalPercentage !== 100 && " (Must equal 100%)"}
+                  Total Allocation: <span className="font-bold">{totalAllocation.toFixed(2)}</span>
+                  {Math.abs(totalAllocation - 1.0) > 0.01 && " (Must equal 1.00)"}
                 </AlertDescription>
               </Alert>
             </div>
           </div>
         </CardContent>
         <CardFooter>
-            <Button onClick={handleSave} disabled={isSubmitting || selectedEmployees.size === 0 || totalPercentage !== 100}>
+            <Button onClick={handleSave} disabled={isPageLoading || isSubmitting || selectedEmployees.size === 0 || Math.abs(totalAllocation - 1.0) > 0.01}>
               {isSubmitting ? 'Saving...' : 'Save Bulk Allocation'}
             </Button>
         </CardFooter>

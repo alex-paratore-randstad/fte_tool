@@ -32,7 +32,7 @@ type FilterOptions = {
   managers: string[];
 }
 
-const FilterSelect = ({ placeholder, options, value, onValueChange }: { placeholder: string, options: string[], value: string, onValueChange: (value: string) => void }) => {
+const FilterSelect = ({ placeholder, options, value, onValueChange, disabled }: { placeholder: string, options: string[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const filteredOptions = useMemo(() => {
     if (!searchTerm) return options;
@@ -40,7 +40,7 @@ const FilterSelect = ({ placeholder, options, value, onValueChange }: { placehol
   }, [options, searchTerm]);
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
       <SelectContent>
         <SelectSearch placeholder="Search..." onChange={setSearchTerm} />
@@ -140,28 +140,6 @@ export function TeamContent() {
     setFilters({ employee: '', team: '', title: '', manager: '' });
   };
 
-
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-          <div className="text-sm text-muted-foreground">
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -170,11 +148,11 @@ export function TeamContent() {
           This page displays the current team roster from the live dataset. Use the filters below to refine the results.
         </CardDescription>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-4">
-            <FilterSelect placeholder="Filter by Name..." options={filterOptions.employees} value={filters.employee} onValueChange={value => handleFilterChange('employee', value)} />
-            <FilterSelect placeholder="Filter by Team..." options={filterOptions.teams} value={filters.team} onValueChange={value => handleFilterChange('team', value)} />
-            <FilterSelect placeholder="Filter by Title..." options={filterOptions.titles} value={filters.title} onValueChange={value => handleFilterChange('title', value)} />
-            <FilterSelect placeholder="Filter by Manager..." options={filterOptions.managers} value={filters.manager} onValueChange={value => handleFilterChange('manager', value)} />
-            <Button variant="outline" onClick={clearFilters}>Clear Filters</Button>
+            <FilterSelect placeholder="Filter by Name..." options={filterOptions.employees} value={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
+            <FilterSelect placeholder="Filter by Team..." options={filterOptions.teams} value={filters.team} onValueChange={value => handleFilterChange('team', value)} disabled={loading} />
+            <FilterSelect placeholder="Filter by Title..." options={filterOptions.titles} value={filters.title} onValueChange={value => handleFilterChange('title', value)} disabled={loading} />
+            <FilterSelect placeholder="Filter by Manager..." options={filterOptions.managers} value={filters.manager} onValueChange={value => handleFilterChange('manager', value)} disabled={loading} />
+            <Button variant="outline" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -188,14 +166,21 @@ export function TeamContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredMembers.map((member, rowIndex) => (
-                <TableRow key={member['Person_Number'] || rowIndex}>
-                  {displayColumns.map((column) => (
-                    <TableCell key={column}>{member[column as keyof TeamMember]}</TableCell>
-                  ))}
-                </TableRow>
-              ))}
-               {filteredMembers.length === 0 && (
+              {loading ? (
+                Array.from({ length: 10 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {displayColumns.map(col => <TableCell key={col}><Skeleton className="h-5 w-full" /></TableCell>)}
+                  </TableRow>
+                ))
+              ) : filteredMembers.length > 0 ? (
+                filteredMembers.map((member, rowIndex) => (
+                  <TableRow key={member['Person_Number'] || rowIndex}>
+                    {displayColumns.map((column) => (
+                      <TableCell key={column}>{member[column as keyof TeamMember]}</TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
                 <TableRow>
                     <TableCell colSpan={displayColumns.length} className="h-24 text-center">
                         No team members match the current filters.
