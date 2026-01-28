@@ -24,12 +24,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '../ui/button';
 import { SelectSearch } from '../ui/select-search';
+import { writeLog } from '@/lib/logger';
 
 type FilterOptions = {
   employees: string[];
   teams: string[];
   titles: string[];
   managers: string[];
+  verticals: string[];
 }
 
 const FilterSelect = ({ placeholder, options, value, onValueChange, disabled }: { placeholder: string, options: string[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
@@ -60,14 +62,16 @@ const FilterSelect = ({ placeholder, options, value, onValueChange, disabled }: 
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasMounted, setHasMounted] = useState(false);
   const [filters, setFilters] = useState({
     employee: '',
     team: '',
     title: '',
     manager: '',
+    vertical: '',
   });
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-      employees: [], teams: [], titles: [], managers: []
+      employees: [], teams: [], titles: [], managers: [], verticals: []
   });
   const { toast } = useToast();
 
@@ -85,11 +89,16 @@ export function TeamContent() {
   ];
 
   useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const response = await fetch(`/data/v1/gbs_ind_hr_fte_report`);
         if (!response.ok) {
+          writeLog('TeamContent', 'error', 'Failed to fetch team data', { status: response.status });
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data: TeamMember[] = await response.json();
@@ -119,6 +128,7 @@ export function TeamContent() {
             teams: getUniqueSorted('Team_Name'),
             titles: getUniqueSorted('Market_Facing_Title'),
             managers: getUniqueSorted('First_Reviewer_Name'),
+            verticals: getUniqueSorted('Vertical_Name'),
         });
         
       } catch (error) {
@@ -142,7 +152,8 @@ export function TeamContent() {
         (filters.employee === '' || member.Full_Name === filters.employee) &&
         (filters.team === '' || member.Team_Name === filters.team) &&
         (filters.title === '' || member.Market_Facing_Title === filters.title) &&
-        (filters.manager === '' || member.First_Reviewer_Name === filters.manager)
+        (filters.manager === '' || member.First_Reviewer_Name === filters.manager) &&
+        (filters.vertical === '' || member.Vertical_Name === filters.vertical)
       );
     });
   }, [teamMembers, filters]);
@@ -152,7 +163,7 @@ export function TeamContent() {
   };
 
   const clearFilters = () => {
-    setFilters({ employee: '', team: '', title: '', manager: '' });
+    setFilters({ employee: '', team: '', title: '', manager: '', vertical: '' });
   };
 
   return (
@@ -162,11 +173,12 @@ export function TeamContent() {
         <CardDescription>
           This page displays the current team roster from the live dataset. Use the filters below to refine the results.
         </CardDescription>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
             <FilterSelect placeholder="Filter by Name..." options={filterOptions.employees} value={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
             <FilterSelect placeholder="Filter by Team..." options={filterOptions.teams} value={filters.team} onValueChange={value => handleFilterChange('team', value)} disabled={loading} />
             <FilterSelect placeholder="Filter by Title..." options={filterOptions.titles} value={filters.title} onValueChange={value => handleFilterChange('title', value)} disabled={loading} />
             <FilterSelect placeholder="Filter by Manager..." options={filterOptions.managers} value={filters.manager} onValueChange={value => handleFilterChange('manager', value)} disabled={loading} />
+            <FilterSelect placeholder="Filter by Vertical..." options={filterOptions.verticals} value={filters.vertical} onValueChange={value => handleFilterChange('vertical', value)} disabled={loading} />
             <Button variant="outline" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
         </div>
       </CardHeader>
@@ -181,7 +193,7 @@ export function TeamContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
+              {!hasMounted || loading ? (
                 Array.from({ length: 10 }).map((_, i) => (
                   <TableRow key={i}>
                     {displayColumns.map(col => <TableCell key={col}><Skeleton className="h-5 w-full" /></TableCell>)}
