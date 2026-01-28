@@ -310,7 +310,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {isLoading ? (
+                {!hasMounted || isLoading ? (
                   <TableRow>
                     <TableCell colSpan={weeks.length + 1}>
                       <div className="space-y-4 py-8">

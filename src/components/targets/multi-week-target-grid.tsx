@@ -218,6 +218,7 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
   const [internalLoading, setInternalLoading] = useState(true);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
+  const [hasMounted, setHasMounted] = useState(false);
 
   const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
@@ -225,6 +226,7 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
   const isLoading = initialLoading || internalLoading || userLoading;
 
   useEffect(() => {
+    setHasMounted(true);
     // Set the date only on the client side to avoid hydration errors
     setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   }, []);
@@ -555,7 +557,7 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
                 </TableRow>
               </TableHeader>
               <TableBody>
-              {isLoading ? (
+              {!hasMounted || isLoading ? (
                 <TableRow>
                   <TableCell colSpan={weeks.length + 4}>
                     <div className="space-y-4 py-8">

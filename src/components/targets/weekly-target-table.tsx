@@ -53,11 +53,13 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
   const [isSaving, setIsSaving] = useState(false);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [nameFilter, setNameFilter] = useState('');
+  const [hasMounted, setHasMounted] = useState(false);
   const { toast } = useToast();
 
   const isLoading = initialLoading || internalLoading;
 
   useEffect(() => {
+    setHasMounted(true);
     // Set date only on client to avoid hydration mismatch
     setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   }, []);
@@ -260,7 +262,7 @@ export function WeeklyTargetTable({ currentDate, refreshKey, initialLoading }: W
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {isLoading ? (
+                {!hasMounted || isLoading ? (
                   <TableRow>
                     <TableCell colSpan={weeks.length + 1}>
                       <div className="space-y-4 py-8">

@@ -121,8 +121,13 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
+  const [hasMounted, setHasMounted] = useState(false);
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const fetchDataForMonth = useCallback(async (date: Date) => {
     setIsLoading(true);
@@ -409,7 +414,7 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isGridLoading ? (
+              {!hasMounted || isGridLoading ? (
                 <TableRow>
                   <TableCell colSpan={4} className="h-24 text-center">
                      <Skeleton className="h-5 w-48 mx-auto" />

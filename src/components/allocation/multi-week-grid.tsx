@@ -335,7 +335,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       
         const employeeIdString = `[${employee.Person_Number}]`;
         const employeeAllocations = allCurrentMonthAllocations.filter(alloc => 
-            alloc.content.allocation_name?.startsWith(employeeIdString)
+            alloc.content.allocation_name?.startsWith(employeeIdString) &&
+            parseFloat(alloc.content.allocation_amount) > 0
         );
       
         if (employeeAllocations.length === 0) {
@@ -446,7 +447,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     }
                 }
             });
-            newAllocationRows.push(newRow);
+            if (Object.keys(newRow.weeklyFtes).length > 0) {
+                newAllocationRows.push(newRow);
+            }
         });
   
         if (newAllocationRows.length > 0) {
@@ -458,6 +461,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 )
             );
             toast({ title: 'Prior Allocations Loaded', description: `Copied allocations for ${employee.Full_Name} from the previous month.`});
+        } else {
+            toast({ title: 'No Applicable Data', description: `No prior allocations found that could be applied to the current month's weeks.`});
         }
     } catch (error) {
         writeLog('MultiWeekGrid', 'error', `Could not load prior allocations for ${employee.Full_Name}`, error);
@@ -738,7 +743,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
+                {!hasMounted || isLoading ? (
                   <TableRow>
                     <TableCell colSpan={weeks.length + 5}>
                       <div className="space-y-4 py-8">

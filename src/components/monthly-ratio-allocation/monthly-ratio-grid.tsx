@@ -48,11 +48,13 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasMounted, setHasMounted] = useState(false);
 
   const { toast } = useToast();
   
   useEffect(() => {
     // Set date only on the client to avoid hydration mismatch.
+    setHasMounted(true);
     setCurrentDate(new Date());
   }, []);
 
@@ -253,7 +255,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {!hasMounted || isLoading ? (
                  <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">
                        <Skeleton className="h-5 w-48 mx-auto" />
@@ -320,5 +322,3 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     </Card>
   );
 }
-
-    
