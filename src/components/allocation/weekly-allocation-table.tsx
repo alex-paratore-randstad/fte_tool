@@ -284,7 +284,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
             <TableBody>
                 {!hasMounted || isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={weeks.length + 1}>
+                    <TableCell colSpan={6}>
                       <div className="space-y-4 py-8">
                         <Skeleton className="h-8 w-full" />
                         <Skeleton className="h-8 w-full" />
@@ -294,7 +294,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                   </TableRow>
                 ) : filteredAllocations.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={weeks.length + 1} className="text-center h-24 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                             {nameFilter ? 'No matching employees found.' : 'No saved allocation data found for this period.'}
                         </TableCell>
                     </TableRow>

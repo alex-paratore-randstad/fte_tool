@@ -391,7 +391,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         },
         {
             "name": "weekly_allocation",
@@ -423,7 +429,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         },
         {
             "name": "weekly_targets",
@@ -451,7 +463,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         },
         {
             "name": "title_management",
@@ -471,7 +489,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         },
         {
             "name": "bulk_allocation_fte",
@@ -499,7 +523,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         },
         {
             "name": "bulk_allocation_summary",
@@ -523,7 +553,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         },
         {
             "name": "bulk_targets_fte",
@@ -551,7 +587,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         },
         {
             "name": "bulk_targets_summary",
@@ -575,7 +617,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         },
         {
             "name": "ticket_allocation_fte",
@@ -603,7 +651,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         },
         {
             "name": "ticket_allocation_summary",
@@ -627,7 +681,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         },
         {
             "name": "fte_logging",
@@ -659,7 +719,13 @@
                     }
                 ]
             },
-            "syncEnabled": false
+            "syncEnabled": false,
+            "defaultPermission": [
+                "read",
+                "read_content",
+                "create_content",
+                "update_content"
+            ]
         }
     ],
     "fileName": "manifest.json",

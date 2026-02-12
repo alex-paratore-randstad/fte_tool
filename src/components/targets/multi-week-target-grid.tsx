@@ -559,7 +559,7 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
               <TableBody>
               {!hasMounted || isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={weeks.length + 4}>
+                  <TableCell colSpan={9}>
                     <div className="space-y-4 py-8">
                       <Skeleton className="h-10 w-full" />
                       <Skeleton className="h-10 w-full" />
@@ -569,7 +569,7 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
                 </TableRow>
               ) : activeTargets.length === 0 ? (
                   <TableRow>
-                      <TableCell colSpan={weeks.length + 4} className="text-center h-24 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center h-24 text-muted-foreground">
                           Select an employee from the dropdown above to begin building your target plan.
                       </TableCell>
                   </TableRow>

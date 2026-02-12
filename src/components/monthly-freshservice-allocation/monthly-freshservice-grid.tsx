@@ -136,7 +136,7 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
       const selectedYear = format(date, 'yyyy');
 
       const [ticketResponse, employeeResponse] = await Promise.all([
-          fetch(`/data/v1/fte_tickets_grouped_monthly`),
+          fetch(`/data/v1/fte_tickets_grouped_monthly_view`),
           fetch('/data/v1/gbs_ind_hr_fte_report')
       ]);
 

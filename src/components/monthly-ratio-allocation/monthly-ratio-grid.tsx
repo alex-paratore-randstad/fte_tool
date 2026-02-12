@@ -66,7 +66,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       const selectedMonth = format(currentDate, 'MMM');
       const selectedYear = format(currentDate, 'yyyy');
 
-      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
+      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly_view`);
       
       if (!response.ok) {
         console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
