@@ -31,7 +31,7 @@ const navGroups: NavGroup[] = [
     title: 'Targets',
     roles: ['admin', 'manager', 'vp'],
     items: [
-      { href: '/weekly-targets', label: 'Weekly Targets' },
+      { href: '/weekly-targets', label: 'Quarterly Targets' },
     ]
   },
   {
@@ -72,51 +72,44 @@ export function TopNav() {
       return items.some(item => isActive(item.href));
   }
 
-  if (loading) {
-    return (
-       <div className='flex items-center space-x-4 lg:space-x-6'>
-         <Skeleton className="h-4 w-24 bg-muted rounded" />
-         <Skeleton className="h-4 w-24 bg-muted rounded" />
-         <Skeleton className="h-4 w-24 bg-muted rounded" />
-         <Skeleton className="h-4 w-24 bg-muted rounded" />
-       </div>
-    );
-  }
-
   return (
     <>
-        <Link
-          href={getHref('/')}
-          className={cn(
-            'text-sm font-medium transition-colors hover:text-primary',
-            isActive('/') ? 'text-primary' : 'text-muted-foreground'
-          )}
-        >
-          Dashboard
-        </Link>
+      <Link
+        href={getHref('/')}
+        className={cn(
+          'text-sm font-medium transition-colors hover:text-primary',
+          isActive('/') ? 'text-primary' : 'text-muted-foreground'
+        )}
+      >
+        Dashboard
+      </Link>
       
       {navGroups.map(group => (
-        <div key={group.title} className={cn(!userHasAccess(group.roles) && "hidden")}>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className={cn(
-                        "text-sm font-medium h-auto p-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
-                        isGroupActive(group.items) ? "text-primary" : "text-muted-foreground"
-                    )}>
-                        {group.title}
-                        <ChevronDown className="relative top-[1px] ml-1 h-3 w-3 transition duration-200 group-data-[state=open]:rotate-180" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                    {group.items.filter(item => userHasAccess(item.roles)).map(item => (
-                        <DropdownMenuItem key={item.href} asChild>
-                            <Link href={getHref(item.href)} className={cn(isActive(item.href) && "font-semibold")}>
-                              {item.label}
-                            </Link>
-                        </DropdownMenuItem>
-                    ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
+        <div key={group.title} className="flex items-center">
+            {loading ? (
+                <Skeleton className="h-5 w-24" />
+            ) : userHasAccess(group.roles) ? (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className={cn(
+                            "text-sm font-medium h-auto p-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
+                            isGroupActive(group.items) ? "text-primary" : "text-muted-foreground"
+                        )}>
+                            {group.title}
+                            <ChevronDown className="relative top-[1px] ml-1 h-3 w-3 transition duration-200 group-data-[state=open]:rotate-180" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                        {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                            <DropdownMenuItem key={item.href} asChild>
+                                <Link href={getHref(item.href)} className={cn(isActive(item.href) && "font-semibold")}>
+                                {item.label}
+                                </Link>
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            ) : null}
         </div>
       ))}
     </>

@@ -1,5 +1,4 @@
 
-
 export type Employee = {
   id: string;
   name: string;
@@ -83,11 +82,11 @@ export type WeeklyAllocation = {
 export type WeeklyTarget = {
   id: string;
   content: {
-    target_date: string;
-    target_name: string;
-    target_cost_center_number: string;
-    target_cost_center_name: string;
-    target_amount: string;
+    targets_allocation_date: string;
+    targets_allocation_name: string;
+    targets_cost_center_number: string;
+    targets_cost_center_name: string;
+    targets_allocation_amount: string;
   }
 };
 
