@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { UserNav } from './user-nav';
@@ -37,7 +36,6 @@ const navGroups: NavGroup[] = [
     roles: ['admin', 'manager', 'vp'],
     items: [
       { href: '/weekly-targets', label: 'Weekly Targets' },
-      { href: '/bulk-targets', label: 'Bulk Targets' },
     ]
   },
   {

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Link from 'next/link';
@@ -33,7 +32,6 @@ const navGroups: NavGroup[] = [
     roles: ['admin', 'manager', 'vp'],
     items: [
       { href: '/weekly-targets', label: 'Weekly Targets' },
-      { href: '/bulk-targets', label: 'Bulk Targets' },
     ]
   },
   {

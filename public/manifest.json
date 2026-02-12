@@ -172,6 +172,36 @@
             ]
         },
         {
+            "dataSetId": "d535f098-edd4-4159-8c89-ca6ad2512ef8",
+            "alias": "fte_tickets_grouped_view",
+            "fields": [
+                {
+                    "alias": "agent_name",
+                    "columnName": "agent_name"
+                },
+                {
+                    "alias": "agent_group_name",
+                    "columnName": "agent_group_name"
+                },
+                {
+                    "alias": "reporting_month",
+                    "columnName": "reporting_month"
+                },
+                {
+                    "alias": "reporting_year",
+                    "columnName": "reporting_year"
+                },
+                {
+                    "alias": "reporting_week_date",
+                    "columnName": "reporting_week_date"
+                },
+                {
+                    "alias": "tickets",
+                    "columnName": "tickets"
+                }
+            ]
+        },
+        {
             "dataSetId": "3d28319b-6f08-479c-8f55-c1d6587db725",
             "alias": "fte_tickets_grouped",
             "fields": [
@@ -198,6 +228,48 @@
                 {
                     "alias": "tickets",
                     "columnName": "tickets"
+                }
+            ]
+        },
+        {
+            "dataSetId": "4233ff92-914f-4115-a63a-253b1712fac5",
+            "alias": "fte_tickets_grouped_monthly_view",
+            "fields": [
+                {
+                    "alias": "agent_name",
+                    "columnName": "agent_name"
+                },
+                {
+                    "alias": "agent_group_name",
+                    "columnName": "agent_group_name"
+                },
+                {
+                    "alias": "department_name",
+                    "columnName": "department_name"
+                },
+                {
+                    "alias": "client_name",
+                    "columnName": "client_name"
+                },
+                {
+                    "alias": "reporting_month",
+                    "columnName": "reporting_month"
+                },
+                {
+                    "alias": "reporting_year",
+                    "columnName": "reporting_year"
+                },
+                {
+                    "alias": "tickets",
+                    "columnName": "tickets"
+                },
+                {
+                    "alias": "total_monthly_tickets",
+                    "columnName": "total_monthly_tickets"
+                },
+                {
+                    "alias": "monthly_ticket_ratio",
+                    "columnName": "monthly_ticket_ratio"
                 }
             ]
         },
