@@ -113,12 +113,57 @@ const ClientSelect = ({
   );
 };
 
+const ManagerSelect = ({ 
+  managers, 
+  onValueChange,
+  disabled,
+}: { 
+  managers: {id: string, name: string}[], 
+  onValueChange: (value: string) => void,
+  disabled?: boolean,
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const filteredManagers = useMemo(() => {
+    const sortedManagers = managers.sort((a,b) => a.name.localeCompare(b.name));
+    if (!searchTerm) {
+      return sortedManagers;
+    }
+    return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [managers, searchTerm]);
+
+  return (
+    <Select onValueChange={onValueChange} disabled={disabled}>
+        <SelectTrigger className="w-full">
+            <SelectValue placeholder="Load Team..." />
+        </SelectTrigger>
+        <SelectContent>
+            <SelectSearch placeholder="Search manager..." onChange={setSearchTerm} />
+            <ScrollArea className="h-64">
+              {filteredManagers.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                  </SelectItem>
+              ))}
+              {filteredManagers.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No managers found.
+                </div>
+              )}
+            </ScrollArea>
+        </SelectContent>
+    </Select>
+  );
+};
+
 
 export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAllocationGridProps) {
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [clients, setClients] = useState<AiReportData[]>([]);
+  const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [allocationRows, setAllocationRows] = useState<AllocationRow[]>([]);
@@ -130,8 +175,9 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
 
   const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
-
+  
   useEffect(() => {
+    setHasMounted(true);
     // Set date state on client to avoid hydration mismatch
     const now = new Date();
     setSelectedMonth(months[now.getMonth()]);
@@ -165,6 +211,16 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '' },
       ];
       setClients([...staticClients, ...clientData]);
+
+      const managerMap = new Map<string, string>();
+      empData.forEach(emp => {
+          if(emp.First_Reviewer_Code && emp.First_Reviewer_Name) {
+              managerMap.set(emp.First_Reviewer_Code, emp.First_Reviewer_Name);
+          }
+      });
+      const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setManagers(uniqueManagers);
 
     } catch (error) {
       console.error("Failed to fetch initial data:", error);
@@ -236,6 +292,27 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       }
       return row;
     }));
+  };
+
+  const handleLoadManagerTeam = (managerId: string) => {
+    if (!managerId) return;
+
+    const teamMemberIds = allEmployees
+        .filter(e => e.First_Reviewer_Code === managerId)
+        .map(e => e.Person_Number);
+
+    if (teamMemberIds.length === 0) {
+      toast({ title: 'No employees found for this manager.' });
+      return;
+    }
+
+    setSelectedEmployees(prev => {
+        const newSet = new Set(prev);
+        teamMemberIds.forEach(id => newSet.add(id));
+        return newSet;
+    });
+
+    toast({ title: 'Team Loaded', description: `${teamMemberIds.length} employee(s) have been selected.` });
   };
 
   const handleSave = async () => {
@@ -318,7 +395,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       setIsSubmitting(false);
     }
   };
-
+  
   const isPageLoading = loading || userLoading || !selectedMonth || !selectedYear;
 
   return (
@@ -327,12 +404,17 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         <CardHeader>
           <CardTitle>Step 1: Select Employees</CardTitle>
           <CardDescription>Choose the employees who will share this allocation profile.</CardDescription>
-          <div className="relative pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             <Input 
               placeholder="Search employees..." 
               value={employeeSearchTerm}
               onChange={e => setEmployeeSearchTerm(e.target.value)}
               disabled={isPageLoading}
+            />
+             <ManagerSelect 
+                managers={managers} 
+                onValueChange={handleLoadManagerTeam} 
+                disabled={isPageLoading}
             />
           </div>
         </CardHeader>
@@ -347,7 +429,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isPageLoading ? (
+                {!hasMounted || isPageLoading ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-5 w-5 rounded" /></TableCell>
@@ -355,7 +437,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                       <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                     </TableRow>
                   ))
-                ) : (
+                ) : filteredEmployees.length > 0 ? (
                   filteredEmployees.map(emp => (
                     <TableRow key={emp.Person_Number}>
                       <TableCell>
@@ -369,6 +451,12 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                       <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
                     </TableRow>
                   ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
+                      No employees to display.
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>
