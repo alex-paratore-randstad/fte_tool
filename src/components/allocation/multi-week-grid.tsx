@@ -562,7 +562,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             const newAllocations = empAlloc.allocations.map(alloc => {
                 if (alloc.id === allocId) {
                     const selectedCc = clients.find(cc => cc.DisplayName === newClientName);
-                    return { ...alloc, clientName: newClientName, clientId: selectedCc?.Code || '' };
+                    return { ...alloc, clientName: newClientName, clientId: (selectedCc?.Code || '').trim() };
                 }
                 return alloc;
             });
