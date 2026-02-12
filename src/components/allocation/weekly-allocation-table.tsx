@@ -14,7 +14,6 @@ import { useCurrentUser } from '@/hooks/use-current-user';
 import { getWeeksForFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { Checkbox } from '../ui/checkbox';
 import { writeLog } from '@/lib/logger';
 
 type WeeklyAllocationDoc = {
@@ -25,7 +24,6 @@ type WeeklyAllocationDoc = {
     cost_center_name: string;
     cost_center_number: string;
     allocation_amount: string;
-    no_charge_flag?: string;
   }
 }
 
@@ -34,7 +32,6 @@ const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1
 type AllocationFTE = {
   fte: number;
   docId: string | null;
-  noCharge: boolean;
 };
 
 type AllocationRow = {
@@ -116,7 +113,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
       const allFetchedAllocations: WeeklyAllocationDoc[] = results.flat();
       
       const groupedByEmployee = allFetchedAllocations.reduce((acc, current) => {
-        const { allocation_name, cost_center_number, cost_center_name, allocation_date, allocation_amount, no_charge_flag } = current.content;
+        const { allocation_name, cost_center_number, cost_center_name, allocation_date, allocation_amount } = current.content;
         
         if (!acc[allocation_name]) {
             acc[allocation_name] = {};
@@ -131,7 +128,6 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
         acc[allocation_name][cost_center_number].weeklyFtes[allocation_date] = {
           fte: parseFloat(allocation_amount) || 0,
           docId: current.id,
-          noCharge: no_charge_flag === 'Y',
         };
         return acc;
       }, {} as Record<string, Record<string, AllocationRow>>);
@@ -181,25 +177,6 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
     }));
   };
 
-  const handleNoChargeChange = (employeeName: string, clientId: string, weekKey: string, isChecked: boolean) => {
-    setEditableAllocations(prev => prev.map(empAlloc => {
-      if (empAlloc.employeeName === employeeName) {
-        const newAllocations = empAlloc.allocations.map(alloc => {
-          if (alloc.clientId === clientId) {
-            const updatedFtes = { ...alloc.weeklyFtes };
-            if (updatedFtes[weekKey]) {
-              updatedFtes[weekKey].noCharge = isChecked;
-            }
-            return { ...alloc, weeklyFtes: updatedFtes };
-          }
-          return alloc;
-        });
-        return { ...empAlloc, allocations: newAllocations };
-      }
-      return empAlloc;
-    }));
-  };
-
   const handleSaveChanges = async () => {
     setIsSaving(true);
     const updates = [];
@@ -215,7 +192,7 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
           
           if (editable && editable.docId && originalAlloc) {
             const original = originalAlloc.weeklyFtes[weekKey];
-            if (original && (editable.fte !== original.fte || editable.noCharge !== original.noCharge)) {
+            if (original && editable.fte !== original.fte) {
               updates.push({
                 docId: editable.docId,
                 content: {
@@ -224,7 +201,6 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                   cost_center_name: alloc.clientName,
                   cost_center_number: alloc.clientId,
                   allocation_amount: (editable.fte || 0).toString(),
-                  no_charge_flag: editable.noCharge ? 'Y' : null,
                 },
               });
             }
@@ -294,14 +270,10 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                         const isCurrent = hasMounted && startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
                         const isLockedForUser = isPast && !isAdmin;
                         return (
-                            <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[180px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
+                            <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[150px] transition-colors", { "bg-muted/40": isPast, "bg-primary/10": isCurrent })}>
                             <div className='flex items-center justify-center gap-2'>
                                 <Lock className={cn("h-3.5 w-3.5 text-muted-foreground", !isLockedForUser && "invisible")} />
                                 <span>W/E {week.reportingWeekDate}</span>
-                            </div>
-                            <div className="flex justify-center items-center text-xs font-normal text-muted-foreground pt-1 gap-8">
-                                <span>FTE</span>
-                                <span>No Charge</span>
                             </div>
                             <Badge variant="default" className={cn("w-fit mx-auto mt-1", !isCurrent && "invisible")}>Current</Badge>
                             </TableHead>
@@ -356,20 +328,13 @@ export function WeeklyAllocationTable({ currentDate, refreshKey, initialLoading 
                                             return (
                                                 <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": isPast, "bg-primary/10": isCurrent})}>
                                                     {fteData ? (
-                                                        <div className="flex items-center justify-center gap-4">
-                                                            <Input
-                                                              type="number" step="0.05" min="0" placeholder="0.00"
-                                                              className={cn("w-20 text-center", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
-                                                              value={fteData.fte || ''}
-                                                              onChange={(e) => handleFteChange(employeeName, alloc.clientId, weekKey, e.target.value)}
-                                                              disabled={!hasMounted || isLockedForUser || isSaving} readOnly={!hasMounted || isLockedForUser}
-                                                            />
-                                                            <Checkbox
-                                                              checked={fteData.noCharge || false}
-                                                              onCheckedChange={(checked) => handleNoChargeChange(employeeName, alloc.clientId, weekKey, !!checked)}
-                                                              disabled={!hasMounted || isLockedForUser || isSaving}
-                                                            />
-                                                        </div>
+                                                        <Input
+                                                          type="number" step="0.05" min="0" placeholder="0.00"
+                                                          className={cn("w-24 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": isLockedForUser })}
+                                                          value={fteData.fte || ''}
+                                                          onChange={(e) => handleFteChange(employeeName, alloc.clientId, weekKey, e.target.value)}
+                                                          disabled={!hasMounted || isLockedForUser || isSaving} readOnly={!hasMounted || isLockedForUser}
+                                                        />
                                                     ) : (
                                                       <div className="w-24 text-center mx-auto text-muted-foreground">-</div>
                                                     )}
