@@ -41,6 +41,7 @@ export function DashboardContent() {
 
   useEffect(() => {
     async function fetchData() {
+      setLoading(true);
       try {
         const [empResponse, allocResponse] = await Promise.all([
           fetch(`/data/v1/consolidated_hr_fte_report_view`),

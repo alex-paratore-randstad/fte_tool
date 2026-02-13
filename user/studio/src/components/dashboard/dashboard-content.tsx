@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import { startOfWeek, subWeeks, format } from 'date-fns';
 import { PageHeader } from '../page-header';
+import { writeLog } from '@/lib/logger';
 
 type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
 
@@ -40,16 +41,19 @@ export function DashboardContent() {
 
   useEffect(() => {
     async function fetchData() {
+      setLoading(true);
       try {
         const [empResponse, allocResponse] = await Promise.all([
-          fetch(`/data/v1/gbs_ind_hr_fte_report`),
+          fetch(`/data/v1/consolidated_hr_fte_report_view`),
           fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/`),
         ]);
 
         if (!empResponse.ok) {
+          writeLog('DashboardContent', 'warning', 'Could not fetch employee data', { status: empResponse.status });
           console.warn("Could not fetch employee data. This may be expected in local dev.");
         }
          if (!allocResponse.ok) {
+          writeLog('DashboardContent', 'warning', 'Could not fetch allocation data', { status: allocResponse.status });
           console.warn("Could not fetch allocation data. This may be expected in local dev.");
         }
 
@@ -57,25 +61,36 @@ export function DashboardContent() {
         const allocations: WeeklyAllocation[] = allocResponse.ok ? await allocResponse.json() : [];
 
         try {
-            const safeEmployees = employees.filter(e => e && e.Person_Number && e.Full_Name);
+            const safeEmployees = employees.filter(e => e && e.person_id && e.full_name);
             setAllEmployees(safeEmployees);
-            const totalEmployeeCount = new Set(safeEmployees.map(e => e.Person_Number)).size;
+            const totalEmployeeCount = new Set(safeEmployees.map(e => e.person_id)).size;
             setTotalFtes(totalEmployeeCount);
 
             const today = startOfWeek(new Date(), { weekStartsOn: 1 });
             const currentWeekAllocations = allocations.filter(a => a.content.allocation_date === format(today, 'yyyy-MM-dd'));
 
-            const allocatedEmployeeIds = new Set(
-                currentWeekAllocations
-                    .filter(a => a && a.content && a.content.employee_id && parseFloat(a.content.allocation_amount) > 0)
-                    .map(a => a.content.employee_id)
-            );
+            const allocatedEmployeeIds = new Set<string>();
 
-            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.Person_Number));
+            currentWeekAllocations
+              .filter(a => a?.content && parseFloat(a.content.allocation_amount) > 0)
+              .forEach(a => {
+                if (a.content.employee_id) {
+                  allocatedEmployeeIds.add(a.content.employee_id);
+                } else if (a.content.allocation_name) {
+                  // Fallback for older data without employee_id
+                  const match = a.content.allocation_name.match(/\[(.*?)\]/);
+                  if (match && match[1]) {
+                    allocatedEmployeeIds.add(match[1]);
+                  }
+                }
+              });
+
+
+            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.person_id));
             setAllocatedEmployees(allocatedEmps);
             setAllocatedFtes(allocatedEmps.length);
 
-            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.Person_Number));
+            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.person_id));
             setUnallocatedEmployees(unallocatedEmps);
             setUnallocatedFtes(unallocatedEmps.length);
             setMissingAllocations(unallocatedEmps.length);
@@ -109,7 +124,7 @@ export function DashboardContent() {
             setAllocationChartData(weeklyData);
 
         } catch (processingError) {
-             console.error("Failed to process dashboard data:", processingError);
+             writeLog('DashboardContent', 'error', 'Failed to process dashboard data', processingError);
              toast({
                 variant: 'destructive',
                 title: 'Failed to process data',
@@ -123,7 +138,7 @@ export function DashboardContent() {
         }
 
       } catch (error) {
-        console.error("Failed to fetch dashboard data:", error);
+        writeLog('DashboardContent', 'error', 'Failed to load dashboard data', error);
         toast({
           variant: 'destructive',
           title: 'Failed to load dashboard',
@@ -233,10 +248,10 @@ export function DashboardContent() {
                         </TableRow>
                       ))
                     ) : detailData.length > 0 ? detailData.map(employee => (
-                      <TableRow key={employee.Person_Number}>
-                        <TableCell>{employee.Full_Name}</TableCell>
-                        <TableCell>{employee.Market_Facing_Title}</TableCell>
-                        <TableCell>{employee.First_Reviewer_Name}</TableCell>
+                      <TableRow key={employee.person_id}>
+                        <TableCell>{employee.full_name}</TableCell>
+                        <TableCell>{employee.title}</TableCell>
+                        <TableCell>{employee.manager}</TableCell>
                       </TableRow>
                     )) : (
                       <TableRow>

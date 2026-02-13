@@ -31,6 +31,7 @@ type FilterOptions = {
   departments: string[];
   titles: string[];
   managers: string[];
+  countries: string[];
 }
 
 const FilterSelect = ({ placeholder, options, value, onValueChange, disabled }: { placeholder: string, options: string[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
@@ -67,9 +68,10 @@ export function TeamContent() {
     department: '',
     title: '',
     manager: '',
+    country: '',
   });
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-      employees: [], departments: [], titles: [], managers: []
+      employees: [], departments: [], titles: [], managers: [], countries: []
   });
   const { toast } = useToast();
 
@@ -129,6 +131,7 @@ export function TeamContent() {
             departments: getUniqueSorted('department'),
             titles: getUniqueSorted('title'),
             managers: getUniqueSorted('manager'),
+            countries: getUniqueSorted('country'),
         });
         
       } catch (error) {
@@ -152,7 +155,8 @@ export function TeamContent() {
         (filters.employee === '' || member.full_name === filters.employee) &&
         (filters.department === '' || member.department === filters.department) &&
         (filters.title === '' || member.title === filters.title) &&
-        (filters.manager === '' || member.manager === filters.manager)
+        (filters.manager === '' || member.manager === filters.manager) &&
+        (filters.country === '' || member.country === filters.country)
       );
     });
   }, [teamMembers, filters]);
@@ -162,7 +166,7 @@ export function TeamContent() {
   };
 
   const clearFilters = () => {
-    setFilters({ employee: '', department: '', title: '', manager: '' });
+    setFilters({ employee: '', department: '', title: '', manager: '', country: '' });
   };
 
   return (
@@ -172,11 +176,12 @@ export function TeamContent() {
         <CardDescription>
           This page displays the current team roster from the live dataset. Use the filters below to refine the results.
         </CardDescription>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
             <FilterSelect placeholder="Filter by Name..." options={filterOptions.employees} value={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
             <FilterSelect placeholder="Filter by Department..." options={filterOptions.departments} value={filters.department} onValueChange={value => handleFilterChange('department', value)} disabled={loading} />
             <FilterSelect placeholder="Filter by Title..." options={filterOptions.titles} value={filters.title} onValueChange={value => handleFilterChange('title', value)} disabled={loading} />
             <FilterSelect placeholder="Filter by Manager..." options={filterOptions.managers} value={filters.manager} onValueChange={value => handleFilterChange('manager', value)} disabled={loading} />
+            <FilterSelect placeholder="Filter by Country..." options={filterOptions.countries} value={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
             <Button variant="outline" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
         </div>
       </CardHeader>
@@ -201,7 +206,7 @@ export function TeamContent() {
                 filteredMembers.map((member, rowIndex) => (
                   <TableRow key={member.person_id || rowIndex}>
                     {displayColumns.map((column) => (
-                      <TableCell key={column}>{member[column]}</TableCell>
+                      <TableCell key={column}>{member[column] as string}</TableCell>
                     ))}
                   </TableRow>
                 ))

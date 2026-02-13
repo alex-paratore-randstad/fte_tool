@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { format, startOfMonth, addMonths, subMonths } from 'date-fns';
 import { TeamMember } from '@/types';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type TicketAllocationData = {
   agent_name: string;
@@ -62,7 +63,7 @@ const EmployeeSelect = ({
   value,
   disabled
 }: { 
-  employees: { Person_Number: string, Full_Name: string }[], 
+  employees: { person_id: string, full_name: string }[], 
   onValueChange: (value: string) => void,
   value: string,
   disabled?: boolean
@@ -70,11 +71,11 @@ const EmployeeSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
-    const sortedEmployees = employees.sort((a,b) => a.Full_Name.localeCompare(b.Full_Name));
+    const sortedEmployees = employees.sort((a,b) => a.full_name.localeCompare(b.full_name));
     if (!searchTerm) {
       return sortedEmployees;
     }
-    return sortedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedEmployees.filter(e => e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
 
   return (
@@ -84,16 +85,18 @@ const EmployeeSelect = ({
       </SelectTrigger>
       <SelectContent>
           <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
-          {filteredEmployees.map(e => (
-              <SelectItem key={e.Person_Number} value={e.Full_Name}>
-                  {e.Full_Name}
-              </SelectItem>
-          ))}
-          {filteredEmployees.length === 0 && (
-              <div className="p-4 text-sm text-center text-muted-foreground">
-                  No employees found.
-              </div>
-          )}
+          <ScrollArea className="h-64">
+            {filteredEmployees.map(e => (
+                <SelectItem key={e.person_id} value={e.full_name}>
+                    {e.full_name}
+                </SelectItem>
+            ))}
+            {filteredEmployees.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No employees found.
+                </div>
+            )}
+          </ScrollArea>
       </SelectContent>
     </Select>
   );
@@ -118,8 +121,13 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
+  const [hasMounted, setHasMounted] = useState(false);
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const fetchDataForMonth = useCallback(async (date: Date) => {
     setIsLoading(true);
@@ -128,8 +136,8 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
       const selectedYear = format(date, 'yyyy');
 
       const [ticketResponse, employeeResponse] = await Promise.all([
-          fetch(`/data/v1/fte_tickets_grouped_monthly`),
-          fetch('/data/v1/gbs_ind_hr_fte_report')
+          fetch(`/data/v1/fte_tickets_grouped_monthly_view`),
+          fetch('/data/v1/consolidated_hr_fte_report_view')
       ]);
 
       if (!ticketResponse.ok || !employeeResponse.ok) {
@@ -167,10 +175,8 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
   
   useEffect(() => {
     // Set initial date on client-side only to avoid hydration errors
-    if (!currentDate) {
-      setCurrentDate(new Date());
-    }
-  }, [currentDate]);
+    setCurrentDate(new Date());
+  }, []);
 
   useEffect(() => {
     // Fetch data whenever the date changes, but only if date is not null
@@ -184,10 +190,15 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     const activeEmployeeNames = new Set(activeAllocations.map(a => a.agentName));
     const uniqueAgentNamesFromTickets = Array.from(new Set(allTicketData.map(t => t.agent_name)));
     
-    // We only want to show employees who have ticket data for the selected month
-    return allEmployees
-        .filter(e => uniqueAgentNamesFromTickets.includes(e.Full_Name) && !activeEmployeeNames.has(e.Full_Name))
-        .map(e => ({ Person_Number: e.Person_Number, Full_Name: e.Full_Name }));
+    const dynamicEmployees = allEmployees
+        .filter(e => uniqueAgentNamesFromTickets.includes(e.full_name) && !activeEmployeeNames.has(e.full_name))
+        .map(e => ({ person_id: e.person_id, full_name: e.full_name }));
+
+    const tempWorkerOption = { person_id: 'TEMP_WORKER', full_name: 'Temp Worker' };
+    if (!activeEmployeeNames.has(tempWorkerOption.full_name)) {
+        return [tempWorkerOption, ...dynamicEmployees];
+    }
+    return dynamicEmployees;
   }, [allEmployees, allTicketData, activeAllocations]);
 
   const handleAddEmployee = (employeeName: string) => {
@@ -199,6 +210,20 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     if (isAlreadyActive) {
       toast({ variant: 'destructive', title: 'Employee already in grid' });
       return;
+    }
+
+    if (employeeName === 'Temp Worker') {
+        const newEmployeeAllocation: EmployeeAllocation = {
+            agentName: employeeName,
+            allocations: [{
+                id: `temp-worker-new-${Date.now()}`,
+                clientName: '',
+                fte: 1.0
+            }],
+        };
+        setActiveAllocations(prev => [newEmployeeAllocation, ...prev]);
+        setTimeout(() => setSelectedEmployeeToAdd(''), 0);
+        return;
     }
     
     // Find ticket data for the selected employee
@@ -344,6 +369,8 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     }
   };
 
+  const isGridLoading = isLoading || !currentDate;
+
   return (
     <Card>
       <CardHeader>
@@ -357,19 +384,19 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
                 employees={availableEmployees}
                 onValueChange={handleAddEmployee}
                 value={selectedEmployeeToAdd}
-                disabled={isLoading || isSubmitting}
+                disabled={isGridLoading || isSubmitting}
             />
-            <ManagerSelect disabled={isLoading || isSubmitting}/>
-            <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isLoading || isSubmitting}>
+            <ManagerSelect disabled={isGridLoading || isSubmitting}/>
+            <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isGridLoading || isSubmitting}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm font-medium w-32 text-center">
               {currentDate ? format(currentDate, 'MMMM yyyy') : <Skeleton className="h-5 w-24" />}
             </span>
-            <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isLoading || isSubmitting}>
+            <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isGridLoading || isSubmitting}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <Button onClick={handleSave} disabled={activeAllocations.length === 0 || isSubmitting || isLoading}>
+            <Button onClick={handleSave} disabled={activeAllocations.length === 0 || isSubmitting || isGridLoading}>
               {isSubmitting ? 'Saving...' : 'Save All'}
             </Button>
           </div>
@@ -387,7 +414,7 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {(!hasMounted || isGridLoading) ? (
                 <TableRow>
                   <TableCell colSpan={4} className="h-24 text-center">
                      <Skeleton className="h-5 w-48 mx-auto" />
@@ -459,3 +486,5 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     </Card>
   );
 }
+
+    

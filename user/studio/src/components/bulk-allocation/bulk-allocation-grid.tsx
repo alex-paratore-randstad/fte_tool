@@ -32,6 +32,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Label } from '../ui/label';
 import type { SummaryEntry } from './saved-bulk-allocations-table';
+import { writeLog } from '@/lib/logger';
 
 type AiReportData = {
     Code: string;
@@ -57,11 +58,13 @@ const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString
 const ClientSelect = ({
   clients,
   value,
-  onValueChange
+  onValueChange,
+  disabled,
 }: {
   clients: AiReportData[],
   value: string,
-  onValueChange: (value: string) => void
+  onValueChange: (value: string) => void,
+  disabled?: boolean;
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -92,19 +95,64 @@ const ClientSelect = ({
   }, [clients, searchTerm]);
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger>
           <SelectValue placeholder="Select Client..." />
       </SelectTrigger>
       <SelectContent>
           <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
-          {filteredClients.map(client => <SelectItem key={client.Code} value={client.DisplayName}>{client.DisplayName}</SelectItem>)}
-          {filteredClients.length === 0 && (
-              <div className="p-4 text-sm text-center text-muted-foreground">
-                  No clients found.
-              </div>
-          )}
+          <ScrollArea className="h-64">
+            {filteredClients.map(client => <SelectItem key={client.Code} value={client.DisplayName}>{client.DisplayName}</SelectItem>)}
+            {filteredClients.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No clients found.
+                </div>
+            )}
+          </ScrollArea>
       </SelectContent>
+    </Select>
+  );
+};
+
+const ManagerSelect = ({ 
+  managers, 
+  onValueChange,
+  disabled,
+}: { 
+  managers: {id: string, name: string}[], 
+  onValueChange: (value: string) => void,
+  disabled?: boolean,
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const filteredManagers = useMemo(() => {
+    const sortedManagers = managers.sort((a,b) => a.name.localeCompare(b.name));
+    if (!searchTerm) {
+      return sortedManagers;
+    }
+    return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [managers, searchTerm]);
+
+  return (
+    <Select onValueChange={onValueChange} disabled={disabled}>
+        <SelectTrigger className="w-full">
+            <SelectValue placeholder="Load Team..." />
+        </SelectTrigger>
+        <SelectContent>
+            <SelectSearch placeholder="Search manager..." onChange={setSearchTerm} />
+            <ScrollArea className="h-64">
+              {filteredManagers.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                  </SelectItem>
+              ))}
+              {filteredManagers.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No managers found.
+                </div>
+              )}
+            </ScrollArea>
+        </SelectContent>
     </Select>
   );
 };
@@ -113,11 +161,13 @@ const ClientSelect = ({
 export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAllocationGridProps) {
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [clients, setClients] = useState<AiReportData[]>([]);
+  const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
-  const [allocationRows, setAllocationRows] = useState<AllocationRow[]>([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
+  const [allocationRows, setAllocationRows] = useState<AllocationRow[]>([]);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
   
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
@@ -126,8 +176,9 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
 
   const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
-
+  
   useEffect(() => {
+    setHasMounted(true);
     // Set date state on client to avoid hydration mismatch
     const now = new Date();
     setSelectedMonth(months[now.getMonth()]);
@@ -138,18 +189,33 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     setLoading(true);
     try {
       const [empResponse, clientResponse] = await Promise.all([
-        fetch(`/data/v1/gbs_ind_hr_fte_report`),
+        fetch(`/data/v1/consolidated_hr_fte_report_view`),
         fetch(`/data/v1/ai_report`),
       ]);
 
-      if (!empResponse.ok || !clientResponse.ok) {
-        console.warn("Could not fetch initial data.");
-      }
+      if (!empResponse.ok) writeLog('BulkAllocationGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
+      if (!clientResponse.ok) writeLog('BulkAllocationGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name).sort((a,b) => a.Full_Name.localeCompare(b.Full_Name)) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a,b) => a.full_name.localeCompare(b.full_name)) : [];
       const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
       
-      setAllEmployees(empData);
+      const tempWorker: TeamMember = {
+        person_id: 'TEMP_WORKER',
+        full_name: 'Temp Worker',
+        title: 'Temporary Staff',
+        employment_type: 'Temporary',
+        status: 'Active',
+        department: 'Temporary',
+        manager_id: 'N/A',
+        manager: 'N/A',
+        manager_email: 'N/A',
+        person_email: 'N/A',
+        start_date: '',
+        end_date: '',
+        country: '',
+        fte: '1.0'
+      };
+      setAllEmployees([tempWorker, ...empData]);
       
       const staticClients: AiReportData[] = [
         { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
@@ -157,8 +223,18 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       ];
       setClients([...staticClients, ...clientData]);
 
+      const managerMap = new Map<string, string>();
+      empData.forEach(emp => {
+          if(emp.manager_id && emp.manager) {
+              managerMap.set(emp.manager_id, emp.manager);
+          }
+      });
+      const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setManagers(uniqueManagers);
+
     } catch (error) {
-      console.error("Failed to fetch initial data:", error);
+      writeLog('BulkAllocationGrid', 'error', 'Failed to fetch initial data', error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
     } finally {
       setLoading(false);
@@ -166,7 +242,6 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   }, [toast]);
   
   useEffect(() => {
-    // This effect now ONLY runs when a template is copied, not on initial load.
     if (templateToCopy) {
       const newAllocationRows = templateToCopy.map(summary => ({
         id: `copied-${summary.id}-${Date.now()}`,
@@ -175,6 +250,9 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       }));
       setAllocationRows(newAllocationRows);
       toast({ title: 'Template Copied', description: 'Allocation profile has been copied. Select employees and save.' });
+    } else {
+        // Set default allocation row only if not copying
+        setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 1.0 }]);
     }
   }, [templateToCopy, toast]);
 
@@ -188,10 +266,10 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     if (!employeeSearchTerm) {
       return allEmployees;
     }
-    return allEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
+    return allEmployees.filter(e => e.full_name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
   }, [allEmployees, employeeSearchTerm]);
   
-  const totalPercentage = useMemo(() => {
+  const totalAllocation = useMemo(() => {
     return allocationRows.reduce((sum, row) => sum + (Number(row.percentage) || 0), 0);
   }, [allocationRows]);
 
@@ -227,17 +305,38 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     }));
   };
 
+  const handleLoadManagerTeam = (managerId: string) => {
+    if (!managerId) return;
+
+    const teamMemberIds = allEmployees
+        .filter(e => e.manager_id === managerId)
+        .map(e => e.person_id);
+
+    if (teamMemberIds.length === 0) {
+      toast({ title: 'No employees found for this manager.' });
+      return;
+    }
+
+    setSelectedEmployees(prev => {
+        const newSet = new Set(prev);
+        teamMemberIds.forEach(id => newSet.add(id));
+        return newSet;
+    });
+
+    toast({ title: 'Team Loaded', description: `${teamMemberIds.length} employee(s) have been selected.` });
+  };
+
   const handleSave = async () => {
     if (selectedEmployees.size === 0) {
       toast({ variant: 'destructive', title: 'No employees selected.' });
       return;
     }
-    if (totalPercentage !== 100) {
-      toast({ variant: 'destructive', title: 'Total allocation must be 100%.' });
+    if (Math.abs(totalAllocation - 1.0) > 0.01) {
+      toast({ variant: 'destructive', title: 'Total allocation must be 1.0.' });
       return;
     }
     if (allocationRows.some(row => !row.clientName || row.percentage <= 0)) {
-        toast({ variant: 'destructive', title: 'Invalid allocation rows.', description: 'Please ensure every row has a client and a percentage greater than 0.' });
+        toast({ variant: 'destructive', title: 'Invalid allocation rows.', description: 'Please ensure every row has a client and an allocation greater than 0.' });
         return;
     }
     if (!selectedMonth || !selectedYear) {
@@ -252,7 +351,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     const allocationMonthYear = `${selectedMonth} ${selectedYear}`;
 
     const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
-      const employee = allEmployees.find(e => e.Person_Number === employeeId);
+      const employee = allEmployees.find(e => e.person_id === employeeId);
       return fetch('/domo/datastores/v1/collections/bulk_allocation_fte/documents/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -260,7 +359,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
           content: {
             bulk_allocation_id: bulkAllocationId,
             employee_id: employeeId,
-            employee_name: employee?.Full_Name || 'Unknown',
+            employee_name: employee?.full_name || 'Unknown',
             bulk_allocation_date: allocationDate,
             allocation_monthyear: allocationMonthYear,
           }
@@ -293,35 +392,23 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         throw new Error('One or more submissions failed.');
       }
       
+      writeLog('BulkAllocationGrid', 'success', 'Bulk allocation saved', { count: selectedEmployees.size, month: allocationMonthYear });
       toast({ title: 'Bulk Allocation Saved', description: `Assigned allocation profile to ${selectedEmployees.size} employees for ${allocationMonthYear}.` });
       
       // Reset form
       setSelectedEmployees(new Set());
-      setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
+      setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 1.0 }]);
       onSaveSuccess();
 
     } catch (error: any) {
-      console.error("Save error:", error);
+      writeLog('BulkAllocationGrid', 'error', 'Bulk allocation save failed', error);
       toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  if (loading || userLoading || !selectedMonth || !selectedYear) {
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader><Skeleton className="h-10 w-full" /></CardHeader>
-          <CardContent><Skeleton className="h-96 w-full" /></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><Skeleton className="h-10 w-full" /></CardHeader>
-          <CardContent><Skeleton className="h-96 w-full" /></CardContent>
-        </Card>
-      </div>
-    );
-  }
+  
+  const isPageLoading = loading || userLoading || !hasMounted;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -329,11 +416,17 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         <CardHeader>
           <CardTitle>Step 1: Select Employees</CardTitle>
           <CardDescription>Choose the employees who will share this allocation profile.</CardDescription>
-          <div className="relative pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             <Input 
               placeholder="Search employees..." 
               value={employeeSearchTerm}
               onChange={e => setEmployeeSearchTerm(e.target.value)}
+              disabled={isPageLoading}
+            />
+             <ManagerSelect 
+                managers={managers} 
+                onValueChange={handleLoadManagerTeam} 
+                disabled={isPageLoading}
             />
           </div>
         </CardHeader>
@@ -348,19 +441,35 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEmployees.map(emp => (
-                  <TableRow key={emp.Person_Number}>
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedEmployees.has(emp.Person_Number)}
-                        onCheckedChange={checked => handleEmployeeToggle(emp.Person_Number, !!checked)}
-                        aria-label={`Select ${emp.Full_Name}`}
-                      />
+                {isPageLoading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-5 w-5 rounded" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : filteredEmployees.length > 0 ? (
+                  filteredEmployees.map(emp => (
+                    <TableRow key={emp.person_id}>
+                      <TableCell>
+                        <Checkbox 
+                          checked={selectedEmployees.has(emp.person_id)}
+                          onCheckedChange={checked => handleEmployeeToggle(emp.person_id, !!checked)}
+                          aria-label={`Select ${emp.full_name}`}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{emp.full_name}</TableCell>
+                      <TableCell className="text-muted-foreground">{emp.title}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
+                      No employees to display.
                     </TableCell>
-                    <TableCell className="font-medium">{emp.Full_Name}</TableCell>
-                    <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </ScrollArea>
@@ -374,14 +483,14 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       <Card>
         <CardHeader>
           <CardTitle>Step 2: Define Allocation</CardTitle>
-          <CardDescription>Define the client percentages for the selected group.</CardDescription>
+          <CardDescription>Define the client allocation for the selected group. Must sum to 1.0.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6">
             <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                     <Label htmlFor="month">Month</Label>
-                    <Select value={selectedMonth} onValueChange={(value) => setSelectedMonth(value)}>
+                    <Select value={selectedMonth || ''} onValueChange={(value) => setSelectedMonth(value)} disabled={isPageLoading}>
                         <SelectTrigger id="month">
                             <SelectValue placeholder="Select Month" />
                         </SelectTrigger>
@@ -392,7 +501,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="year">Year</Label>
-                    <Select value={selectedYear} onValueChange={(value) => setSelectedYear(value)}>
+                    <Select value={selectedYear || ''} onValueChange={(value) => setSelectedYear(value)} disabled={isPageLoading}>
                         <SelectTrigger id="year">
                             <SelectValue placeholder="Select Year" />
                         </SelectTrigger>
@@ -409,35 +518,38 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                     clients={clients}
                     value={row.clientName}
                     onValueChange={value => handleAllocationChange(row.id, 'clientName', value)}
+                    disabled={isPageLoading || isSubmitting}
                   />
                   <Input 
                     type="number"
                     min="0"
-                    max="100"
+                    max="1"
+                    step="0.01"
                     value={row.percentage}
                     onChange={e => handleAllocationChange(row.id, 'percentage', e.target.value)}
                     className="w-32 text-center"
-                    placeholder="%"
+                    placeholder="0.00"
+                    disabled={isPageLoading || isSubmitting}
                   />
-                  <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1}>
+                  <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1 || isPageLoading || isSubmitting}>
                       <X className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
-              <Button variant="outline" onClick={handleAddAllocationRow}>
+              <Button variant="outline" onClick={handleAddAllocationRow} disabled={isPageLoading || isSubmitting}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Client
               </Button>
-              <Alert variant={totalPercentage !== 100 ? 'destructive' : 'default'}>
+              <Alert variant={Math.abs(totalAllocation - 1.0) > 0.01 ? 'destructive' : 'default'}>
                 <AlertDescription>
-                  Total Allocation: <span className="font-bold">{totalPercentage}%</span>
-                  {totalPercentage !== 100 && " (Must equal 100%)"}
+                  Total Allocation: <span className="font-bold">{totalAllocation.toFixed(2)}</span>
+                  {Math.abs(totalAllocation - 1.0) > 0.01 && " (Must equal 1.00)"}
                 </AlertDescription>
               </Alert>
             </div>
           </div>
         </CardContent>
         <CardFooter>
-            <Button onClick={handleSave} disabled={isSubmitting || selectedEmployees.size === 0 || totalPercentage !== 100}>
+            <Button onClick={handleSave} disabled={isPageLoading || isSubmitting || selectedEmployees.size === 0 || Math.abs(totalAllocation - 1.0) > 0.01}>
               {isSubmitting ? 'Saving...' : 'Save Bulk Allocation'}
             </Button>
         </CardFooter>
@@ -445,3 +557,5 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     </div>
   );
 }
+
+    

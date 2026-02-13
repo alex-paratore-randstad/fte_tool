@@ -1,5 +1,4 @@
 
-
 export type Employee = {
   id: string;
   name: string;
@@ -57,7 +56,6 @@ export type WeeklyAllocation = {
     cost_center_number: string;
     cost_center_name: string;
     allocation_amount: string; // This is a string from the datastore
-    no_charge_flag?: 'Y' | 'N' | null;
   }
 };
 

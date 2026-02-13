@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,14 +21,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2 } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import type { TeamMember } from '@/types';
+import type { TeamMember, WeeklyTarget } from '@/types';
 import { cn } from '@/lib/utils';
-import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { v4 as uuidv4 } from 'uuid';
+import { writeLog } from '@/lib/logger';
 
 type AiReportData = {
     Code: string;
@@ -38,13 +38,18 @@ type AiReportData = {
     RollsUpTo: string;
 };
 
-const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+const getQuarterStartDate = (year: number, quarter: string) => {
+    const quarterMonth = (parseInt(quarter.substring(1)) - 1) * 3 + 1;
+    return `${year}-${quarterMonth.toString().padStart(2, '0')}-01`;
+}
 
 type TargetRow = {
   id: string;
   clientId: string;
   clientName: string;
-  weeklyTargets: { [weekKey: string]: number };
+  quarterlyTargets: { [quarterKey: string]: number };
 };
 
 type EmployeeTarget = {
@@ -52,14 +57,12 @@ type EmployeeTarget = {
   targets: TargetRow[];
 };
 
-type MultiWeekTargetGridProps = {
-  currentDate: Date | null;
-  setCurrentDate: (date: Date) => void;
+type QuarterlyTargetGridProps = {
+  currentYear: number;
+  setCurrentYear: (year: number) => void;
   onSaveSuccess: () => void;
-  initialLoading: boolean;
 };
 
-// New self-contained component for the Client dropdown
 const ClientSelect = ({ 
   clients, 
   value, 
@@ -74,30 +77,9 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    // Create a stable sort: special clients first, then alphabetical.
-    const sorted = [...clients].sort((a, b) => {
-      const specialClients = ['PTO', 'Unallocated'];
-      const aIsSpecial = specialClients.includes(a.DisplayName);
-      const bIsSpecial = specialClients.includes(b.DisplayName);
-
-      if (aIsSpecial && !bIsSpecial) return -1;
-      if (!aIsSpecial && bIsSpecial) return 1;
-      
-      // If both are special or both are not, sort by name.
-      // Give 'Unallocated' a slight edge over 'PTO' if both present
-      if (aIsSpecial && bIsSpecial) {
-          return a.DisplayName === 'Unallocated' ? -1 : 1;
-      }
-      
-      return a.DisplayName.localeCompare(b.DisplayName);
-    });
-
-    if (!searchTerm) {
-      return sorted;
-    }
-    return sorted.filter(cc =>
-      cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const sorted = [...clients].sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
+    if (!searchTerm) return sorted;
+    return sorted.filter(cc => cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [clients, searchTerm]);
 
   return (
@@ -105,363 +87,296 @@ const ClientSelect = ({
       <SelectTrigger><SelectValue placeholder="Select Client..." /></SelectTrigger>
       <SelectContent>
         <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
-        {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
-         {filteredClients.length === 0 && (
-          <div className="p-4 text-sm text-center text-muted-foreground">
-              No clients found.
-          </div>
-        )}
+        <ScrollArea className="h-64">
+          {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
+           {filteredClients.length === 0 && (
+            <div className="p-4 text-sm text-center text-muted-foreground">
+                No clients found.
+            </div>
+          )}
+        </ScrollArea>
       </SelectContent>
     </Select>
   );
 };
 
-// New self-contained component for the Employee dropdown
 const EmployeeSelect = ({ 
   employees, 
   onValueChange,
-  value
+  value,
+  disabled
 }: { 
   employees: TeamMember[], 
   onValueChange: (value: string) => void,
   value: string,
+  disabled?: boolean
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
-    const sortedEmployees = employees.sort((a,b) => a.Full_Name.localeCompare(b.Full_Name));
-    if (!searchTerm) {
-      return sortedEmployees;
-    }
-    return sortedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const sortedEmployees = employees.sort((a,b) => a.full_name.localeCompare(b.full_name));
+    if (!searchTerm) return sortedEmployees;
+    return sortedEmployees.filter(e => e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
   
   return (
-    <Select onValueChange={onValueChange} value={value}>
+    <Select onValueChange={onValueChange} value={value} disabled={disabled}>
       <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="Load Employee..." />
       </SelectTrigger>
       <SelectContent>
           <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
-          {filteredEmployees.map(e => (
-              <SelectItem key={e.Person_Number} value={e.Person_Number}>
-                  {e.Full_Name}
-              </SelectItem>
-          ))}
-          {filteredEmployees.length === 0 && (
-              <div className="p-4 text-sm text-center text-muted-foreground">
-                  No employees found.
-              </div>
-          )}
+          <ScrollArea className="h-64">
+            {filteredEmployees.map(e => (
+                <SelectItem key={e.person_id} value={e.person_id}>
+                    {e.full_name}
+                </SelectItem>
+            ))}
+            {filteredEmployees.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No employees found.
+                </div>
+            )}
+          </ScrollArea>
       </SelectContent>
     </Select>
   );
 };
 
-// New self-contained component for the Manager dropdown
 const ManagerSelect = ({ 
   managers, 
-  onValueChange 
+  onValueChange,
+  disabled
 }: { 
   managers: {id: string, name: string}[], 
-  onValueChange: (value: string) => void 
+  onValueChange: (value: string) => void,
+  disabled?: boolean
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
     const sortedManagers = managers.sort((a,b) => a.name.localeCompare(b.name));
-    if (!searchTerm) {
-      return sortedManagers;
-    }
+    if (!searchTerm) return sortedManagers;
     return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
 
   return (
-    <Select onValueChange={onValueChange}>
+    <Select onValueChange={onValueChange} disabled={disabled}>
         <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Load Team..." />
         </SelectTrigger>
         <SelectContent>
             <SelectSearch placeholder="Search manager..." onChange={setSearchTerm} />
-            {filteredManagers.map(m => (
-                <SelectItem key={m.id} value={m.id}>
-                    {m.name}
-                </SelectItem>
-            ))}
-             {filteredManagers.length === 0 && (
-              <div className="p-4 text-sm text-center text-muted-foreground">
-                  No managers found.
-              </div>
-            )}
+            <ScrollArea className="h-64">
+              {filteredManagers.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                  </SelectItem>
+              ))}
+               {filteredManagers.length === 0 && (
+                <div className="p-4 text-sm text-center text-muted-foreground">
+                    No managers found.
+                </div>
+              )}
+            </ScrollArea>
         </SelectContent>
     </Select>
   );
 };
 
 
-export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess, initialLoading }: MultiWeekTargetGridProps) {
+export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess }: QuarterlyTargetGridProps) {
   const [activeTargets, setActiveTargets] = useState<EmployeeTarget[]>([]);
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [clients, setClients] = useState<AiReportData[]>([]);
-  const [internalLoading, setInternalLoading] = useState(true);
-  const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
+  const [hasMounted, setHasMounted] = useState(false);
 
   const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set the date only on the client side to avoid hydration errors
-    setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    setHasMounted(true);
   }, []);
 
-  const { weeks, fiscalMonthLabel } = useMemo(() => {
-    if (!currentDate) return { weeks: [], fiscalMonthLabel: 'Loading...' };
-    const fiscalData = getFiscalDataForDate(currentDate);
-    const monthWeeks: FiscalWeek[] = getWeeksForFiscalMonth(currentDate);
-    const label = fiscalData ? `${fiscalData.Reporting_Month} ${fiscalData.Reporting_Year}` : 'Loading...';
-    return { weeks: monthWeeks, fiscalMonthLabel: label };
-  }, [currentDate]);
-
-  const fetchData = useCallback(async () => {
-    setInternalLoading(true);
+  const fetchBaseData = useCallback(async () => {
+    setIsLoading(true);
     try {
       const [empResponse, clientResponse] = await Promise.all([
-        fetch(`/data/v1/gbs_ind_hr_fte_report`),
+        fetch(`/data/v1/consolidated_hr_fte_report_view`),
         fetch(`/data/v1/ai_report`),
       ]);
 
-      if (!empResponse.ok || !clientResponse.ok) {
-        console.warn("Could not fetch initial data. This may be expected in local dev.");
-      }
+      if (!empResponse.ok) writeLog('QuarterlyTargetGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
+      if (!clientResponse.ok) writeLog('QuarterlyTargetGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name).sort((a, b) => a.Full_Name.localeCompare(b.Full_Name)) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a, b) => a.full_name.localeCompare(b.full_name)) : [];
       const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
       
-      setAllEmployees(empData);
-      
-      const staticClients: AiReportData[] = [
-        { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
-        { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '' },
-      ];
-      setClients([...staticClients, ...clientData]);
+      const tempWorker: TeamMember = {
+        person_id: 'TEMP_WORKER',
+        full_name: 'Temp Worker',
+        title: 'Temporary Staff',
+        employment_type: 'Temporary',
+        status: 'Active',
+        department: 'Temporary',
+        manager_id: 'N/A',
+        manager: 'N/A',
+        manager_email: 'N/A',
+        person_email: 'N/A',
+        start_date: '',
+        end_date: '',
+        country: '',
+        fte: '1.0'
+      };
+      setAllEmployees([tempWorker, ...empData]);
+      setClients([...clientData]);
       
       const managerMap = new Map<string, string>();
-      empData.forEach(emp => {
-          if(emp.First_Reviewer_Code && emp.First_Reviewer_Name) {
-              managerMap.set(emp.First_Reviewer_Code, emp.First_Reviewer_Name);
-          }
-      });
-      const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-      setManagers(uniqueManagers);
-
-      setActiveTargets([]);
+      empData.forEach(emp => { if(emp.manager_id && emp.manager) managerMap.set(emp.manager_id, emp.manager); });
+      setManagers(Array.from(managerMap, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
 
     } catch (error) {
-      console.error("Failed to fetch initial data:", error);
+      writeLog('QuarterlyTargetGrid', 'error', 'Failed to fetch base data', error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
     } finally {
-      setInternalLoading(false);
+      setIsLoading(false);
     }
   }, [toast]);
-
+  
   useEffect(() => {
-    if (!userLoading) {
-        fetchData();
-    }
-  }, [fetchData, userLoading, currentUser.id]);
-
+    if(!userLoading) fetchBaseData();
+  }, [fetchBaseData, userLoading]);
 
   const availableEmployees = useMemo(() => {
-    const activeEmployeeIds = new Set(activeTargets.map(a => a.employee.Person_Number));
-    return allEmployees.filter(e => !activeEmployeeIds.has(e.Person_Number));
+    const activeEmployeeIds = new Set(activeTargets.map(a => a.employee.person_id));
+    return allEmployees.filter(e => !activeEmployeeIds.has(e.person_id));
   }, [allEmployees, activeTargets]);
 
-  const handlePrevMonth = () => {
-    if (currentDate) setCurrentDate(getPreviousFiscalMonth(currentDate));
-  };
-  const handleNextMonth = () => {
-    if (currentDate) setCurrentDate(getNextFiscalMonth(currentDate));
-  };
-  
-  const handleAddEmployee = (employeeId: string) => {
-    if (!employeeId) return;
+  const fetchTargetsForEmployee = useCallback(async (employee: TeamMember, year: number) => {
+    const blankRow = { id: uuidv4(), clientId: '', clientName: '', quarterlyTargets: {} };
+    try {
+        const quarterDates = quarters.map(q => getQuarterStartDate(year, q));
+        const requests = quarterDates.map(date => fetch(`/domo/datastores/v1/collections/weekly_targets/documents?q=content.targets_allocation_date='${date}'`));
+        const responses = await Promise.all(requests);
+        const allYearlyTargets: WeeklyTarget[] = (await Promise.all(responses.map(res => res.ok ? res.json() : []))).flat();
 
-    setSelectedEmployeeToAdd(employeeId); // Keep the select controlled
+        const employeeIdString = `[${employee.person_id}]`;
+        const employeeTargets = allYearlyTargets.filter(t => t.content.targets_allocation_name?.startsWith(employeeIdString));
+        
+        if (employeeTargets.length === 0) return [blankRow];
 
-    const employeeToAdd = allEmployees.find(e => e.Person_Number === employeeId);
-    
-    if (employeeToAdd) {
-      const isAlreadyActive = activeTargets.some(a => a.employee.Person_Number === employeeId);
-      if (isAlreadyActive) {
-          toast({ variant: 'destructive', title: 'Employee already in grid' });
-          return;
-      }
-      const newTargetRow: TargetRow = {
-        id: `${employeeId}-new-${Date.now()}`,
-        clientId: '',
-        clientName: '',
-        weeklyTargets: {},
-      };
-      
-      setActiveTargets(prev => [{
-        employee: employeeToAdd,
-        targets: [newTargetRow]
-      }, ...prev]);
+        const clientTargetsMap = new Map<string, { clientName: string, quarterlyTargets: { [key: string]: number } }>();
+
+        employeeTargets.forEach(target => {
+            const clientKey = target.content.targets_cost_center_number;
+            if (!clientTargetsMap.has(clientKey)) {
+                clientTargetsMap.set(clientKey, { clientName: target.content.targets_cost_center_name, quarterlyTargets: {} });
+            }
+            const date = new Date(target.content.targets_allocation_date);
+            const quarterIndex = Math.floor(date.getUTCMonth() / 3);
+            clientTargetsMap.get(clientKey)!.quarterlyTargets[quarters[quarterIndex]] = parseInt(target.content.targets_allocation_amount, 10) || 0;
+        });
+
+        const newTargetRows = Array.from(clientTargetsMap.entries()).map(([clientId, data]) => ({
+            id: uuidv4(),
+            clientId,
+            clientName: data.clientName,
+            quarterlyTargets: data.quarterlyTargets,
+        }));
+
+        return newTargetRows.length > 0 ? newTargetRows : [blankRow];
+    } catch (error) {
+        writeLog('QuarterlyTargetGrid', 'error', `Could not load targets for ${employee.full_name}`, error);
+        toast({ variant: 'destructive', title: 'Error Loading Data', description: `Could not load targets for ${employee.full_name}.`});
+        return [blankRow];
     }
-    // Reset the select after adding
+  }, [toast]);
+  
+  const handleAddEmployee = async (employeeId: string) => {
+    if (!employeeId) return;
+    setSelectedEmployeeToAdd(employeeId);
+    const employeeToAdd = allEmployees.find(e => e.person_id === employeeId);
+    if (employeeToAdd) {
+      if (activeTargets.some(a => a.employee.person_id === employeeId)) {
+          toast({ variant: 'destructive', title: 'Employee already in grid' }); return;
+      }
+      const newTargets = await fetchTargetsForEmployee(employeeToAdd, currentYear);
+      setActiveTargets(prev => [{ employee: employeeToAdd, targets: newTargets }, ...prev]);
+    }
     setTimeout(() => setSelectedEmployeeToAdd(''), 0);
   };
 
-  const handleAddManagerTeam = (managerId: string) => {
+  const handleAddManagerTeam = async (managerId: string) => {
     if (!managerId) return;
-    const directReports = allEmployees.filter(e => e.First_Reviewer_Code === managerId);
-    
-    const newTargets = directReports
-      .filter(employee => !activeTargets.some(a => a.employee.Person_Number === employee.Person_Number))
-      .map(employee => {
-        const newTargetRow: TargetRow = {
-          id: `${employee.Person_Number}-new-${Date.now()}`,
-          clientId: '',
-          clientName: '',
-          weeklyTargets: {},
-        };
-        return {
-          employee,
-          targets: [newTargetRow],
-        };
-      });
-
-    if (newTargets.length > 0) {
-      setActiveTargets(prev => [...newTargets, ...prev]);
-      toast({ title: 'Team Loaded', description: `${newTargets.length} employees have been added to the grid.` });
-    } else {
-      toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' });
-    }
+    const teamMembers = allEmployees.filter(e => e.manager_id === managerId && !activeTargets.some(a => a.employee.person_id === e.person_id));
+    if (teamMembers.length === 0) { toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' }); return; }
+    toast({ title: 'Team Loaded', description: `Loading existing data for ${teamMembers.length} employees...` });
+    const targetPromises = teamMembers.map(employee => fetchTargetsForEmployee(employee, currentYear));
+    const resolvedTargets = await Promise.all(targetPromises);
+    const newEmployeeTargets = teamMembers.map((employee, index) => ({ employee, targets: resolvedTargets[index] }));
+    setActiveTargets(prev => [...newEmployeeTargets, ...prev]);
   };
 
-
-  const handleRemoveEmployee = (employeeId: string) => {
-    setActiveTargets(prev => prev.filter(a => a.employee.Person_Number !== employeeId));
+  const handleRemoveEmployee = (employeeId: string) => setActiveTargets(prev => prev.filter(a => a.employee.person_id !== employeeId));
+  
+  const handleTargetChange = (employeeId: string, rowId: string, quarter: string, value: string) => {
+    const newTarget = parseInt(value, 10) || 0;
+    setActiveTargets(prev => prev.map(emp => (emp.employee.person_id === employeeId ? {
+      ...emp, targets: emp.targets.map(row => (row.id === rowId ? {
+        ...row, quarterlyTargets: { ...row.quarterlyTargets, [quarter]: newTarget }
+      } : row))
+    } : emp)));
   };
   
-  const handleTargetChange = (employeeId: string, allocId: string, weekKey: string, newTargetValue: string) => {
-    const newTarget = parseInt(newTargetValue, 10) || 0;
-    setActiveTargets(prev => prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-            const newTargets = empAlloc.targets.map(alloc => {
-                if (alloc.id === allocId) {
-                    return { ...alloc, weeklyTargets: { ...alloc.weeklyTargets, [weekKey]: newTarget } };
-                }
-                return alloc;
-            });
-            return { ...empAlloc, targets: newTargets };
-        }
-        return empAlloc;
-    }));
-  };
-
-  const handleMonthlyTargetChange = (employeeId: string, allocId: string, monthlyTargetValue: string) => {
-    if (!startOfCurrentWeek) return;
-    const monthlyTarget = parseInt(monthlyTargetValue, 10) || 0;
-    
-    setActiveTargets(prev => {
-      return prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-          const newTargets = empAlloc.targets.map(alloc => {
-            if (alloc.id === allocId) {
-              const updatedWeeklyTargets = { ...alloc.weeklyTargets };
-              weeks.forEach(week => {
-                const weekKey = formatDateKey(week.startDate);
-                 updatedWeeklyTargets[weekKey] = monthlyTarget;
-              });
-              return { ...alloc, weeklyTargets: updatedWeeklyTargets };
-            }
-            return alloc;
-          });
-          return { ...empAlloc, targets: newTargets };
-        }
-        return empAlloc;
-      });
-    });
-  };
-  
-  const handleClientChange = (employeeId: string, allocId: string, newClientName: string) => {
-     setActiveTargets(prev => prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-            const newTargets = empAlloc.targets.map(alloc => {
-                if (alloc.id === allocId) {
-                    const selectedCc = clients.find(cc => cc.DisplayName === newClientName);
-                    return { ...alloc, clientName: newClientName, clientId: selectedCc?.Code || '' };
-                }
-                return alloc;
-            });
-            return { ...empAlloc, targets: newTargets };
-        }
-        return empAlloc;
-    }));
+  const handleClientChange = (employeeId: string, rowId: string, newClientName: string) => {
+     setActiveTargets(prev => prev.map(emp => (emp.employee.person_id === employeeId ? {
+        ...emp, targets: emp.targets.map(row => (row.id === rowId ? {
+            ...row, clientName: newClientName, clientId: clients.find(c => c.DisplayName === newClientName)?.Code || ''
+        } : row))
+     } : emp)));
   };
 
   const handleAddTargetRow = (employeeId: string) => {
-    setActiveTargets(prev => prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-            const newAlloc: TargetRow = {
-                id: `${employeeId}-new-${Date.now()}`,
-                clientId: '',
-                clientName: '',
-                weeklyTargets: {},
-            };
-            return { ...empAlloc, targets: [...empAlloc.targets, newAlloc] };
-        }
-        return empAlloc;
-    }));
+    setActiveTargets(prev => prev.map(emp => (emp.employee.person_id === employeeId ? {
+      ...emp, targets: [...emp.targets, { id: uuidv4(), clientId: '', clientName: '', quarterlyTargets: {} }]
+    } : emp)));
   };
 
-  const handleRemoveTargetRow = (employeeId: string, allocId: string) => {
-    setActiveTargets(prev => prev.map(empAlloc => {
-        if (empAlloc.employee.Person_Number === employeeId) {
-            const newTargets = empAlloc.targets.filter(a => a.id !== allocId);
-            return { ...empAlloc, targets: newTargets };
-        }
-        return empAlloc;
-    }));
+  const handleRemoveTargetRow = (employeeId: string, rowId: string) => {
+    setActiveTargets(prev => prev.map(emp => (emp.employee.person_id === employeeId ? {
+      ...emp, targets: emp.targets.filter(r => r.id !== rowId)
+    } : emp)));
   };
 
   const handleSave = async () => {
     const submissions: any[] = [];
     let hasInvalidTarget = false;
-    
-    activeTargets.forEach(empAlloc => {
-      empAlloc.targets.forEach(alloc => {
-        Object.entries(alloc.weeklyTargets).forEach(([weekKey, target]) => {
+    activeTargets.forEach(emp => {
+      emp.targets.forEach(row => {
+        Object.entries(row.quarterlyTargets).forEach(([quarter, target]) => {
           if (target > 0) {
-             if (!alloc.clientId || !alloc.clientName) {
+             if (!row.clientId || !row.clientName) {
                 hasInvalidTarget = true;
-                toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${empAlloc.employee.Full_Name}.` });
+                toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${emp.employee.full_name}.` });
                 return;
             }
-            submissions.push({
-              content: {
-                targets_allocation_date: weekKey,
-                targets_allocation_name: `[${empAlloc.employee.Person_Number}] ${empAlloc.employee.Full_Name}`,
-                targets_cost_center_name: alloc.clientName,
-                targets_cost_center_number: alloc.clientId,
+            submissions.push({ content: {
+                targets_allocation_date: getQuarterStartDate(currentYear, quarter),
+                targets_allocation_name: `[${emp.employee.person_id}] ${emp.employee.full_name}`,
+                targets_cost_center_name: row.clientName,
+                targets_cost_center_number: row.clientId,
                 targets_allocation_amount: target.toString(),
-              }
-            });
+            }});
           }
         });
       });
     });
 
     if (hasInvalidTarget) return;
-
-    if (submissions.length === 0) {
-      toast({ title: 'No changes to save.' });
-      return;
-    }
+    if (submissions.length === 0) { toast({ title: 'No changes to save.' }); return; }
 
     try {
         await Promise.all(submissions.map(entry => 
@@ -469,174 +384,93 @@ export function MultiWeekTargetGrid({ currentDate, setCurrentDate, onSaveSuccess
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(entry),
-            }).then(res => {
-                if (!res.ok) throw new Error('One or more saves failed.');
-                return res.json();
-            })
+            }).then(res => { if (!res.ok) throw new Error('One or more saves failed.') })
         ));
-        toast({
-            title: 'Targets Saved',
-            description: `${submissions.length} target entries have been saved successfully.`,
-        });
+        toast({ title: 'Targets Saved', description: `${submissions.length} target entries have been saved.` });
+        writeLog('QuarterlyTargetGrid', 'success', 'Targets saved', { count: submissions.length, year: currentYear });
         onSaveSuccess();
     } catch (error: any) {
-        console.error("Save error:", error);
+        writeLog('QuarterlyTargetGrid', 'error', 'Save failed', error);
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     }
   };
-
-  const isLoading = initialLoading || internalLoading || userLoading;
+  
+  const pageIsLoading = isLoading || userLoading;
 
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle>Monthly Target Grid</CardTitle>
-            <CardDescription>Add employees to build your hiring target plan.</CardDescription>
+            <CardTitle>Quarterly Target Grid</CardTitle>
+            <CardDescription>Add employees to build your hiring target plan for the year.</CardDescription>
           </div>
-          {isLoading ? (
-             <div className="flex items-center gap-2 flex-wrap">
-                <Skeleton className="h-10 w-[200px]" />
-                <Skeleton className="h-10 w-[200px]" />
-                <Skeleton className="h-10 w-10" />
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-10 w-10" />
-                <Skeleton className="h-10 w-24" />
-              </div>
-          ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              <EmployeeSelect 
-                  employees={availableEmployees} 
-                  onValueChange={handleAddEmployee}
-                  value={selectedEmployeeToAdd}
-              />
-              <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} />
-              <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-              <span className="text-sm font-medium w-32 text-center">
-                {fiscalMonthLabel}
-              </span>
-              <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
-              <Button onClick={handleSave} disabled={activeTargets.length === 0}>Save All</Button>
-            </div>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <EmployeeSelect employees={availableEmployees} onValueChange={handleAddEmployee} value={selectedEmployeeToAdd} disabled={pageIsLoading} />
+            <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} disabled={pageIsLoading} />
+            <Button variant="outline" size="icon" onClick={() => setCurrentYear(currentYear - 1)} disabled={pageIsLoading}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-sm font-medium w-20 text-center">{pageIsLoading ? <Skeleton className="h-5 w-16 mx-auto" /> : currentYear}</span>
+            <Button variant="outline" size="icon" onClick={() => setCurrentYear(currentYear + 1)} disabled={pageIsLoading}><ChevronRight className="h-4 w-4" /></Button>
+            <Button onClick={handleSave} disabled={pageIsLoading || activeTargets.length === 0}>Save All</Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
-          {isLoading ? (
-            <Skeleton className="h-64 w-full" />
-          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[180px] sticky left-0 bg-card z-10">Employee</TableHead>
-                  <TableHead className="min-w-[200px]">Client Name</TableHead>
-                  <TableHead className="text-center min-w-[120px]">Bulk Entry</TableHead>
-                  {weeks.map(week => {
-                    const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                    return (
-                      <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-primary/10": isCurrent })}>
-                        <div className='flex items-center justify-center gap-2'>
-                          <span>W/E {week.reportingWeekDate}</span>
-                        </div>
-                        {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
-                      </TableHead>
-                    )
-                  })}
+                  <TableHead className="min-w-[200px] sticky left-0 bg-card z-10">Employee</TableHead>
+                  <TableHead className="min-w-[220px]">Client Name</TableHead>
+                  {quarters.map(q => <TableHead key={q} className="text-center min-w-[120px]">{q}</TableHead>)}
                   <TableHead className="w-[80px]"> </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-              {activeTargets.length === 0 ? (
-                  <TableRow>
-                      <TableCell colSpan={weeks.length + 4} className="text-center h-24 text-muted-foreground">
-                          Select an employee from the dropdown above to begin building your target plan.
-                      </TableCell>
-                  </TableRow>
-              ) : activeTargets.map(({ employee, targets }) => {
-                  const weeklyTotals = weeks.map(week => {
-                    const weekKey = formatDateKey(week.startDate);
-                    return targets.reduce((total, alloc) => total + (alloc.weeklyTargets[weekKey] || 0), 0);
-                  });
-
-                  return (
-                    <Fragment key={employee.Person_Number}>
+              {(!hasMounted || pageIsLoading) ? (
+                <TableRow><TableCell colSpan={7}><div className="space-y-4 py-8"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div></TableCell></TableRow>
+              ) : activeTargets.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center h-24 text-muted-foreground">Select an employee to begin.</TableCell></TableRow>
+              ) : activeTargets.map(({ employee, targets }) => (
+                    <Fragment key={employee.person_id}>
                       <TableRow className="bg-muted/50 hover:bg-muted">
                         <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">
-                          {employee.Full_Name}
-                          <div className="text-xs text-muted-foreground font-normal">{employee.Market_Facing_Title}</div>
+                          {employee.full_name}
+                          <div className="text-xs text-muted-foreground font-normal">{employee.title}</div>
                         </TableCell>
-                        <TableCell colSpan={2}></TableCell>
-                        {weeklyTotals.map((total, index) => (
-                          <TableCell key={index} className="text-center font-semibold text-muted-foreground">
-                            {total > 0 ? total : '-'}
-                          </TableCell>
-                        ))}
-                        <TableCell className='text-right'>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.Person_Number)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
+                        <TableCell></TableCell>
+                        {quarters.map(q => <TableCell key={q} className="text-center font-semibold text-muted-foreground">{targets.reduce((sum, row) => sum + (row.quarterlyTargets[q] || 0), 0) || '-'}</TableCell>)}
+                        <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.person_id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                       </TableRow>
-
-                      {targets.map((alloc) => (
-                        <TableRow key={alloc.id}>
+                      {targets.map(row => (
+                        <TableRow key={row.id}>
                           <TableCell className="sticky left-0 bg-card z-10"></TableCell>
-                          <TableCell>
-                            <ClientSelect
-                                clients={clients}
-                                value={alloc.clientName}
-                                onValueChange={(newCcName) => handleClientChange(employee.Person_Number, alloc.id, newCcName)}
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Input
-                                  type="number" step="1" min="0" placeholder="0"
-                                  className="w-20 text-center mx-auto"
-                                  value={alloc.weeklyTargets[formatDateKey(weeks[0]?.startDate)] || ''}
-                                  onChange={(e) => handleMonthlyTargetChange(employee.Person_Number, alloc.id, e.target.value)}
-                                />
-                          </TableCell>
-                          {weeks.map(week => {
-                            const weekKey = formatDateKey(week.startDate);
-                            const isCurrent = startOfCurrentWeek ? isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek) : false;
-                            const targetValue = alloc.weeklyTargets[weekKey];
-                            return (
-                              <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-primary/10": isCurrent})}>
-                                <Input
-                                  type="number" step="1" min="0" placeholder="0"
-                                  className="w-20 text-center mx-auto"
-                                  value={targetValue || ''}
-                                  onChange={(e) => handleTargetChange(employee.Person_Number, alloc.id, weekKey, e.target.value)}
+                          <TableCell><ClientSelect clients={clients} value={row.clientName} onValueChange={name => handleClientChange(employee.person_id, row.id, name)}/></TableCell>
+                          {quarters.map(q => (
+                              <TableCell key={q} className="text-center">
+                                <Input type="number" step="1" min="0" placeholder="0" className="w-20 text-center mx-auto"
+                                  value={row.quarterlyTargets[q] || ''}
+                                  onChange={e => handleTargetChange(employee.person_id, row.id, q, e.target.value)}
                                 />
                               </TableCell>
-                            )
-                          })}
-                          <TableCell className='text-right'>
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveTargetRow(employee.Person_Number, alloc.id)} disabled={targets.length === 1}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </TableCell>
+                          ))}
+                          <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveTargetRow(employee.person_id, row.id)} disabled={targets.length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                         </TableRow>
                       ))}
-
                       <TableRow>
                         <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
-                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddTargetRow(employee.Person_Number)}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Target
-                          </Button>
+                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddTargetRow(employee.person_id)}><PlusCircle className="mr-2 h-4 w-4" /> Add Target Row</Button>
                         </TableCell>
-                        <TableCell colSpan={weeks.length + 2}></TableCell>
+                        <TableCell colSpan={5}></TableCell>
                       </TableRow>
                     </Fragment>
-                  );
-                })}
+                  ))}
               </TableBody>
             </Table>
-          )}
         </div>
       </CardContent>
     </Card>
   );
 }
+
+    

@@ -21,37 +21,39 @@ import type { TeamMember } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '../ui/button';
 import { SelectSearch } from '../ui/select-search';
+import { writeLog } from '@/lib/logger';
 
 type FilterOptions = {
-  teams: string[];
+  employees: string[];
+  departments: string[];
   titles: string[];
   managers: string[];
-  regions: string[];
+  countries: string[];
 }
 
-const FilterSelect = ({ placeholder, options, value, onValueChange }: { placeholder: string, options: string[], value: string, onValueChange: (value: string) => void }) => {
+const FilterSelect = ({ placeholder, options, value, onValueChange, disabled }: { placeholder: string, options: string[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const filteredOptions = useMemo(() => {
-    const sortedOptions = [...options].sort((a,b) => a.localeCompare(b));
-    if (!searchTerm) return sortedOptions;
-    return sortedOptions.filter(opt => opt.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (!searchTerm) return options;
+    return options.filter(opt => opt.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [options, searchTerm]);
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
       <SelectContent>
         <SelectSearch placeholder="Search..." onChange={setSearchTerm} />
-        {filteredOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-         {filteredOptions.length === 0 && (
-          <div className="p-4 text-sm text-center text-muted-foreground">
-              No results found.
-          </div>
-        )}
+        <ScrollArea className="h-64">
+            {filteredOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+            {filteredOptions.length === 0 && (
+              <div className="p-4 text-sm text-center text-muted-foreground">
+                  No results found.
+              </div>
+            )}
+        </ScrollArea>
       </SelectContent>
     </Select>
   );
@@ -60,51 +62,76 @@ const FilterSelect = ({ placeholder, options, value, onValueChange }: { placehol
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasMounted, setHasMounted] = useState(false);
   const [filters, setFilters] = useState({
-    name: '',
-    team: '',
+    employee: '',
+    department: '',
     title: '',
     manager: '',
-    region: '',
+    country: '',
   });
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-      teams: [], titles: [], managers: [], regions: []
+      employees: [], departments: [], titles: [], managers: [], countries: []
   });
   const { toast } = useToast();
 
-  const displayColumns = [
-    'Person_Number',
-    'Full_Name',
-    'Employment_Status',
-    'Employment_Mode',
-    'Team_Name',
-    'Vertical_Name',
-    'Market_Facing_Title',
-    'First_Reviewer_Code',
-    'First_Reviewer_Name',
-    'Official_Email'
+  const displayColumns: (keyof TeamMember)[] = [
+    'person_id',
+    'full_name',
+    'status',
+    'employment_type',
+    'department',
+    'title',
+    'manager',
+    'person_email',
+    'country',
   ];
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/data/v1/gbs_ind_hr_fte_report`);
+        const response = await fetch(`/data/v1/consolidated_hr_fte_report_view`);
         if (!response.ok) {
+          writeLog('TeamContent', 'error', 'Failed to fetch team data', { status: response.status });
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data: TeamMember[] = await response.json();
-        setTeamMembers(data);
+        
+        const tempWorker: TeamMember = {
+            person_id: 'TEMP_WORKER',
+            full_name: 'Temp Worker',
+            title: 'Temporary Staff',
+            employment_type: 'Temporary',
+            status: 'Active',
+            department: 'Temporary',
+            manager_id: 'N/A',
+            manager: 'N/A',
+            manager_email: 'N/A',
+            person_email: 'N/A',
+            start_date: '',
+            end_date: '',
+            country: 'N/A',
+            fte: '1.0'
+        };
+
+        const allData = [tempWorker, ...data];
+        setTeamMembers(allData);
 
         // Derive filter options from the data
-        const getUnique = (key: keyof TeamMember) => 
-            Array.from(new Set(data.map(item => item[key]).filter(Boolean) as string[]));
+        const getUniqueSorted = (key: keyof TeamMember) => 
+            Array.from(new Set(allData.map(item => item[key]).filter(Boolean) as string[])).sort((a,b) => a.localeCompare(b));
         
         setFilterOptions({
-            teams: getUnique('Team_Name'),
-            titles: getUnique('Market_Facing_Title'),
-            managers: getUnique('First_Reviewer_Name'),
-            regions: getUnique('Region'),
+            employees: getUniqueSorted('full_name'),
+            departments: getUniqueSorted('department'),
+            titles: getUniqueSorted('title'),
+            managers: getUniqueSorted('manager'),
+            countries: getUniqueSorted('country'),
         });
         
       } catch (error) {
@@ -125,11 +152,11 @@ export function TeamContent() {
   const filteredMembers = useMemo(() => {
     return teamMembers.filter(member => {
       return (
-        (filters.name === '' || member.Full_Name?.toLowerCase().includes(filters.name.toLowerCase())) &&
-        (filters.team === '' || member.Team_Name === filters.team) &&
-        (filters.title === '' || member.Market_Facing_Title === filters.title) &&
-        (filters.manager === '' || member.First_Reviewer_Name === filters.manager) &&
-        (filters.region === '' || member.Region === filters.region)
+        (filters.employee === '' || member.full_name === filters.employee) &&
+        (filters.department === '' || member.department === filters.department) &&
+        (filters.title === '' || member.title === filters.title) &&
+        (filters.manager === '' || member.manager === filters.manager) &&
+        (filters.country === '' || member.country === filters.country)
       );
     });
   }, [teamMembers, filters]);
@@ -139,30 +166,8 @@ export function TeamContent() {
   };
 
   const clearFilters = () => {
-    setFilters({ name: '', team: '', title: '', manager: '', region: '' });
+    setFilters({ employee: '', department: '', title: '', manager: '', country: '' });
   };
-
-
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle>
-          <div className="text-sm text-muted-foreground">
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
 
   return (
     <Card>
@@ -172,16 +177,12 @@ export function TeamContent() {
           This page displays the current team roster from the live dataset. Use the filters below to refine the results.
         </CardDescription>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
-            <Input 
-                placeholder="Filter by Name..."
-                value={filters.name}
-                onChange={e => handleFilterChange('name', e.target.value)}
-            />
-            <FilterSelect placeholder="Filter by Region..." options={filterOptions.regions} value={filters.region} onValueChange={value => handleFilterChange('region', value)} />
-            <FilterSelect placeholder="Filter by Team..." options={filterOptions.teams} value={filters.team} onValueChange={value => handleFilterChange('team', value)} />
-            <FilterSelect placeholder="Filter by Title..." options={filterOptions.titles} value={filters.title} onValueChange={value => handleFilterChange('title', value)} />
-            <FilterSelect placeholder="Filter by Manager..." options={filterOptions.managers} value={filters.manager} onValueChange={value => handleFilterChange('manager', value)} />
-            <Button variant="outline" onClick={clearFilters}>Clear Filters</Button>
+            <FilterSelect placeholder="Filter by Name..." options={filterOptions.employees} value={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
+            <FilterSelect placeholder="Filter by Department..." options={filterOptions.departments} value={filters.department} onValueChange={value => handleFilterChange('department', value)} disabled={loading} />
+            <FilterSelect placeholder="Filter by Title..." options={filterOptions.titles} value={filters.title} onValueChange={value => handleFilterChange('title', value)} disabled={loading} />
+            <FilterSelect placeholder="Filter by Manager..." options={filterOptions.managers} value={filters.manager} onValueChange={value => handleFilterChange('manager', value)} disabled={loading} />
+            <FilterSelect placeholder="Filter by Country..." options={filterOptions.countries} value={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
+            <Button variant="outline" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -195,14 +196,21 @@ export function TeamContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredMembers.map((member, rowIndex) => (
-                <TableRow key={member['Person_Number'] || rowIndex}>
-                  {displayColumns.map((column) => (
-                    <TableCell key={column}>{member[column as keyof TeamMember]}</TableCell>
-                  ))}
-                </TableRow>
-              ))}
-               {filteredMembers.length === 0 && (
+              {(!hasMounted || loading) ? (
+                Array.from({ length: 10 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {displayColumns.map(col => <TableCell key={col}><Skeleton className="h-5 w-full" /></TableCell>)}
+                  </TableRow>
+                ))
+              ) : filteredMembers.length > 0 ? (
+                filteredMembers.map((member, rowIndex) => (
+                  <TableRow key={member.person_id || rowIndex}>
+                    {displayColumns.map((column) => (
+                      <TableCell key={column}>{member[column] as string}</TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
                 <TableRow>
                     <TableCell colSpan={displayColumns.length} className="h-24 text-center">
                         No team members match the current filters.
@@ -216,3 +224,5 @@ export function TeamContent() {
     </Card>
   );
 }
+
+    

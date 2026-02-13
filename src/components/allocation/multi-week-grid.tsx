@@ -402,7 +402,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       
         const employeeIdString = `[${employee.person_id}]`;
         const employeeAllocations = allPrevMonthAllocations.filter(alloc => 
-            alloc.content.allocation_name.startsWith(employeeIdString)
+            alloc.content.allocation_name.startsWith(employeeIdString) &&
+            parseFloat(alloc.content.allocation_amount) > 0
         );
       
         if (employeeAllocations.length === 0) {
