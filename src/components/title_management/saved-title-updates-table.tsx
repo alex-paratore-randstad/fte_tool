@@ -37,7 +37,7 @@ export function SavedTitleUpdatesTable({ refreshKey }: SavedTitleUpdatesTablePro
     try {
       const [updatesResponse, employeesResponse] = await Promise.all([
         fetch(`/domo/datastores/v1/collections/title_management/documents/`),
-        fetch(`/data/v1/gbs_ind_hr_fte_report`)
+        fetch(`/data/v1/consolidated_hr_fte_report_view`)
       ]);
 
       if (!updatesResponse.ok) {
@@ -50,7 +50,7 @@ export function SavedTitleUpdatesTable({ refreshKey }: SavedTitleUpdatesTablePro
       const savedUpdates: SavedUpdateDoc[] = updatesResponse.ok ? await updatesResponse.json() : [];
       const employees: TeamMember[] = await employeesResponse.json();
       
-      const employeeMap = new Map(employees.map(emp => [emp.Person_Number, emp.Full_Name]));
+      const employeeMap = new Map(employees.map(emp => [emp.person_id, emp.full_name]));
 
       const structuredUpdates: SavedUpdate[] = savedUpdates.map(update => ({
         id: update.id,

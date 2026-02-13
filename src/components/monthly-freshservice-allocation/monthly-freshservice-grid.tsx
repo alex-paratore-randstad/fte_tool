@@ -63,7 +63,7 @@ const EmployeeSelect = ({
   value,
   disabled
 }: { 
-  employees: { Person_Number: string, Full_Name: string }[], 
+  employees: { person_id: string, full_name: string }[], 
   onValueChange: (value: string) => void,
   value: string,
   disabled?: boolean
@@ -71,11 +71,11 @@ const EmployeeSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
-    const sortedEmployees = employees.sort((a,b) => a.Full_Name.localeCompare(b.Full_Name));
+    const sortedEmployees = employees.sort((a,b) => a.full_name.localeCompare(b.full_name));
     if (!searchTerm) {
       return sortedEmployees;
     }
-    return sortedEmployees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedEmployees.filter(e => e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
 
   return (
@@ -87,8 +87,8 @@ const EmployeeSelect = ({
           <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
           <ScrollArea className="h-64">
             {filteredEmployees.map(e => (
-                <SelectItem key={e.Person_Number} value={e.Full_Name}>
-                    {e.Full_Name}
+                <SelectItem key={e.person_id} value={e.full_name}>
+                    {e.full_name}
                 </SelectItem>
             ))}
             {filteredEmployees.length === 0 && (
@@ -137,7 +137,7 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
 
       const [ticketResponse, employeeResponse] = await Promise.all([
           fetch(`/data/v1/fte_tickets_grouped_monthly_view`),
-          fetch('/data/v1/gbs_ind_hr_fte_report')
+          fetch('/data/v1/consolidated_hr_fte_report_view')
       ]);
 
       if (!ticketResponse.ok || !employeeResponse.ok) {
@@ -191,11 +191,11 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     const uniqueAgentNamesFromTickets = Array.from(new Set(allTicketData.map(t => t.agent_name)));
     
     const dynamicEmployees = allEmployees
-        .filter(e => uniqueAgentNamesFromTickets.includes(e.Full_Name) && !activeEmployeeNames.has(e.Full_Name))
-        .map(e => ({ Person_Number: e.Person_Number, Full_Name: e.Full_Name }));
+        .filter(e => uniqueAgentNamesFromTickets.includes(e.full_name) && !activeEmployeeNames.has(e.full_name))
+        .map(e => ({ person_id: e.person_id, full_name: e.full_name }));
 
-    const tempWorkerOption = { Person_Number: 'TEMP_WORKER', Full_Name: 'Temp Worker' };
-    if (!activeEmployeeNames.has(tempWorkerOption.Full_Name)) {
+    const tempWorkerOption = { person_id: 'TEMP_WORKER', full_name: 'Temp Worker' };
+    if (!activeEmployeeNames.has(tempWorkerOption.full_name)) {
         return [tempWorkerOption, ...dynamicEmployees];
     }
     return dynamicEmployees;

@@ -188,7 +188,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     setLoading(true);
     try {
       const [empResponse, clientResponse] = await Promise.all([
-        fetch(`/data/v1/gbs_ind_hr_fte_report`),
+        fetch(`/data/v1/consolidated_hr_fte_report_view`),
         fetch(`/data/v1/ai_report`),
       ]);
 
@@ -196,14 +196,25 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         console.warn("Could not fetch initial data.");
       }
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name).sort((a,b) => a.Full_Name.localeCompare(b.Full_Name)) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a,b) => a.full_name.localeCompare(b.full_name)) : [];
       const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
       
       const tempWorker: TeamMember = {
-        'Person_Number': 'TEMP_WORKER',
-        'Full_Name': 'Temp Worker',
-        'Market_Facing_Title': 'Temporary Staff',
-      } as TeamMember;
+        person_id: 'TEMP_WORKER',
+        full_name: 'Temp Worker',
+        title: 'Temporary Staff',
+        employment_type: 'Temporary',
+        status: 'Active',
+        department: 'Temporary',
+        manager_id: 'N/A',
+        manager: 'N/A',
+        manager_email: 'N/A',
+        person_email: 'N/A',
+        start_date: '',
+        end_date: '',
+        country: '',
+        fte: '1.0'
+      };
       setAllEmployees([tempWorker, ...empData]);
       
       const staticClients: AiReportData[] = [
@@ -214,8 +225,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
 
       const managerMap = new Map<string, string>();
       empData.forEach(emp => {
-          if(emp.First_Reviewer_Code && emp.First_Reviewer_Name) {
-              managerMap.set(emp.First_Reviewer_Code, emp.First_Reviewer_Name);
+          if(emp.manager_id && emp.manager) {
+              managerMap.set(emp.manager_id, emp.manager);
           }
       });
       const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }))
@@ -255,7 +266,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     if (!employeeSearchTerm) {
       return allEmployees;
     }
-    return allEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
+    return allEmployees.filter(e => e.full_name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
   }, [allEmployees, employeeSearchTerm]);
   
   const totalAllocation = useMemo(() => {
@@ -298,8 +309,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     if (!managerId) return;
 
     const teamMemberIds = allEmployees
-        .filter(e => e.First_Reviewer_Code === managerId)
-        .map(e => e.Person_Number);
+        .filter(e => e.manager_id === managerId)
+        .map(e => e.person_id);
 
     if (teamMemberIds.length === 0) {
       toast({ title: 'No employees found for this manager.' });
@@ -340,7 +351,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     const allocationMonthYear = `${selectedMonth} ${selectedYear}`;
 
     const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
-      const employee = allEmployees.find(e => e.Person_Number === employeeId);
+      const employee = allEmployees.find(e => e.person_id === employeeId);
       return fetch('/domo/datastores/v1/collections/bulk_allocation_fte/documents/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -348,7 +359,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
           content: {
             bulk_allocation_id: bulkAllocationId,
             employee_id: employeeId,
-            employee_name: employee?.Full_Name || 'Unknown',
+            employee_name: employee?.full_name || 'Unknown',
             bulk_allocation_date: allocationDate,
             allocation_monthyear: allocationMonthYear,
           }
@@ -396,7 +407,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     }
   };
   
-  const isPageLoading = loading || userLoading || !selectedMonth || !selectedYear;
+  const isPageLoading = loading || userLoading || !hasMounted;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -429,7 +440,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {!hasMounted || isPageLoading ? (
+                {isPageLoading ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-5 w-5 rounded" /></TableCell>
@@ -439,16 +450,16 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                   ))
                 ) : filteredEmployees.length > 0 ? (
                   filteredEmployees.map(emp => (
-                    <TableRow key={emp.Person_Number}>
+                    <TableRow key={emp.person_id}>
                       <TableCell>
                         <Checkbox 
-                          checked={selectedEmployees.has(emp.Person_Number)}
-                          onCheckedChange={checked => handleEmployeeToggle(emp.Person_Number, !!checked)}
-                          aria-label={`Select ${emp.Full_Name}`}
+                          checked={selectedEmployees.has(emp.person_id)}
+                          onCheckedChange={checked => handleEmployeeToggle(emp.person_id, !!checked)}
+                          aria-label={`Select ${emp.full_name}`}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{emp.Full_Name}</TableCell>
-                      <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
+                      <TableCell className="font-medium">{emp.full_name}</TableCell>
+                      <TableCell className="text-muted-foreground">{emp.title}</TableCell>
                     </TableRow>
                   ))
                 ) : (

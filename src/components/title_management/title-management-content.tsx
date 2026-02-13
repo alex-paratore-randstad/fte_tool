@@ -24,7 +24,7 @@ const EmployeeSelect = ({ employees, value, onValueChange, disabled }: { employe
     const [searchTerm, setSearchTerm] = useState('');
     const filteredEmployees = useMemo(() => {
         if (!searchTerm) return employees;
-        return employees.filter(e => e.Full_Name.toLowerCase().includes(searchTerm.toLowerCase()));
+        return employees.filter(e => e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [employees, searchTerm]);
 
     return (
@@ -36,8 +36,8 @@ const EmployeeSelect = ({ employees, value, onValueChange, disabled }: { employe
                 <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
                 <ScrollArea className="h-64">
                     {filteredEmployees.map(emp => (
-                        <SelectItem key={emp.Person_Number} value={emp.Full_Name}>
-                            {emp.Full_Name}
+                        <SelectItem key={emp.person_id} value={emp.full_name}>
+                            {emp.full_name}
                         </SelectItem>
                     ))}
                     {filteredEmployees.length === 0 && (
@@ -99,7 +99,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
     setLoading(true);
     try {
       const [empResponse, titleResponse] = await Promise.all([
-        fetch(`/data/v1/gbs_ind_hr_fte_report`),
+        fetch(`/data/v1/consolidated_hr_fte_report_view`),
         fetch(`/data/v1/mst_fte_updated_titles`),
       ]);
 
@@ -114,12 +114,23 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       const titleData: any[] = await titleResponse.json();
       
       const tempWorker: TeamMember = {
-        'Person_Number': 'TEMP_WORKER',
-        'Full_Name': 'Temp Worker',
-        'Market_Facing_Title': 'Temporary Staff',
-      } as TeamMember;
+        person_id: 'TEMP_WORKER',
+        full_name: 'Temp Worker',
+        title: 'Temporary Staff',
+        employment_type: 'Temporary',
+        status: 'Active',
+        department: 'Temporary',
+        manager_id: 'N/A',
+        manager: 'N/A',
+        manager_email: 'N/A',
+        person_email: 'N/A',
+        start_date: '',
+        end_date: '',
+        country: 'N/A',
+        fte: '1.0'
+      };
       
-      setEmployees([tempWorker, ...empData.filter(e => e && e.Full_Name).sort((a,b) => a.Full_Name.localeCompare(b.Full_Name))]);
+      setEmployees([tempWorker, ...empData.filter(e => e && e.full_name).sort((a,b) => a.full_name.localeCompare(b.full_name))]);
       setTitles(titleData.filter(t => t && t['updated_titles']));
 
     } catch (error: any) {
@@ -150,7 +161,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       return;
     }
     
-    const selectedEmployee = employees.find(emp => emp.Full_Name === selectedEmployeeName);
+    const selectedEmployee = employees.find(emp => emp.full_name === selectedEmployeeName);
     if (!selectedEmployee) {
       toast({
         variant: 'destructive',
@@ -170,7 +181,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
         },
         body: JSON.stringify({
           content: { 
-            employee_id: selectedEmployee.Person_Number, 
+            employee_id: selectedEmployee.person_id, 
             updated_title: selectedTitle 
           }
         }),

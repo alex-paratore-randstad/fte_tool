@@ -154,6 +154,68 @@
             ]
         },
         {
+            "dataSetId": "6f93982e-7469-43a2-b0a9-42ebda9b1fd0",
+            "alias": "consolidated_hr_fte_report_view",
+            "fields": [
+                {
+                    "alias": "person_id",
+                    "columnName": "person_id"
+                },
+                {
+                    "alias": "full_name",
+                    "columnName": "full_name"
+                },
+                {
+                    "alias": "status",
+                    "columnName": "status"
+                },
+                {
+                    "alias": "employment_type",
+                    "columnName": "employment_type"
+                },
+                {
+                    "alias": "department",
+                    "columnName": "department"
+                },
+                {
+                    "alias": "title",
+                    "columnName": "title"
+                },
+                {
+                    "alias": "manager_id",
+                    "columnName": "manager_id"
+                },
+                {
+                    "alias": "manager",
+                    "columnName": "manager"
+                },
+                {
+                    "alias": "manager_email",
+                    "columnName": "manager_email"
+                },
+                {
+                    "alias": "person_email",
+                    "columnName": "person_email"
+                },
+                {
+                    "alias": "start_date",
+                    "columnName": "start_date"
+                },
+                {
+                    "alias": "end_date",
+                    "columnName": "end_date"
+                },
+                {
+                    "alias": "country",
+                    "columnName": "country"
+                },
+                {
+                    "alias": "fte",
+                    "columnName": "fte"
+                }
+            ]
+        },
+        {
             "dataSetId": "08f5bbf7-5327-4991-b932-9de9c776c83f",
             "alias": "mst_fte_updated_titles",
             "fields": [

@@ -2,12 +2,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { Employee, TeamMember } from '@/types';
+import type { TeamMember } from '@/types';
 import { writeLog } from '@/lib/logger';
 
 // The 'id' property of the mock Employee type will be used to simulate
-// the 'Person_Number' or 'First_Reviewer_Code' from the live data.
-export type CurrentUser = Partial<Employee> & {
+// the 'person_id' or 'manager_id' from the live data.
+export type CurrentUser = {
   id: string; // Ensure id is always present
   name: string;
   role: 'manager' | 'admin' | 'vp';
@@ -36,15 +36,15 @@ export function useCurrentUser() {
         const impersonatedUserId = localStorage.getItem('impersonated_user_id');
         
         if (impersonatedUserId) {
-            const response = await fetch(`/data/v1/gbs_ind_hr_fte_report`);
+            const response = await fetch(`/data/v1/consolidated_hr_fte_report_view`);
             if (response.ok) {
                 const allEmployees: TeamMember[] = await response.json();
-                const impersonatedEmp = allEmployees.find(e => e.Person_Number === impersonatedUserId);
+                const impersonatedEmp = allEmployees.find(e => e.person_id === impersonatedUserId);
                 if (impersonatedEmp) {
-                    const impersonatedUser = {
-                        id: impersonatedEmp.Person_Number,
-                        name: impersonatedEmp.Full_Name,
-                        title: impersonatedEmp.Market_Facing_Title,
+                    const impersonatedUser: CurrentUser = {
+                        id: impersonatedEmp.person_id,
+                        name: impersonatedEmp.full_name,
+                        title: impersonatedEmp.title,
                         role: 'manager' // Assume impersonated users are managers
                     };
                     setCurrentUser(impersonatedUser);

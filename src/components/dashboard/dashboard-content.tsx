@@ -43,7 +43,7 @@ export function DashboardContent() {
     async function fetchData() {
       try {
         const [empResponse, allocResponse] = await Promise.all([
-          fetch(`/data/v1/gbs_ind_hr_fte_report`),
+          fetch(`/data/v1/consolidated_hr_fte_report_view`),
           fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/`),
         ]);
 
@@ -60,9 +60,9 @@ export function DashboardContent() {
         const allocations: WeeklyAllocation[] = allocResponse.ok ? await allocResponse.json() : [];
 
         try {
-            const safeEmployees = employees.filter(e => e && e.Person_Number && e.Full_Name);
+            const safeEmployees = employees.filter(e => e && e.person_id && e.full_name);
             setAllEmployees(safeEmployees);
-            const totalEmployeeCount = new Set(safeEmployees.map(e => e.Person_Number)).size;
+            const totalEmployeeCount = new Set(safeEmployees.map(e => e.person_id)).size;
             setTotalFtes(totalEmployeeCount);
 
             const today = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -85,11 +85,11 @@ export function DashboardContent() {
               });
 
 
-            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.Person_Number));
+            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.person_id));
             setAllocatedEmployees(allocatedEmps);
             setAllocatedFtes(allocatedEmps.length);
 
-            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.Person_Number));
+            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.person_id));
             setUnallocatedEmployees(unallocatedEmps);
             setUnallocatedFtes(unallocatedEmps.length);
             setMissingAllocations(unallocatedEmps.length);
@@ -247,10 +247,10 @@ export function DashboardContent() {
                         </TableRow>
                       ))
                     ) : detailData.length > 0 ? detailData.map(employee => (
-                      <TableRow key={employee.Person_Number}>
-                        <TableCell>{employee.Full_Name}</TableCell>
-                        <TableCell>{employee.Market_Facing_Title}</TableCell>
-                        <TableCell>{employee.First_Reviewer_Name}</TableCell>
+                      <TableRow key={employee.person_id}>
+                        <TableCell>{employee.full_name}</TableCell>
+                        <TableCell>{employee.title}</TableCell>
+                        <TableCell>{employee.manager}</TableCell>
                       </TableRow>
                     )) : (
                       <TableRow>
