@@ -1,10 +1,8 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { MultiWeekGrid } from '@/components/allocation/multi-week-grid';
-import { WeeklyAllocationTable } from '@/components/allocation/weekly-allocation-table';
 import { initializeFiscalCalendar, type FiscalCalendarEntry } from '@/lib/fiscal-calendar';
 import { writeLog } from '@/lib/logger';
 
@@ -40,6 +38,8 @@ export default function AllocationPage() {
   }, []);
 
   const handleRefresh = () => {
+    // The concept of refreshing a separate table is gone, but this can be used
+    // in the future to trigger a re-render of the grid if needed.
     setRefreshKey(prevKey => prevKey + 1);
   };
   
@@ -57,11 +57,7 @@ export default function AllocationPage() {
         onSaveSuccess={handleRefresh}
         initialLoading={isInitialLoading}
       />
-      <WeeklyAllocationTable 
-        currentDate={currentDate} 
-        refreshKey={refreshKey}
-        initialLoading={isInitialLoading}
-      />
+      {/* The saved allocations table has been removed. All work is now done in the grid above. */}
     </div>
   );
 }

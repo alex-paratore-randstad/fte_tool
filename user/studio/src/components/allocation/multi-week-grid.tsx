@@ -719,9 +719,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(!hasMounted || isLoading) ? (
+                {!hasMounted || isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10}>
+                    <TableCell colSpan={5 + weeks.length}>
                       <div className="space-y-4 py-8">
                         <Skeleton className="h-10 w-full" />
                         <Skeleton className="h-10 w-full" />
@@ -731,7 +731,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                   </TableRow>
                 ) : activeAllocations.length === 0 ? (
                   <TableRow>
-                      <TableCell colSpan={10} className="text-center h-24 text-muted-foreground">
+                      <TableCell colSpan={5 + weeks.length} className="text-center h-24 text-muted-foreground">
                           Select an employee from the dropdown above to begin building your allocation plan.
                       </TableCell>
                   </TableRow>
@@ -879,5 +879,3 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     </TooltipProvider>
   );
 }
-
-    

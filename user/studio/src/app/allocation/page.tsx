@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { MultiWeekGrid } from '@/components/allocation/multi-week-grid';
-import { WeeklyAllocationTable } from '@/components/allocation/weekly-allocation-table';
 import { initializeFiscalCalendar, type FiscalCalendarEntry } from '@/lib/fiscal-calendar';
+import { writeLog } from '@/lib/logger';
 
 export default function AllocationPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
@@ -20,9 +20,12 @@ export default function AllocationPage() {
           const calendarData: Omit<FiscalCalendarEntry, 'parsedDate'>[] = await response.json();
           initializeFiscalCalendar(calendarData);
         } else {
+          const errorPayload = { status: response.status, statusText: response.statusText };
+          writeLog('AllocationPage', 'warning', 'Failed to load 4-4-5 calendar data, using fallback.', errorPayload);
           console.error("Failed to load 4-4-5 calendar data, using fallback.");
         }
       } catch (error) {
+        writeLog('AllocationPage', 'error', 'Error initializing fiscal calendar', error);
         console.error("Error initializing calendar:", error);
       } finally {
         // This must be called in all paths to ensure client-side state
@@ -35,9 +38,11 @@ export default function AllocationPage() {
   }, []);
 
   const handleRefresh = () => {
+    // The concept of refreshing a separate table is gone, but this can be used
+    // in the future to trigger a re-render of the grid if needed.
     setRefreshKey(prevKey => prevKey + 1);
   };
-
+  
   const isInitialLoading = !calendarInitialized || !currentDate;
 
   return (
@@ -52,11 +57,7 @@ export default function AllocationPage() {
         onSaveSuccess={handleRefresh}
         initialLoading={isInitialLoading}
       />
-      <WeeklyAllocationTable 
-        currentDate={currentDate} 
-        refreshKey={refreshKey}
-        initialLoading={isInitialLoading}
-      />
+      {/* The saved allocations table has been removed. All work is now done in the grid above. */}
     </div>
   );
 }
