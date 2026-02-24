@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { QuarterlyTargetGrid } from '@/components/targets/multi-week-target-grid';
-import { QuarterlyTargetTable } from '@/components/targets/weekly-target-table';
 import { writeLog } from '@/lib/logger';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -17,7 +16,7 @@ export default function QuarterlyTargetPage() {
   }, []);
 
   const handleRefresh = () => {
-    writeLog('QuarterlyTargetPage', 'info', 'Refreshing saved targets table', {});
+    writeLog('QuarterlyTargetPage', 'info', 'Refreshing saved targets', {});
     setRefreshKey(prevKey => prevKey + 1);
   };
   
@@ -29,7 +28,6 @@ export default function QuarterlyTargetPage() {
           description="Set quarterly hiring targets for future periods."
         />
         <div className="space-y-8">
-            <Skeleton className="h-96 w-full" />
             <Skeleton className="h-96 w-full" />
         </div>
       </div>
@@ -46,10 +44,6 @@ export default function QuarterlyTargetPage() {
         currentYear={currentYear}
         setCurrentYear={setCurrentYear}
         onSaveSuccess={handleRefresh}
-      />
-      <QuarterlyTargetTable
-        currentYear={currentYear}
-        refreshKey={refreshKey}
       />
     </div>
   );

@@ -77,9 +77,9 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const sorted = [...clients].sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
+    const sorted = [...clients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
     if (!searchTerm) return sorted;
-    return sorted.filter(cc => cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sorted.filter(cc => cc.DisplayName && cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [clients, searchTerm]);
 
   return (
@@ -114,9 +114,9 @@ const EmployeeSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
-    const sortedEmployees = employees.sort((a,b) => a.full_name.localeCompare(b.full_name));
+    const sortedEmployees = employees.sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
     if (!searchTerm) return sortedEmployees;
-    return sortedEmployees.filter(e => e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedEmployees.filter(e => e.full_name && e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
   
   return (
@@ -155,9 +155,9 @@ const ManagerSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
-    const sortedManagers = managers.sort((a,b) => a.name.localeCompare(b.name));
+    const sortedManagers = managers.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
     if (!searchTerm) return sortedManagers;
-    return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedManagers.filter(m => m.name && m.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
 
   return (
@@ -212,7 +212,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       if (!empResponse.ok) writeLog('QuarterlyTargetGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
       if (!clientResponse.ok) writeLog('QuarterlyTargetGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a, b) => a.full_name.localeCompare(b.full_name)) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')) : [];
       const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
       
       const tempWorker: TeamMember = {
@@ -236,7 +236,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       
       const managerMap = new Map<string, string>();
       empData.forEach(emp => { if(emp.manager_id && emp.manager) managerMap.set(emp.manager_id, emp.manager); });
-      setManagers(Array.from(managerMap, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
+      setManagers(Array.from(managerMap, ([id, name]) => ({ id, name })).sort((a, b) => (a.name || '').localeCompare(b.name || '')));
 
     } catch (error) {
       writeLog('QuarterlyTargetGrid', 'error', 'Failed to fetch base data', error);
