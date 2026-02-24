@@ -41,7 +41,7 @@ type AiReportData = {
     DisplayName: string;
     RollsUpTo: string;
 };
-type AllocationRow = { id: string; clientName: string; percentage: number };
+type AllocationRow = { id: string; clientName: string; fte: number };
 
 type BulkAllocationGridProps = {
   onSaveSuccess: () => void;
@@ -241,20 +241,48 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     }
   }, [toast]);
   
+  const selectedEmployeeDetails = useMemo(() => {
+    return Array.from(selectedEmployees)
+      .map(id => allEmployees.find(e => e.person_id === id))
+      .filter((e): e is TeamMember => !!e)
+      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+  }, [selectedEmployees, allEmployees]);
+
+  const totalSelectedFte = useMemo(() => {
+    return selectedEmployeeDetails.reduce((sum, e) => sum + (parseFloat(e.fte || '0')), 0);
+  }, [selectedEmployeeDetails]);
+  
   useEffect(() => {
     if (templateToCopy) {
-      const newAllocationRows = templateToCopy.map(summary => ({
-        id: `copied-${summary.id}-${Date.now()}`,
-        clientName: summary.name,
-        percentage: summary.percentage
-      }));
-      setAllocationRows(newAllocationRows);
-      toast({ title: 'Template Copied', description: 'Allocation profile has been copied. Select employees and save.' });
+      if (totalSelectedFte === 0) {
+        toast({
+          title: 'Select Employees First',
+          description: 'Copying template as a 1.0 FTE base. Select employees to see the true distribution.',
+        });
+        const newAllocationRows = templateToCopy.map(summary => ({
+          id: uuidv4(),
+          clientName: summary.name,
+          fte: summary.percentage, // Show percentage as FTE for now
+        }));
+        setAllocationRows(newAllocationRows);
+      } else {
+        const newAllocationRows = templateToCopy.map(summary => ({
+          id: uuidv4(),
+          clientName: summary.name,
+          fte: summary.percentage * totalSelectedFte
+        }));
+        setAllocationRows(newAllocationRows);
+        toast({ title: 'Template Copied', description: 'Allocation profile has been copied. Review the FTE distribution.' });
+      }
     } else {
-        // Set default allocation row only if not copying
-        setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 1.0 }]);
+        // Only set the initial row if the allocationRows array is empty.
+        // This prevents overwriting user's manually entered rows when they select employees.
+        if (allocationRows.length === 0) {
+            setAllocationRows([{ id: uuidv4(), clientName: '', fte: 0 }]);
+        }
     }
-  }, [templateToCopy, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateToCopy, totalSelectedFte]);
 
   useEffect(() => {
     if (!userLoading) {
@@ -269,15 +297,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     return allEmployees.filter(e => e.full_name?.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
   }, [allEmployees, employeeSearchTerm]);
   
-  const selectedEmployeeDetails = useMemo(() => {
-    return Array.from(selectedEmployees)
-      .map(id => allEmployees.find(e => e.person_id === id))
-      .filter((e): e is TeamMember => !!e)
-      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
-  }, [selectedEmployees, allEmployees]);
-
-  const totalAllocation = useMemo(() => {
-    return allocationRows.reduce((sum, row) => sum + (Number(row.percentage) || 0), 0);
+  const totalAllocatedFte = useMemo(() => {
+    return allocationRows.reduce((sum, row) => sum + (Number(row.fte) || 0), 0);
   }, [allocationRows]);
 
   const handleEmployeeToggle = (employeeId: string, isSelected: boolean) => {
@@ -293,17 +314,17 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   };
 
   const handleAddAllocationRow = () => {
-    setAllocationRows(prev => [...prev, { id: `new-${Date.now()}`, clientName: '', percentage: 0 }]);
+    setAllocationRows(prev => [...prev, { id: uuidv4(), clientName: '', fte: 0 }]);
   };
 
   const handleRemoveAllocationRow = (id: string) => {
     setAllocationRows(prev => prev.filter(row => row.id !== id));
   };
   
-  const handleAllocationChange = (id: string, field: 'clientName' | 'percentage', value: string) => {
+  const handleAllocationChange = (id: string, field: 'clientName' | 'fte', value: string) => {
     setAllocationRows(prev => prev.map(row => {
       if (row.id === id) {
-        if (field === 'percentage') {
+        if (field === 'fte') {
           return { ...row, [field]: Number(value) };
         }
         return { ...row, [field]: value };
@@ -338,12 +359,12 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       toast({ variant: 'destructive', title: 'No employees selected.' });
       return;
     }
-    if (Math.abs(totalAllocation - 1.0) > 0.01) {
-      toast({ variant: 'destructive', title: 'Total allocation must be 1.0.' });
+    if (Math.abs(totalAllocatedFte - totalSelectedFte) > 0.01) {
+      toast({ variant: 'destructive', title: 'Allocation Mismatch', description: `Total allocated FTE (${totalAllocatedFte.toFixed(2)}) must match the selected employees' total FTE (${totalSelectedFte.toFixed(2)}).` });
       return;
     }
-    if (allocationRows.some(row => !row.clientName || row.percentage <= 0)) {
-        toast({ variant: 'destructive', title: 'Invalid allocation rows.', description: 'Please ensure every row has a client and an allocation greater than 0.' });
+    if (allocationRows.some(row => !row.clientName || row.fte < 0)) {
+        toast({ variant: 'destructive', title: 'Invalid allocation rows.', description: 'Please ensure every row has a client and an allocation of 0 or more.' });
         return;
     }
     if (!selectedMonth || !selectedYear) {
@@ -376,6 +397,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
 
     const summarySubmissions = allocationRows.map(row => {
       const client = clients.find(c => c.DisplayName === row.clientName);
+      // Convert FTE back to percentage for storage in the "profile"
+      const percentage = totalSelectedFte > 0 ? row.fte / totalSelectedFte : 0;
       return fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -384,7 +407,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
             bulk_allocation_id: bulkAllocationId,
             cost_center_number: client?.Code || 'Unknown',
             cost_center_name: row.clientName,
-            allocation_percentage: row.percentage.toString(),
+            allocation_percentage: percentage.toString(),
             bulk_allocation_date: allocationDate,
           }
         }),
@@ -404,7 +427,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       
       // Reset form
       setSelectedEmployees(new Set());
-      setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 1.0 }]);
+      setAllocationRows([{ id: uuidv4(), clientName: '', fte: 0 }]);
       onSaveSuccess();
 
     } catch (error: any) {
@@ -416,6 +439,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   };
   
   const isPageLoading = loading || userLoading || !hasMounted;
+  const isAllocationInvalid = Math.abs(totalAllocatedFte - totalSelectedFte) > 0.01;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -483,14 +507,14 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         </CardContent>
         <CardFooter>
             <div className="text-sm text-muted-foreground">
-                {selectedEmployees.size} employee(s) selected.
+                {selectedEmployees.size} employee(s) selected, for a total of {totalSelectedFte.toFixed(2)} FTE.
             </div>
         </CardFooter>
       </Card>
       <Card>
         <CardHeader>
           <CardTitle>Step 2: Define Allocation</CardTitle>
-          <CardDescription>Define the client allocation for the selected group. Must sum to 1.0.</CardDescription>
+          <CardDescription>Define the client allocation in FTE. Must sum to the total FTE of selected employees.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6">
@@ -553,10 +577,9 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                   <Input 
                     type="number"
                     min="0"
-                    max="1"
-                    step="0.01"
-                    value={row.percentage}
-                    onChange={e => handleAllocationChange(row.id, 'percentage', e.target.value)}
+                    step="0.05"
+                    value={row.fte}
+                    onChange={e => handleAllocationChange(row.id, 'fte', e.target.value)}
                     className="w-32 text-center"
                     placeholder="0.00"
                     disabled={isPageLoading || isSubmitting}
@@ -569,17 +592,17 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
               <Button variant="outline" onClick={handleAddAllocationRow} disabled={isPageLoading || isSubmitting}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Client
               </Button>
-              <Alert variant={Math.abs(totalAllocation - 1.0) > 0.01 ? 'destructive' : 'default'}>
+              <Alert variant={isAllocationInvalid ? 'destructive' : 'default'}>
                 <AlertDescription>
-                  Total Allocation: <span className="font-bold">{totalAllocation.toFixed(2)}</span>
-                  {Math.abs(totalAllocation - 1.0) > 0.01 && " (Must equal 1.00)"}
+                  Total Allocated: <span className="font-bold">{totalAllocatedFte.toFixed(2)}</span> / {totalSelectedFte.toFixed(2)} FTE
+                  {isAllocationInvalid && " (Totals must match)"}
                 </AlertDescription>
               </Alert>
             </div>
           </div>
         </CardContent>
         <CardFooter>
-            <Button onClick={handleSave} disabled={isPageLoading || isSubmitting || selectedEmployees.size === 0 || Math.abs(totalAllocation - 1.0) > 0.01}>
+            <Button onClick={handleSave} disabled={isPageLoading || isSubmitting || selectedEmployees.size === 0 || isAllocationInvalid}>
               {isSubmitting ? 'Saving...' : 'Save Bulk Allocation'}
             </Button>
         </CardFooter>
@@ -587,3 +610,5 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     </div>
   );
 }
+
+    
