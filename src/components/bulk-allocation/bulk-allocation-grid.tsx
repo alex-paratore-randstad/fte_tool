@@ -32,6 +32,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Label } from '../ui/label';
 import type { SummaryEntry } from './saved-bulk-allocations-table';
+import { writeLog } from '@/lib/logger';
+import { Badge } from '../ui/badge';
 
 type AiReportData = {
     Code: string;
@@ -77,19 +79,18 @@ const ClientSelect = ({
       if (aIsSpecial && !bIsSpecial) return -1;
       if (!aIsSpecial && bIsSpecial) return 1;
       
-      // If both are special or both are not, sort by name.
       if (aIsSpecial && bIsSpecial) {
           return a.DisplayName === 'Unallocated' ? -1 : 1;
       }
       
-      return a.DisplayName.localeCompare(b.DisplayName);
+      return (a.DisplayName || '').localeCompare(b.DisplayName || '');
     });
 
     if (!searchTerm) {
       return sorted;
     }
     return sorted.filter(client =>
-      client.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
+      client.DisplayName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [clients, searchTerm]);
 
@@ -125,11 +126,11 @@ const ManagerSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
-    const sortedManagers = managers.sort((a,b) => a.name.localeCompare(b.name));
+    const sortedManagers = managers.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
     if (!searchTerm) {
       return sortedManagers;
     }
-    return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedManagers.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
 
   return (
@@ -192,11 +193,10 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         fetch(`/data/v1/ai_report`),
       ]);
 
-      if (!empResponse.ok || !clientResponse.ok) {
-        console.warn("Could not fetch initial data.");
-      }
+      if (!empResponse.ok) writeLog('BulkAllocationGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
+      if (!clientResponse.ok) writeLog('BulkAllocationGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a,b) => a.full_name.localeCompare(b.full_name)) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a,b) => (a.full_name || '').localeCompare(b.full_name || '')) : [];
       const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
       
       const tempWorker: TeamMember = {
@@ -230,11 +230,11 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
           }
       });
       const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       setManagers(uniqueManagers);
 
     } catch (error) {
-      console.error("Failed to fetch initial data:", error);
+      writeLog('BulkAllocationGrid', 'error', 'Failed to fetch initial data', error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
     } finally {
       setLoading(false);
@@ -266,9 +266,16 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     if (!employeeSearchTerm) {
       return allEmployees;
     }
-    return allEmployees.filter(e => e.full_name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
+    return allEmployees.filter(e => e.full_name?.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
   }, [allEmployees, employeeSearchTerm]);
   
+  const selectedEmployeeDetails = useMemo(() => {
+    return Array.from(selectedEmployees)
+      .map(id => allEmployees.find(e => e.person_id === id))
+      .filter((e): e is TeamMember => !!e)
+      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+  }, [selectedEmployees, allEmployees]);
+
   const totalAllocation = useMemo(() => {
     return allocationRows.reduce((sum, row) => sum + (Number(row.percentage) || 0), 0);
   }, [allocationRows]);
@@ -392,6 +399,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         throw new Error('One or more submissions failed.');
       }
       
+      writeLog('BulkAllocationGrid', 'success', 'Bulk allocation saved', { count: selectedEmployees.size, month: allocationMonthYear });
       toast({ title: 'Bulk Allocation Saved', description: `Assigned allocation profile to ${selectedEmployees.size} employees for ${allocationMonthYear}.` });
       
       // Reset form
@@ -400,7 +408,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       onSaveSuccess();
 
     } catch (error: any) {
-      console.error("Save error:", error);
+      writeLog('BulkAllocationGrid', 'error', 'Bulk allocation save failed', error);
       toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
       setIsSubmitting(false);
@@ -458,8 +466,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                           aria-label={`Select ${emp.full_name}`}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{emp.full_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{emp.title}</TableCell>
+                      <TableCell className="font-medium">{emp.full_name || ''}</TableCell>
+                      <TableCell className="text-muted-foreground">{emp.title || ''}</TableCell>
                     </TableRow>
                   ))
                 ) : (
@@ -510,6 +518,29 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                     </Select>
                 </div>
             </div>
+
+            <div className="grid gap-2">
+              <Label>Selected Employees ({selectedEmployeeDetails.length})</Label>
+              <ScrollArea className="h-40 rounded-md border">
+                <div className="p-4 text-sm">
+                  {isPageLoading ? (
+                    <Skeleton className="h-20 w-full" />
+                  ) : selectedEmployeeDetails.length > 0 ? (
+                    <ul className="space-y-2">
+                      {selectedEmployeeDetails.map(emp => (
+                        <li key={emp.person_id} className="flex items-center justify-between">
+                          <span>{emp.full_name || ''}</span>
+                          <Badge variant="secondary">FTE: {emp.fte || 'N/A'}</Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="py-4 text-center text-muted-foreground">Select employees from the list on the left.</p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+
             <div className="grid gap-4">
               {allocationRows.map((row, index) => (
                 <div key={row.id} className="flex gap-2 items-center">
