@@ -70,6 +70,29 @@ export type WeeklyTarget = {
   }
 };
 
+export type BulkFteDoc = {
+  id: string;
+  content: {
+    bulk_allocation_id: string;
+    employee_id: string;
+    employee_name: string;
+    allocation_monthyear: string;
+    bulk_allocation_date: string;
+  };
+};
+
+export type BulkSummaryDoc = {
+  id: string;
+  content: {
+    bulk_allocation_id: string;
+    cost_center_number: string;
+    cost_center_name:string;
+    allocation_percentage: string;
+    bulk_allocation_date: string;
+  };
+};
+
+
 export type NavItem = {
   href: string;
   label: string;

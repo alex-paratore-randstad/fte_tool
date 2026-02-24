@@ -17,7 +17,7 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { Skeleton } from '../ui/skeleton';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 
 type FteAllocationChartProps = {
   data: any[];
@@ -82,8 +82,9 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   const formattedData = useMemo(() => {
     if (!data || data.length === 0) return [];
     return data.map(item => {
+      const date = new Date(item.name);
       const newItem: Record<string, any> = {
-        name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown',
+        name: item.name ? (isValid(date) ? format(date, 'MMM d') : item.name) : 'Unknown',
       };
       costCenters.forEach(cc => {
         const safeKey = toSafeKey(cc);

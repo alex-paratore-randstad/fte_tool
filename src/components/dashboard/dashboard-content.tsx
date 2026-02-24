@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Users, Briefcase, AlertTriangle, UserMinus } from 'lucide-react';
 import SummaryCard from '@/components/dashboard/summary-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TeamMember, WeeklyAllocation } from '@/types';
+import { TeamMember, WeeklyAllocation, WeeklyTarget, BulkFteDoc, BulkSummaryDoc } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,11 +14,12 @@ import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import { startOfWeek, subWeeks, format } from 'date-fns';
 import { PageHeader } from '../page-header';
 import { writeLog } from '@/lib/logger';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
 
 type ChartData = {
-  name: string; // Week start date
+  name: string; // Week start date, month, or quarter
   [key: string]: any; // Client allocations
 };
 
@@ -35,56 +36,58 @@ export function DashboardContent() {
   const [allocatedEmployees, setAllocatedEmployees] = useState<TeamMember[]>([]);
   const [unallocatedEmployees, setUnallocatedEmployees] = useState<TeamMember[]>([]);
   
-  const [allocationChartData, setAllocationChartData] = useState<ChartData[]>([]);
-  
+  // Chart states
+  const [chartView, setChartView] = useState<'weekly' | 'bulk' | 'freshservice' | 'targets'>('weekly');
+  const [weeklyChartData, setWeeklyChartData] = useState<ChartData[]>([]);
+  const [bulkChartData, setBulkChartData] = useState<ChartData[]>([]);
+  const [freshserviceChartData, setFreshserviceChartData] = useState<ChartData[]>([]);
+  const [targetsChartData, setTargetsChartData] = useState<ChartData[]>([]);
+
   const { toast } = useToast();
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        const [empResponse, allocResponse] = await Promise.all([
+        const [
+          empResponse,
+          weeklyAllocResponse,
+          bulkFteResponse,
+          bulkSummaryResponse,
+          targetsResponse,
+        ] = await Promise.all([
           fetch(`/data/v1/consolidated_hr_fte_report_view`),
           fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/`),
+          fetch(`/domo/datastores/v1/collections/bulk_allocation_fte/documents/`),
+          fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/`),
+          fetch(`/domo/datastores/v1/collections/weekly_targets/documents/`),
         ]);
 
-        if (!empResponse.ok) {
-          writeLog('DashboardContent', 'warning', 'Could not fetch employee data', { status: empResponse.status });
-          console.warn("Could not fetch employee data. This may be expected in local dev.");
-        }
-         if (!allocResponse.ok) {
-          writeLog('DashboardContent', 'warning', 'Could not fetch allocation data', { status: allocResponse.status });
-          console.warn("Could not fetch allocation data. This may be expected in local dev.");
-        }
-
         const employees: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
-        const allocations: WeeklyAllocation[] = allocResponse.ok ? await allocResponse.json() : [];
-
+        const weeklyAllocations: WeeklyAllocation[] = weeklyAllocResponse.ok ? await weeklyAllocResponse.json() : [];
+        
+        // --- Process Summary Cards & Detail Table ---
         try {
             const safeEmployees = employees.filter(e => e && e.person_id && e.full_name);
             setAllEmployees(safeEmployees);
-            const totalEmployeeCount = new Set(safeEmployees.map(e => e.person_id)).size;
-            setTotalFtes(totalEmployeeCount);
+            setTotalFtes(new Set(safeEmployees.map(e => e.person_id)).size);
 
             const today = startOfWeek(new Date(), { weekStartsOn: 1 });
-            const currentWeekAllocations = allocations.filter(a => a.content.allocation_date === format(today, 'yyyy-MM-dd'));
+            const currentWeekAllocations = weeklyAllocations.filter(a => a.content.allocation_date === format(today, 'yyyy-MM-dd'));
 
             const allocatedEmployeeIds = new Set<string>();
-
             currentWeekAllocations
               .filter(a => a?.content && parseFloat(a.content.allocation_amount) > 0)
               .forEach(a => {
                 if (a.content.employee_id) {
                   allocatedEmployeeIds.add(a.content.employee_id);
                 } else if (a.content.allocation_name) {
-                  // Fallback for older data without employee_id
                   const match = a.content.allocation_name.match(/\[(.*?)\]/);
                   if (match && match[1]) {
                     allocatedEmployeeIds.add(match[1]);
                   }
                 }
               });
-
 
             const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.person_id));
             setAllocatedEmployees(allocatedEmps);
@@ -94,61 +97,85 @@ export function DashboardContent() {
             setUnallocatedEmployees(unallocatedEmps);
             setUnallocatedFtes(unallocatedEmps.length);
             setMissingAllocations(unallocatedEmps.length);
-
-            const allClients = Array.from(new Set(allocations.map(a => a.content.cost_center_name)));
-            const last6Weeks = Array.from({ length: 6 }).map((_, i) => {
-              return startOfWeek(subWeeks(new Date(), 5 - i), { weekStartsOn: 1 });
-            });
-
-            const weeklyData = last6Weeks.map(weekStart => {
-              const weekStartDateString = format(weekStart, 'yyyy-MM-dd');
-              const allocationsForWeek = allocations.filter(a => a.content.allocation_date === weekStartDateString);
-
-              const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
-                const client = curr.content.cost_center_name;
-                const fte = Number(curr.content.allocation_amount) || 0;
-                if (!acc[client]) {
-                  acc[client] = 0;
-                }
-                acc[client] += fte;
-                return acc;
-              }, {} as Record<string, number>);
-
-              const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
-              allClients.forEach(client => {
-                completeWeeklyData[client] = weeklyTotals[client] || 0;
-              });
-
-              return completeWeeklyData;
-            });
-            setAllocationChartData(weeklyData);
-
         } catch (processingError) {
-             writeLog('DashboardContent', 'error', 'Failed to process dashboard data', processingError);
-             toast({
-                variant: 'destructive',
-                title: 'Failed to process data',
-                description: 'Could not calculate dashboard metrics.'
-            });
-            setTotalFtes(0);
-            setAllocatedFtes(0);
-            setUnallocatedFtes(0);
-            setMissingAllocations(0);
-            setAllocationChartData([]);
+             writeLog('DashboardContent', 'error', 'Failed to process summary card data', processingError);
+             toast({ variant: 'destructive', title: 'Failed to process summary data'});
+        }
+
+        // --- Process Chart Data ---
+        try {
+          // 1. Weekly Allocation Chart
+          const allWeeklyClients = Array.from(new Set(weeklyAllocations.map(a => a.content.cost_center_name)));
+          const last6Weeks = Array.from({ length: 6 }, (_, i) => startOfWeek(subWeeks(new Date(), 5 - i), { weekStartsOn: 1 }));
+          const weeklyData = last6Weeks.map(weekStart => {
+            const weekStartDateString = format(weekStart, 'yyyy-MM-dd');
+            const allocationsForWeek = weeklyAllocations.filter(a => a.content.allocation_date === weekStartDateString);
+            const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
+              acc[curr.content.cost_center_name] = (acc[curr.content.cost_center_name] || 0) + Number(curr.content.allocation_amount);
+              return acc;
+            }, {} as Record<string, number>);
+            
+            const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
+            allWeeklyClients.forEach(client => { completeWeeklyData[client] = weeklyTotals[client] || 0; });
+            return completeWeeklyData;
+          });
+          setWeeklyChartData(weeklyData);
+
+          // 2. Bulk Allocation Chart
+          const bulkFtes: BulkFteDoc[] = bulkFteResponse.ok ? await bulkFteResponse.json() : [];
+          const bulkSummaries: BulkSummaryDoc[] = bulkSummaryResponse.ok ? await bulkSummaryResponse.json() : [];
+          const bulkSummariesByProfileId = bulkSummaries.reduce((acc, summary) => {
+              if (!acc[summary.content.bulk_allocation_id]) acc[summary.content.bulk_allocation_id] = [];
+              acc[summary.content.bulk_allocation_id].push(summary);
+              return acc;
+          }, {} as Record<string, BulkSummaryDoc[]>);
+
+          const bulkDataByMonth = bulkFtes.reduce((acc, fte) => {
+              const { allocation_monthyear, bulk_allocation_id } = fte.content;
+              if (!allocation_monthyear) return acc;
+              const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
+              if (!acc[allocation_monthyear]) acc[allocation_monthyear] = {};
+              summariesForFte.forEach(summary => {
+                  const percentage = parseFloat(summary.content.allocation_percentage) || 0;
+                  acc[allocation_monthyear][summary.content.cost_center_name] = (acc[allocation_monthyear][summary.content.cost_center_name] || 0) + percentage;
+              });
+              return acc;
+          }, {} as Record<string, Record<string, number>>);
+          setBulkChartData(Object.entries(bulkDataByMonth).map(([month, clientTotals]) => ({ name: month, ...clientTotals })));
+
+          // 3. Freshservice Chart
+          const freshserviceAllocations = weeklyAllocations.filter(a => a.content.cost_center_name === a.content.cost_center_number);
+          const freshserviceDataByMonth = freshserviceAllocations.reduce((acc, alloc) => {
+              const month = format(new Date(alloc.content.allocation_date), 'MMM yyyy');
+              acc[month] = acc[month] || {};
+              acc[month][alloc.content.cost_center_name] = (acc[month][alloc.content.cost_center_name] || 0) + parseFloat(alloc.content.allocation_amount);
+              return acc;
+          }, {} as Record<string, Record<string, number>>);
+          setFreshserviceChartData(Object.entries(freshserviceDataByMonth).map(([month, totals]) => ({ name: month, ...totals })));
+
+          // 4. Targets Chart
+          const targets: WeeklyTarget[] = targetsResponse.ok ? await targetsResponse.json() : [];
+          const targetsByQuarter = targets.reduce((acc, target) => {
+              const date = new Date(target.content.targets_allocation_date);
+              const quarter = `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`;
+              acc[quarter] = acc[quarter] || {};
+              acc[quarter][target.content.targets_cost_center_name] = (acc[quarter][target.content.targets_cost_center_name] || 0) + parseInt(target.content.targets_allocation_amount, 10);
+              return acc;
+          }, {} as Record<string, Record<string, number>>);
+          setTargetsChartData(Object.entries(targetsByQuarter).map(([quarter, totals]) => ({ name: quarter, ...totals })));
+
+        } catch (chartProcessingError) {
+          writeLog('DashboardContent', 'error', 'Failed to process chart data', chartProcessingError);
+          toast({ variant: 'destructive', title: 'Failed to process chart data' });
         }
 
       } catch (error) {
         writeLog('DashboardContent', 'error', 'Failed to load dashboard data', error);
-        toast({
-          variant: 'destructive',
-          title: 'Failed to load dashboard',
-          description: 'Could not fetch the necessary data.'
-        });
+        toast({ variant: 'destructive', title: 'Failed to load dashboard data'});
       } finally {
         setLoading(false);
       }
     }
-
     fetchData();
   }, [toast]);
 
@@ -156,7 +183,7 @@ export function DashboardContent() {
     setActiveView(current => (current === view ? null : view));
   };
   
-  const { title: detailTitle, data: detailData, description: detailDescription } = (() => {
+  const { title: detailTitle, data: detailData, description: detailDescription } = useMemo(() => {
     switch (activeView) {
       case 'total':
         return { title: 'All FTEs', data: allEmployees, description: `Displaying ${allEmployees.length} employee(s).` };
@@ -167,10 +194,39 @@ export function DashboardContent() {
       case 'missing':
         return { title: 'FTEs with Missing Allocations (Current Week)', data: unallocatedEmployees, description: `Displaying ${unallocatedEmployees.length} employee(s).` };
       default:
-        // Provide a default empty state for the initial null `activeView` state
         return { title: 'All FTEs', data: allEmployees, description: `Displaying ${allEmployees.length} employee(s).` };
     }
-  })();
+  }, [activeView, allEmployees, allocatedEmployees, unallocatedEmployees]);
+
+  const { chartData, chartTitle, chartDescription } = useMemo(() => {
+    switch(chartView) {
+        case 'bulk':
+            return { 
+                chartData: bulkChartData, 
+                chartTitle: "Monthly Bulk Allocations", 
+                chartDescription: "Total FTEs assigned per client via bulk allocation profiles."
+            };
+        case 'freshservice':
+            return { 
+                chartData: freshserviceChartData, 
+                chartTitle: "Monthly Freshservice Allocations", 
+                chartDescription: "Total FTEs assigned per client from Freshservice ticket ratios."
+            };
+        case 'targets':
+             return { 
+                chartData: targetsChartData, 
+                chartTitle: "Quarterly Hiring Targets", 
+                chartDescription: "Total hires targeted per client, grouped by quarter."
+            };
+        case 'weekly':
+        default:
+             return { 
+                chartData: weeklyChartData, 
+                chartTitle: "Weekly Client Allocation", 
+                chartDescription: "Total FTEs allocated per client over the last 6 weeks."
+            };
+    }
+}, [chartView, weeklyChartData, bulkChartData, freshserviceChartData, targetsChartData]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -212,14 +268,26 @@ export function DashboardContent() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card>
             <CardHeader>
-              <CardTitle>Weekly Client Allocation</CardTitle>
-              <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                <div className="flex-1">
+                  <CardTitle>{loading ? <Skeleton className="h-6 w-2/3" /> : chartTitle}</CardTitle>
+                  <CardDescription>{loading ? <Skeleton className="h-4 w-full" /> : chartDescription}</CardDescription>
+                </div>
+                <Tabs value={chartView} onValueChange={(v) => setChartView(v as any)} className="w-full sm:w-auto">
+                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto sm:h-10">
+                        <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                        <TabsTrigger value="bulk">Bulk</TabsTrigger>
+                        <TabsTrigger value="freshservice">Freshservice</TabsTrigger>
+                        <TabsTrigger value="targets">Targets</TabsTrigger>
+                    </TabsList>
+                </Tabs>
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
                 <Skeleton className="h-[300px] w-full" />
               ) : (
-                <FteAllocationChart data={allocationChartData} />
+                <FteAllocationChart data={chartData} />
               )}
             </CardContent>
           </Card>
