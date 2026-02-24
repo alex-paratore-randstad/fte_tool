@@ -93,14 +93,14 @@ const ClientSelect = ({
           return a.DisplayName === 'Unallocated' ? -1 : 1;
       }
       
-      return a.DisplayName.localeCompare(b.DisplayName);
+      return (a.DisplayName || '').localeCompare(b.DisplayName || '');
     });
 
     if (!searchTerm) {
       return sorted;
     }
     return sorted.filter(cc =>
-      cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
+      cc.DisplayName && cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [clients, searchTerm]);
 
@@ -137,11 +137,11 @@ const EmployeeSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
-    const sortedEmployees = employees.sort((a,b) => a.full_name.localeCompare(b.full_name));
+    const sortedEmployees = employees.sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
     if (!searchTerm) {
       return sortedEmployees;
     }
-    return sortedEmployees.filter(e => e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedEmployees.filter(e => e.full_name && e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
 
   return (
@@ -181,11 +181,11 @@ const ManagerSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
-    const sortedManagers = managers.sort((a,b) => a.name.localeCompare(b.name));
+    const sortedManagers = managers.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
     if (!searchTerm) {
       return sortedManagers;
     }
-    return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedManagers.filter(m => m.name && m.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
 
   return (
@@ -343,7 +343,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         console.warn("Could not fetch client data. This may be expected in local dev.");
       }
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a, b) => a.full_name.localeCompare(b.full_name)) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')) : [];
       const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
       
       const tempWorker: TeamMember = {
@@ -377,7 +377,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           }
       });
       const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       setManagers(uniqueManagers);
 
       setActiveAllocations([]);

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
+import { useState, useMemo, Fragment, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -190,9 +190,12 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [clients, setClients] = useState<AiReportData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [internalLoading, setInternalLoading] = useState(true);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
   const [hasMounted, setHasMounted] = useState(false);
+  const isInitialRender = useRef(true);
+  const activeTargetsRef = useRef(activeTargets);
+  activeTargetsRef.current = activeTargets;
 
   const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
@@ -202,7 +205,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   }, []);
 
   const fetchBaseData = useCallback(async () => {
-    setIsLoading(true);
+    setInternalLoading(true);
     try {
       const [empResponse, clientResponse] = await Promise.all([
         fetch(`/data/v1/consolidated_hr_fte_report_view`),
@@ -242,7 +245,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       writeLog('QuarterlyTargetGrid', 'error', 'Failed to fetch base data', error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
     } finally {
-      setIsLoading(false);
+      setInternalLoading(false);
     }
   }, [toast]);
   
@@ -295,6 +298,32 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     }
   }, [toast]);
   
+  // Effect to re-fetch employee targets when the year changes
+  useEffect(() => {
+    if (isInitialRender.current) {
+        isInitialRender.current = false;
+        return;
+    }
+
+    const refreshTargets = async () => {
+        const currentActiveTargets = activeTargetsRef.current;
+        if (currentActiveTargets.length === 0) return;
+
+        setInternalLoading(true);
+        const refreshedTargets = await Promise.all(
+            currentActiveTargets.map(async (empTarget) => {
+                const newRows = await fetchTargetsForEmployee(empTarget.employee, currentYear);
+                return { ...empTarget, targets: newRows };
+            })
+        );
+        setActiveTargets(refreshedTargets);
+        setInternalLoading(false);
+    };
+
+    refreshTargets();
+  }, [currentYear, fetchTargetsForEmployee]);
+
+
   const handleAddEmployee = async (employeeId: string) => {
     if (!employeeId) return;
     setSelectedEmployeeToAdd(employeeId);
@@ -395,7 +424,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     }
   };
   
-  const pageIsLoading = isLoading || userLoading;
+  const pageIsLoading = internalLoading || userLoading;
 
   return (
     <Card>
