@@ -321,8 +321,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     };
 
     refreshAllocations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate]);
+  }, [currentDate, fetchAllocationsForEmployee]);
 
 
   const fetchData = useCallback(async () => {
@@ -396,7 +395,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         fetchData();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchData, userLoading, currentUser.id]);
+  }, [userLoading]);
 
 
   const availableEmployees = useMemo(() => {
@@ -843,6 +842,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                               const isPast = isBefore(endOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                               return isPast && !isAdmin;
                         }) : false;
+                        const bulkFteValue = (weeks.length > 0 && alloc.weeklyFtes[formatDateKey(weeks[0].startDate)]) || '';
                         return (
                         <TableRow key={alloc.id}>
                           <TableCell className="sticky left-0 bg-card z-10"></TableCell>
@@ -866,7 +866,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                             <Input
                                   type="number" step="0.05" min="0" placeholder="0.00"
                                   className="w-20 text-center mx-auto"
-                                  value={(weeks[0] && alloc.weeklyFtes[formatDateKey(weeks[0].startDate)]) || ''}
+                                  value={bulkFteValue}
                                   onChange={(e) => handleMonthlyFteChange(employee.person_id, alloc.id, e.target.value)}
                                   disabled={!hasMounted || isRowLocked}
                                 />

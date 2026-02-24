@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,18 +19,17 @@ export default function AllocationPage() {
         if (response.ok) {
           const calendarData: Omit<FiscalCalendarEntry, 'parsedDate'>[] = await response.json();
           initializeFiscalCalendar(calendarData);
-          setCalendarInitialized(true);
-          setCurrentDate(new Date());
         } else {
           const errorPayload = { status: response.status, statusText: response.statusText };
           writeLog('AllocationPage', 'warning', 'Failed to load 4-4-5 calendar data, using fallback.', errorPayload);
           console.error("Failed to load 4-4-5 calendar data, using fallback.");
-          setCalendarInitialized(true);
-          setCurrentDate(new Date());
         }
       } catch (error) {
         writeLog('AllocationPage', 'error', 'Error initializing fiscal calendar', error);
         console.error("Error initializing calendar:", error);
+      } finally {
+        // This must be called in all paths to ensure client-side state
+        // transitions correctly and avoids hydration errors.
         setCalendarInitialized(true);
         setCurrentDate(new Date());
       }
