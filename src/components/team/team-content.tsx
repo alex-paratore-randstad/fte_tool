@@ -1,7 +1,7 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { ChevronsUpDown } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -17,13 +17,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import type { TeamMember } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '../ui/button';
-import { SelectSearch } from '../ui/select-search';
+import { Checkbox } from '@/components/ui/checkbox';
 import { writeLog } from '@/lib/logger';
 
 type FilterOptions = {
@@ -32,43 +44,82 @@ type FilterOptions = {
   titles: string[];
   managers: string[];
   countries: string[];
-}
+};
 
-const FilterSelect = ({ placeholder, options, value, onValueChange, disabled }: { placeholder: string, options: string[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const filteredOptions = useMemo(() => {
-    if (!searchTerm) return options;
-    return options.filter(opt => opt.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [options, searchTerm]);
+const MultiSelectFilter = ({
+  placeholder,
+  options,
+  selected,
+  onValueChange,
+  disabled,
+}: {
+  placeholder: string;
+  options: string[];
+  selected: string[];
+  onValueChange: (value: string) => void;
+  disabled?: boolean;
+}) => {
+  const [open, setOpen] = useState(false);
 
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
-      <SelectContent>
-        <SelectSearch placeholder="Search..." onChange={setSearchTerm} />
-        <ScrollArea className="h-64">
-            {filteredOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-            {filteredOptions.length === 0 && (
-              <div className="p-4 text-sm text-center text-muted-foreground">
-                  No results found.
-              </div>
-            )}
-        </ScrollArea>
-      </SelectContent>
-    </Select>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+          disabled={disabled}
+        >
+          <span className="truncate">
+            {selected.length === 0
+              ? placeholder
+              : selected.length <= 2
+              ? selected.join(', ')
+              : `${selected.length} selected`}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput placeholder="Search..." />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              <ScrollArea className="h-64">
+                {options.map(option => (
+                  <CommandItem
+                    key={option}
+                    onSelect={() => onValueChange(option)}
+                  >
+                    <Checkbox
+                      className="mr-2"
+                      checked={selected.includes(option)}
+                    />
+                    <span>{option}</span>
+                  </CommandItem>
+                ))}
+              </ScrollArea>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };
+
 
 export function TeamContent() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
   const [filters, setFilters] = useState({
-    employee: '',
-    department: '',
-    title: '',
-    manager: '',
-    country: '',
+    employee: [] as string[],
+    department: [] as string[],
+    title: [] as string[],
+    manager: [] as string[],
+    country: [] as string[],
   });
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
       employees: [], departments: [], titles: [], managers: [], countries: []
@@ -151,22 +202,41 @@ export function TeamContent() {
   
   const filteredMembers = useMemo(() => {
     return teamMembers.filter(member => {
-      return (
-        (filters.employee === '' || member.full_name === filters.employee) &&
-        (filters.department === '' || member.department === filters.department) &&
-        (filters.title === '' || member.title === filters.title) &&
-        (filters.manager === '' || member.manager === filters.manager) &&
-        (filters.country === '' || member.country === filters.country)
-      );
+        const filterBy = (key: keyof typeof filters, memberField: keyof TeamMember) => {
+            const values = filters[key];
+            if (values.length === 0) return true;
+            const memberValue = member[memberField];
+            return memberValue ? values.includes(memberValue as string) : false;
+        };
+
+        return (
+            filterBy('employee', 'full_name') &&
+            filterBy('department', 'department') &&
+            filterBy('title', 'title') &&
+            filterBy('manager', 'manager') &&
+            filterBy('country', 'country')
+        );
     });
   }, [teamMembers, filters]);
 
   const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
-    setFilters(prev => ({ ...prev, [filterName]: value }));
+    setFilters(prev => {
+        const currentValues = prev[filterName];
+        const newValues = currentValues.includes(value)
+          ? currentValues.filter(v => v !== value)
+          : [...currentValues, value];
+        return { ...prev, [filterName]: newValues };
+    });
   };
 
   const clearFilters = () => {
-    setFilters({ employee: '', department: '', title: '', manager: '', country: '' });
+    setFilters({
+        employee: [],
+        department: [],
+        title: [],
+        manager: [],
+        country: [],
+    });
   };
 
   return (
@@ -177,11 +247,11 @@ export function TeamContent() {
           This page displays the current team roster from the live dataset. Use the filters below to refine the results.
         </CardDescription>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
-            <FilterSelect placeholder="Filter by Name..." options={filterOptions.employees} value={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
-            <FilterSelect placeholder="Filter by Department..." options={filterOptions.departments} value={filters.department} onValueChange={value => handleFilterChange('department', value)} disabled={loading} />
-            <FilterSelect placeholder="Filter by Title..." options={filterOptions.titles} value={filters.title} onValueChange={value => handleFilterChange('title', value)} disabled={loading} />
-            <FilterSelect placeholder="Filter by Manager..." options={filterOptions.managers} value={filters.manager} onValueChange={value => handleFilterChange('manager', value)} disabled={loading} />
-            <FilterSelect placeholder="Filter by Country..." options={filterOptions.countries} value={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Name..." options={filterOptions.employees} selected={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Department..." options={filterOptions.departments} selected={filters.department} onValueChange={value => handleFilterChange('department', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Title..." options={filterOptions.titles} selected={filters.title} onValueChange={value => handleFilterChange('title', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Manager..." options={filterOptions.managers} selected={filters.manager} onValueChange={value => handleFilterChange('manager', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Country..." options={filterOptions.countries} selected={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
             <Button variant="outline" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
         </div>
       </CardHeader>
