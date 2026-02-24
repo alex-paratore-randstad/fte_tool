@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -17,7 +18,7 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { Skeleton } from '../ui/skeleton';
-import { format, isValid } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 
 type FteAllocationChartProps = {
   data: any[];
@@ -82,10 +83,14 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   const formattedData = useMemo(() => {
     if (!data || data.length === 0) return [];
     return data.map(item => {
-      const date = new Date(item.name);
+      // Attempt to parse the name as an ISO date string
+      const date = parseISO(item.name);
+      
       const newItem: Record<string, any> = {
-        name: item.name ? (isValid(date) ? format(date, 'MMM d') : item.name) : 'Unknown',
+        // If it's a valid date, format it. Otherwise, use the original name.
+        name: isValid(date) ? format(date, 'MMM d') : item.name,
       };
+      
       costCenters.forEach(cc => {
         const safeKey = toSafeKey(cc);
         newItem[safeKey] = item[cc] || 0;
