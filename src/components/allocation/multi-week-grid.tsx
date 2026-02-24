@@ -780,10 +780,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                   return (
                     <Fragment key={employee.person_id}>
                       <TableRow className="bg-muted/50 hover:bg-muted">
-                        <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10 flex items-center gap-2">
+                        <TableCell className="sticky left-0 bg-muted/50 z-10 flex items-center gap-2">
                           <div>
-                              {employee.full_name}
-                              <div className="text-xs text-muted-foreground font-normal">{employee.title}</div>
+                            <div className="flex items-center gap-2">
+                                <span className="font-semibold">{employee.full_name || ''}</span>
+                                {employee.fte && <Badge variant="secondary">FTE: {employee.fte}</Badge>}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-normal">{employee.title || ''}</div>
                           </div>
                           <Tooltip>
                               <TooltipTrigger asChild>
