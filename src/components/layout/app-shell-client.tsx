@@ -1,4 +1,3 @@
-
 'use client';
 
 import { UserNav } from './user-nav';
@@ -19,7 +18,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { NavGroup } from '@/types/navigation';
 import { Skeleton } from '../ui/skeleton';
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 
 const navGroups: NavGroup[] = [
   {
@@ -29,7 +28,6 @@ const navGroups: NavGroup[] = [
       { href: '/allocation', label: 'Weekly Allocation' },
       { href: '/bulk-allocation', label: 'Bulk Allocation' },
       { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation' },
-      { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation' },
     ]
   },
   {
@@ -58,6 +56,7 @@ const getHref = (href: string) => {
 export function AppShellClient({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useCurrentUser();
   const pathname = usePathname();
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
 
   const userHasAccess = (roles?: string[]) => {
     if (loading || !currentUser.role) return false;
@@ -77,10 +76,15 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     return items.some(item => isActive(item.href));
   }
 
-  const defaultOpenGroups = useMemo(() => {
-    if (loading) return [];
-    return navGroups.filter(g => isGroupActive(g.items) && userHasAccess(g.roles)).map(g => g.title);
-  }, [loading, pathname, currentUser.role]); // Recalculate when loading finishes, path, or role changes
+  useEffect(() => {
+    if (!loading) {
+      const activeGroups = navGroups
+        .filter(g => isGroupActive(g.items) && userHasAccess(g.roles))
+        .map(g => g.title);
+      setOpenGroups(activeGroups);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, pathname, currentUser.role]);
 
   
   return (
@@ -118,30 +122,30 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                   <Link href={getHref('/')} className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-base", isActive('/') ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}>
                       Dashboard
                   </Link>
-                   <Accordion type="multiple" className="w-full" value={defaultOpenGroups}>
-                      {navGroups.map(group => (
-                          <div key={group.title}>
-                              {loading ? (
-                                  <div className="flex items-center justify-between py-4 font-medium">
-                                      <Skeleton className="h-5 w-32" />
-                                  </div>
-                              ) : userHasAccess(group.roles) ? (
-                                  <AccordionItem value={group.title} className="border-b-0">
-                                      <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
-                                          {group.title}
-                                      </AccordionTrigger>
-                                      <AccordionContent className="pl-4 pb-0">
-                                          <div className="flex flex-col gap-1">
-                                              {group.items.filter(item => userHasAccess(item.roles)).map(item => (
-                                                  <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
-                                                      {item.label}
-                                                  </Link>
-                                              ))}
-                                          </div>
-                                      </AccordionContent>
-                                  </AccordionItem>
-                              ) : null}
+                   <Accordion type="multiple" className="w-full" value={openGroups}>
+                      {loading ? (
+                        Array.from({ length: 3 }).map((_, i) => (
+                          <div key={i} className="flex items-center justify-between py-4 font-medium">
+                              <Skeleton className="h-5 w-32" />
                           </div>
+                        ))
+                      ) : navGroups.map(group => (
+                          userHasAccess(group.roles) ? (
+                              <AccordionItem value={group.title} key={group.title} className="border-b-0">
+                                  <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
+                                      {group.title}
+                                  </AccordionTrigger>
+                                  <AccordionContent className="pl-4 pb-0">
+                                      <div className="flex flex-col gap-1">
+                                          {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                                              <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
+                                                  {item.label}
+                                              </Link>
+                                          ))}
+                                      </div>
+                                  </AccordionContent>
+                              </AccordionItem>
+                          ) : null
                       ))}
                   </Accordion>
                 </nav>

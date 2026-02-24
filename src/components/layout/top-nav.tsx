@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -24,7 +23,6 @@ const navGroups: NavGroup[] = [
       { href: '/allocation', label: 'Weekly Allocation' },
       { href: '/bulk-allocation', label: 'Bulk Allocation' },
       { href: '/monthly-freshservice-allocation', label: 'Monthly Freshservice Allocation' },
-      { href: '/monthly-ratio-allocation', label: 'Monthly Client Ratio Allocation' },
     ]
   },
   {
@@ -84,34 +82,39 @@ export function TopNav() {
         Dashboard
       </Link>
       
-      {navGroups.map(group => (
-        <div key={group.title} className="flex items-center">
-            {loading ? (
-                <Skeleton className="h-5 w-24" />
-            ) : userHasAccess(group.roles) ? (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className={cn(
-                            "text-sm font-medium h-auto p-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
-                            isGroupActive(group.items) ? "text-primary" : "text-muted-foreground"
-                        )}>
-                            {group.title}
-                            <ChevronDown className="relative top-[1px] ml-1 h-3 w-3 transition duration-200 group-data-[state=open]:rotate-180" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                        {group.items.filter(item => userHasAccess(item.roles)).map(item => (
-                            <DropdownMenuItem key={item.href} asChild>
-                                <Link href={getHref(item.href)} className={cn(isActive(item.href) && "font-semibold")}>
-                                {item.label}
-                                </Link>
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            ) : null}
-        </div>
-      ))}
+      {loading ? (
+        <>
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-5 w-24" />
+        </>
+      ) : navGroups.map((group, index) => (
+          userHasAccess(group.roles) ? (
+            <DropdownMenu key={index}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'p-0 text-sm font-medium h-auto hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0',
+                    isGroupActive(group.items) ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  {group.title}
+                  <ChevronDown className="relative top-[1px] ml-1 h-3 w-3 transition duration-200 group-data-[state=open]:rotate-180" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={getHref(item.href)} className={cn(isActive(item.href) && 'font-semibold')}>
+                      {item.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null
+        ))}
     </>
   );
 }
