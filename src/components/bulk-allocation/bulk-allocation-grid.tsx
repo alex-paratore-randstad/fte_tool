@@ -577,11 +577,11 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                   <Input 
                     type="number"
                     min="0"
-                    step="0.05"
+                    step="1"
                     value={row.fte}
                     onChange={e => handleAllocationChange(row.id, 'fte', e.target.value)}
                     className="w-32 text-center"
-                    placeholder="0.00"
+                    placeholder="0"
                     disabled={isPageLoading || isSubmitting}
                   />
                   <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1 || isPageLoading || isSubmitting}>
@@ -610,5 +610,3 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     </div>
   );
 }
-
-    

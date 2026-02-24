@@ -71,11 +71,11 @@ const EmployeeSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
-    const sortedEmployees = employees.sort((a,b) => a.full_name.localeCompare(b.full_name));
+    const sortedEmployees = employees.sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
     if (!searchTerm) {
       return sortedEmployees;
     }
-    return sortedEmployees.filter(e => e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedEmployees.filter(e => e.full_name && e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
 
   return (
@@ -188,10 +188,10 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
 
   const availableEmployees = useMemo(() => {
     const activeEmployeeNames = new Set(activeAllocations.map(a => a.agentName));
-    const uniqueAgentNamesFromTickets = Array.from(new Set(allTicketData.map(t => t.agent_name)));
+    const uniqueAgentNamesFromTickets = Array.from(new Set(allTicketData.map(t => t.agent_name).filter(Boolean)));
     
     const dynamicEmployees = allEmployees
-        .filter(e => uniqueAgentNamesFromTickets.includes(e.full_name) && !activeEmployeeNames.has(e.full_name))
+        .filter(e => e.full_name && uniqueAgentNamesFromTickets.includes(e.full_name) && !activeEmployeeNames.has(e.full_name))
         .map(e => ({ person_id: e.person_id, full_name: e.full_name }));
 
     const tempWorkerOption = { person_id: 'TEMP_WORKER', full_name: 'Temp Worker' };
