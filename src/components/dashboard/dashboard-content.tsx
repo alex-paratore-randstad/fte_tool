@@ -193,8 +193,15 @@ export function DashboardContent() {
   // Derived state for filter options
   const employeeFilterOptions = useMemo<FilterOptions>(() => {
     const safeEmployees = allEmployees.filter(e => e && e.person_id && e.full_name);
-    const getUniqueSorted = (key: keyof TeamMember) => 
-        Array.from(new Set(safeEmployees.map(item => item[key]).filter(Boolean) as string[])).sort((a,b) => a.localeCompare(b));
+    const getUniqueSorted = (key: keyof TeamMember) =>
+        Array.from(
+            new Set(
+                safeEmployees
+                    .map(item => item[key])
+                    .filter(val => typeof val === 'string' && val) as string[]
+            )
+        ).sort((a, b) => a.localeCompare(b));
+
     return {
       fullNames: getUniqueSorted('full_name'),
       titles: getUniqueSorted('title'),

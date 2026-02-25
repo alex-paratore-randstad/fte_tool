@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -35,7 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '../ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Checkbox } from '../ui/checkbox';
 import { writeLog } from '@/lib/logger';
 
 type FilterOptions = {
@@ -174,8 +175,15 @@ export function TeamContent() {
         setTeamMembers(allData);
 
         // Derive filter options from the data
-        const getUniqueSorted = (key: keyof TeamMember) => 
-            Array.from(new Set(allData.map(item => item[key]).filter(Boolean) as string[])).sort((a,b) => a.localeCompare(b));
+        const getUniqueSorted = (key: keyof TeamMember) =>
+            Array.from(
+                new Set(
+                    allData
+                        .map(item => item[key])
+                        // Ensure value is a non-empty string before including it
+                        .filter(val => typeof val === 'string' && val) as string[]
+                )
+            ).sort((a, b) => a.localeCompare(b));
         
         setFilterOptions({
             employees: getUniqueSorted('full_name'),
