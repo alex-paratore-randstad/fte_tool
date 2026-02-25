@@ -89,6 +89,7 @@ export type BulkSummaryDoc = {
     cost_center_name:string;
     allocation_percentage: string;
     bulk_allocation_date: string;
+    allocation_group?: string;
   };
 };
 

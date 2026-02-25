@@ -43,6 +43,7 @@ type SummaryDoc = {
     cost_center_name: string;
     allocation_percentage: string;
     bulk_allocation_date: string;
+    allocation_group?: string;
   };
 };
 
@@ -57,6 +58,7 @@ type ProcessedAllocation = {
   id: string;
   allocationDate: string;
   allocationMonthYear?: string;
+  allocationGroup?: string;
   employees: string[];
   summaries: SummaryEntry[];
 };
@@ -89,7 +91,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       const summaries: SummaryDoc[] = summaryResponse.ok ? await summaryResponse.json() : [];
 
       const grouped = summaries.reduce((acc, summary) => {
-        const { bulk_allocation_id, cost_center_name, cost_center_number, allocation_percentage, bulk_allocation_date } = summary.content;
+        const { bulk_allocation_id, cost_center_name, cost_center_number, allocation_percentage, bulk_allocation_date, allocation_group } = summary.content;
         
         if (!acc[bulk_allocation_id]) {
           acc[bulk_allocation_id] = {
@@ -97,6 +99,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
             allocationDate: bulk_allocation_date,
             employees: [],
             summaries: [],
+            allocationGroup: allocation_group,
           };
         }
         
@@ -192,6 +195,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
               cost_center_name: summary.name,
               allocation_percentage: summary.percentage.toString(),
               bulk_allocation_date: editableAlloc.allocationDate,
+              allocation_group: editableAlloc.allocationGroup,
           }
       }));
 
@@ -257,6 +261,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                 <AccordionTrigger>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <span className="font-mono text-sm text-primary">{alloc.id.substring(0,8)}...</span>
+                        {alloc.allocationGroup && <Badge variant="outline">{alloc.allocationGroup}</Badge>}
                         {alloc.allocationMonthYear && <Badge>{alloc.allocationMonthYear}</Badge>}
                         <Badge variant="secondary">{alloc.employees.length} Employees</Badge>
                         <span className="text-sm text-muted-foreground hidden sm:inline">

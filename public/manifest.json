@@ -618,6 +618,10 @@
                         "type": "STRING"
                     },
                     {
+                        "name": "allocation_group",
+                        "type": "STRING"
+                    },
+                    {
                         "name": "allocation_percentage",
                         "type": "STRING"
                     }

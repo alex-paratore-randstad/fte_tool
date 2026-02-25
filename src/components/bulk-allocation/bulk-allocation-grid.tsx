@@ -172,6 +172,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
+  const [selectedAllocationGroup, setSelectedAllocationGroup] = useState('');
+  const [otherAllocationGroup, setOtherAllocationGroup] = useState('');
 
 
   const { currentUser, loading: userLoading } = useCurrentUser();
@@ -288,7 +290,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     if (!userLoading) {
       fetchData();
     }
-  }, [fetchData, userLoading, currentUser.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchData, userLoading]);
 
   const filteredEmployees = useMemo(() => {
     if (!employeeSearchTerm) {
@@ -372,6 +375,17 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       return;
     }
 
+    let allocationGroupValue = selectedAllocationGroup;
+    if (selectedAllocationGroup === 'Other') {
+      if (!otherAllocationGroup.trim()) {
+        toast({ variant: 'destructive', title: 'Missing Field', description: 'Please specify the "Other" allocation group name.' });
+        return;
+      }
+      allocationGroupValue = otherAllocationGroup.trim();
+    } else if (!selectedAllocationGroup) {
+      toast({ variant: 'destructive', title: 'Missing Field', description: 'Please select an Allocation Group.' });
+      return;
+    }
 
     setIsSubmitting(true);
     const bulkAllocationId = uuidv4();
@@ -409,6 +423,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
             cost_center_name: row.clientName,
             allocation_percentage: percentage.toString(),
             bulk_allocation_date: allocationDate,
+            allocation_group: allocationGroupValue,
           }
         }),
       });
@@ -428,6 +443,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       // Reset form
       setSelectedEmployees(new Set());
       setAllocationRows([{ id: uuidv4(), clientName: '', fte: 0 }]);
+      setSelectedAllocationGroup('');
+      setOtherAllocationGroup('');
       onSaveSuccess();
 
     } catch (error: any) {
@@ -440,6 +457,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   
   const isPageLoading = loading || userLoading || !hasMounted;
   const isAllocationInvalid = Math.abs(totalAllocatedFte - totalSelectedFte) > 0.01;
+  const isSubmitDisabled = isPageLoading || isSubmitting || selectedEmployees.size === 0 || isAllocationInvalid || !selectedAllocationGroup || (selectedAllocationGroup === 'Other' && !otherAllocationGroup.trim());
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -542,6 +560,34 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                     </Select>
                 </div>
             </div>
+            
+            <div className="grid gap-2">
+                <Label htmlFor="allocation-group">Allocation Group</Label>
+                <Select value={selectedAllocationGroup} onValueChange={setSelectedAllocationGroup} disabled={isPageLoading || isSubmitting}>
+                    <SelectTrigger id="allocation-group">
+                    <SelectValue placeholder="Select Group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                    <SelectItem value="Contractor Care">Contractor Care</SelectItem>
+                    <SelectItem value="Compliance">Compliance</SelectItem>
+                    <SelectItem value="NAM MSP Admin">NAM MSP Admin</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            {selectedAllocationGroup === 'Other' && (
+                <div className="grid gap-2">
+                    <Label htmlFor="other-allocation-group">Specify Other Group</Label>
+                    <Input
+                    id="other-allocation-group"
+                    value={otherAllocationGroup}
+                    onChange={(e) => setOtherAllocationGroup(e.target.value)}
+                    placeholder="Enter group name"
+                    disabled={isPageLoading || isSubmitting}
+                    />
+                </div>
+            )}
+
 
             <div className="grid gap-2">
               <Label>Selected Employees ({selectedEmployeeDetails.length})</Label>
@@ -602,7 +648,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
           </div>
         </CardContent>
         <CardFooter>
-            <Button onClick={handleSave} disabled={isPageLoading || isSubmitting || selectedEmployees.size === 0 || isAllocationInvalid}>
+            <Button onClick={handleSave} disabled={isSubmitDisabled}>
               {isSubmitting ? 'Saving...' : 'Save Bulk Allocation'}
             </Button>
         </CardFooter>
