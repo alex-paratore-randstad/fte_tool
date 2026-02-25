@@ -1,6 +1,6 @@
 {
     "name": "Randstad FTE Prototype",
-    "version": "0.0.19",
+    "version": "0.0.20",
     "fullpage": true,
     "size": {
         "width": 5,
@@ -388,6 +388,14 @@
                 {
                     "alias": "Name",
                     "columnName": "Name"
+                },
+                {
+                    "alias": "Region",
+                    "columnName": "Region"
+                },
+                {
+                    "alias": "Country",
+                    "columnName": "Country"
                 },
                 {
                     "alias": "DisplayName",

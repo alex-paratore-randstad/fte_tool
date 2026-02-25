@@ -13,6 +13,8 @@ export type AiReportData = {
     Name: string;
     DisplayName: string;
     RollsUpTo: string;
+    Region: string;
+    Country: string;
 };
 
 type AiReportTableProps = {
@@ -28,7 +30,9 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
     const lowercasedFilter = filter.toLowerCase();
     return reportData.filter(row =>
       (row.DisplayName && row.DisplayName.toLowerCase().includes(lowercasedFilter)) ||
-      (row.Code && row.Code.toLowerCase().includes(lowercasedFilter))
+      (row.Code && row.Code.toLowerCase().includes(lowercasedFilter)) ||
+      (row.Region && row.Region.toLowerCase().includes(lowercasedFilter)) ||
+      (row.Country && row.Country.toLowerCase().includes(lowercasedFilter))
     );
   }, [reportData, filter]);
   
@@ -41,7 +45,7 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
         </CardDescription>
         <div className="pt-2">
             <Input
-              placeholder="Filter by Display Name or Code..."
+              placeholder="Filter by Name, Code, Region, or Country..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="max-w-sm"
@@ -57,6 +61,8 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
                   <TableHead>Code</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Display Name</TableHead>
+                  <TableHead>Region</TableHead>
+                  <TableHead>Country</TableHead>
                   <TableHead>Rolls Up To</TableHead>
                 </TableRow>
               </TableHeader>
@@ -64,6 +70,8 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
                 {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-full" /></TableCell>
@@ -76,12 +84,14 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
                         <TableCell>{row.Code}</TableCell>
                         <TableCell>{row.Name}</TableCell>
                         <TableCell>{row.DisplayName}</TableCell>
+                        <TableCell>{row.Region}</TableCell>
+                        <TableCell>{row.Country}</TableCell>
                         <TableCell>{row.RollsUpTo}</TableCell>
                     </TableRow>
                     ))
                 ) : (
                     <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
+                        <TableCell colSpan={6} className="h-24 text-center">
                             No client data available or matching filters.
                         </TableCell>
                     </TableRow>
