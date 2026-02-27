@@ -54,8 +54,8 @@ const months = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
+const currentYearValue = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => (currentYearValue - 2 + i).toString());
 
 const MultiSelectFilter = ({
   placeholder,
@@ -134,7 +134,8 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const sorted = [...clients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
+    const validClients = (clients || []).filter(c => c && c.DisplayName);
+    const sorted = [...validClients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
 
     if (!searchTerm) {
       return sorted;

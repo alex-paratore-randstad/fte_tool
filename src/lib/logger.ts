@@ -35,7 +35,13 @@ export function writeLog(
             if (typeof rawData === 'string') {
                 logRaw = rawData;
             } else if (rawData instanceof Error) {
-                logRaw = JSON.stringify(rawData, Object.getOwnPropertyNames(rawData));
+                // Use a more robust error stringification
+                logRaw = JSON.stringify({
+                    name: rawData.name,
+                    message: rawData.message,
+                    stack: rawData.stack,
+                    ...rawData
+                });
             } else {
                 logRaw = JSON.stringify(rawData);
             }

@@ -143,11 +143,11 @@ export function DashboardContent() {
         const bSums = bulkSummaryResponse.ok ? await bulkSummaryResponse.json() : [];
         const targs = targetsResponse.ok ? await targetsResponse.json() : [];
 
-        setAllEmployees(Array.isArray(emps) ? emps : []);
-        setWeeklyAllocations(Array.isArray(weekly) ? weekly : []);
-        setBulkFtes(Array.isArray(bFtes) ? bFtes : []);
-        setBulkSummaries(Array.isArray(bSums) ? bSums : []);
-        setTargets(Array.isArray(targs) ? targs : []);
+        setAllEmployees(Array.isArray(emps) ? emps.filter(e => e && e.person_id) : []);
+        setWeeklyAllocations(Array.isArray(weekly) ? weekly.filter(a => a?.content) : []);
+        setBulkFtes(Array.isArray(bFtes) ? bFtes.filter(f => f?.content) : []);
+        setBulkSummaries(Array.isArray(bSums) ? bSums.filter(s => s?.content) : []);
+        setTargets(Array.isArray(targs) ? targs.filter(t => t?.content) : []);
 
       } catch (error) {
         writeLog('DashboardContent', 'error', 'Failed to load dashboard data', error);
@@ -177,9 +177,9 @@ export function DashboardContent() {
     currentWeekAllocations
       .filter(a => a?.content && parseFloat(a.content.allocation_amount) > 0)
       .forEach(a => {
-        if (a.content.employee_id) {
+        if (a?.content?.employee_id) {
           allocatedEmployeeIds.add(a.content.employee_id);
-        } else if (a.content.allocation_name) {
+        } else if (a?.content?.allocation_name) {
           const match = a.content.allocation_name.match(/\[(.*?)\]/);
           if (match && match[1]) allocatedEmployeeIds.add(match[1]);
         }
@@ -280,8 +280,8 @@ export function DashboardContent() {
                 if (isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) return acc;
 
                 const monthLabel = `${months[monthIndex]} ${year}`;
-                const clientName = alloc.content.cost_center_name || 'Unknown';
-                const amount = parseFloat(alloc.content.allocation_amount) || 0;
+                const clientName = alloc?.content?.cost_center_name || 'Unknown';
+                const amount = parseFloat(alloc?.content?.allocation_amount || '0') || 0;
                 
                 acc[monthLabel] = acc[monthLabel] || {};
                 acc[monthLabel][clientName] = (acc[monthLabel][clientName] || 0) + amount;
@@ -301,8 +301,8 @@ export function DashboardContent() {
                 if (!isValid(date)) return acc;
                 
                 const quarter = `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`;
-                const clientName = target.content.targets_cost_center_name || 'Unknown';
-                const amount = parseInt(target.content.targets_allocation_amount, 10) || 0;
+                const clientName = target?.content?.targets_cost_center_name || 'Unknown';
+                const amount = parseInt(target?.content?.targets_allocation_amount || '0', 10) || 0;
                 
                 acc[quarter] = acc[quarter] || {};
                 acc[quarter][clientName] = (acc[quarter][clientName] || 0) + amount;

@@ -50,6 +50,7 @@ const navGroups: NavGroup[] = [
 ];
 
 const getHref = (href: string) => {
+    if (!href) return '/index.html';
     if (href === '/') return '/index.html';
     return `${href.endsWith('/') ? href : `${href}/`}index.html`;
 };
@@ -124,7 +125,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                   <Link href={getHref('/')} className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-base", isActive('/') ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}>
                       Dashboard
                   </Link>
-                   <Accordion type="multiple" className="w-full" value={openGroups}>
+                   <Accordion type="multiple" className="w-full" value={openGroups} onValueChange={setOpenGroups}>
                       {loading ? (
                         Array.from({ length: 3 }).map((_, i) => (
                           <div key={i} className="flex items-center justify-between py-4 font-medium">
