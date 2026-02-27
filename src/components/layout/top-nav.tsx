@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -53,6 +54,7 @@ export function TopNav() {
   };
 
   const isActive = (href: string) => {
+    if (!pathname) return false;
     if (href === '/') {
       return pathname === '/index.html' || pathname === '/';
     }

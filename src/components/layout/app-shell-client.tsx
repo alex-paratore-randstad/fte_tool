@@ -1,3 +1,4 @@
+
 'use client';
 
 import { UserNav } from './user-nav';
@@ -65,6 +66,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
   };
   
   const isActive = (href: string) => {
+    if (!pathname) return false;
     if (href === '/') {
       return pathname === '/index.html' || pathname === '/';
     }
@@ -77,7 +79,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && pathname) {
       const activeGroups = navGroups
         .filter(g => isGroupActive(g.items) && userHasAccess(g.roles))
         .map(g => g.title);

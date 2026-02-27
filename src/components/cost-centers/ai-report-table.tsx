@@ -56,11 +56,11 @@ const MultiSelectFilter = ({
           disabled={disabled}
         >
           <span className="truncate">
-            {selected.length === 0
+            {(selected || []).length === 0
               ? placeholder
-              : selected.length <= 2
-              ? selected.join(', ')
-              : `${selected.length} selected`}
+              : (selected || []).length <= 2
+              ? (selected || []).join(', ')
+              : `${(selected || []).length} selected`}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -72,14 +72,14 @@ const MultiSelectFilter = ({
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
               <ScrollArea className="h-64">
-                {options.map(option => (
+                {(options || []).map(option => (
                   <CommandItem
                     key={option}
                     onSelect={() => onValueChange(option)}
                   >
                     <Checkbox
                       className="mr-2"
-                      checked={selected.includes(option)}
+                      checked={(selected || []).includes(option)}
                     />
                     <span>{option}</span>
                   </CommandItem>
@@ -114,12 +114,12 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
   });
 
   useEffect(() => {
-    if (reportData.length > 0) {
+    if (reportData && reportData.length > 0) {
         const getUniqueSorted = (key: keyof AiReportData) =>
             Array.from(
                 new Set(
                     reportData
-                        .map(item => item[key])
+                        .map(item => item && item[key])
                         // Ensure value is a non-empty string before including it
                         .filter(val => typeof val === 'string' && val) as string[]
                 )
@@ -137,10 +137,12 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
   }, [reportData]);
 
   const filteredData = useMemo(() => {
+    if (!reportData) return [];
     return reportData.filter(row => {
+        if (!row) return false;
         const filterBy = (key: keyof typeof filters, rowField: keyof AiReportData) => {
             const values = filters[key];
-            if (values.length === 0) return true;
+            if (!values || values.length === 0) return true;
             const rowValue = row[rowField];
             return rowValue ? values.includes(rowValue as string) : false;
         };
@@ -158,7 +160,7 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
 
   const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
     setFilters(prev => {
-        const currentValues = prev[filterName];
+        const currentValues = prev[filterName] || [];
         const newValues = currentValues.includes(value)
           ? currentValues.filter(v => v !== value)
           : [...currentValues, value];

@@ -28,13 +28,23 @@ export function writeLog(
     logMessage: string,
     rawData: any
 ) {
+    let logRaw = 'no-data';
+    try {
+        if (rawData !== null && rawData !== undefined) {
+            // Safe stringification even if rawData is an Error or null
+            logRaw = typeof rawData === 'string' ? rawData : JSON.stringify(rawData, Object.getOwnPropertyNames(rawData));
+        }
+    } catch (e) {
+        logRaw = 'failed-to-stringify';
+    }
+
     const payload: LogPayload = {
         log_id: uuidv4(),
         page_name: pageName,
         log_date: new Date().toISOString(),
         log_type: logType,
         log_message: logMessage,
-        log_raw: typeof rawData === 'string' ? rawData : JSON.stringify(rawData, Object.getOwnPropertyNames(rawData)),
+        log_raw: logRaw,
     };
 
     // Fire and forget

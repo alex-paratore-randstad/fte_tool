@@ -112,7 +112,7 @@ export function DashboardContent() {
   const [activeView, setActiveView] = useState<ActiveView>('total');
   const [employeeFilters, setEmployeeFilters] = useState({ fullName: [] as string[], title: [] as string[], manager: [] as string[] });
   const [chartClientFilter, setChartClientFilter] = useState<string[]>([]);
-  const [chartView, setChartView] = useState<'weekly' | 'bulk' | 'freshservice' | 'targets'>('weekly');
+  const [chartView, setChartView] = useState<'weekly' | 'bulk' | 'freshservice' | 'targets' | 'total'>('weekly');
   
   const { toast } = useToast();
   
@@ -265,7 +265,7 @@ export function DashboardContent() {
                 const dateStr = alloc?.content?.allocation_date;
                 if (!dateStr) return acc;
                 
-                const dateParts = dateStr.split('-');
+                const dateParts = String(dateStr).split('-');
                 if (dateParts.length !== 3) return acc;
                 
                 const year = dateParts[0];
@@ -307,6 +307,22 @@ export function DashboardContent() {
             description = "Total hires targeted per client, grouped by quarter.";
             break;
         }
+        case 'total': {
+            const last8Weeks = Array.from({ length: 8 }, (_, i) => startOfWeek(subWeeks(today, 7 - i), { weekStartsOn: 1 }));
+            initialChartData = last8Weeks.map(weekStart => {
+              const weekKey = format(weekStart, 'yyyy-MM-dd');
+              const allocationsForWeek = weeklyAllocations.filter(a => a?.content?.allocation_date === weekKey);
+              const total = allocationsForWeek.reduce((sum, curr) => sum + parseFloat(curr?.content?.allocation_amount || '0'), 0);
+              
+              return {
+                name: weekKey,
+                'Total Allocated FTE': total
+              };
+            });
+            title = "Total FTE Allocation Trend";
+            description = "Aggregate sum of FTEs allocated across all clients (Weekly) over the last 8 weeks.";
+            break;
+        }
         case 'weekly':
         default: {
             const allWeeklyClients = Array.from(new Set(weeklyAllocations.map(a => a?.content?.cost_center_name).filter(Boolean)));
@@ -322,7 +338,7 @@ export function DashboardContent() {
               }, {} as Record<string, number>);
               
               const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
-              allWeeklyClients.forEach(client => { completeWeeklyData[client] = weeklyTotals[client] || 0; });
+              allWeeklyClients.forEach(client => { completeWeeklyData[client as string] = weeklyTotals[client as string] || 0; });
               return completeWeeklyData;
             });
             initialChartData = weeklyData;
@@ -333,7 +349,7 @@ export function DashboardContent() {
     }
 
     const finalChartData =
-      chartClientFilter.length > 0
+      chartClientFilter.length > 0 && chartView !== 'total'
         ? initialChartData.map(item => {
             const newItem: { [key: string]: any } = { name: item.name };
             chartClientFilter.forEach(client => {
@@ -376,6 +392,7 @@ export function DashboardContent() {
     }
 
     const filteredData = baseData.filter(member => {
+        if (!member) return false;
         const nameMatch = employeeFilters.fullName.length === 0 || (member.full_name && employeeFilters.fullName.includes(member.full_name));
         const titleMatch = employeeFilters.title.length === 0 || (member.title && employeeFilters.title.includes(member.title));
         const managerMatch = employeeFilters.manager.length === 0 || (member.manager && employeeFilters.manager.includes(member.manager));
@@ -391,23 +408,6 @@ export function DashboardContent() {
 
     return { title: baseTitle, data: filteredData, description: description };
   }, [activeView, allEmployees, allocatedEmployees, unallocatedEmployees, employeeFilters]);
-
-  const aggregateChartData = useMemo(() => {
-    if (!today || loading) return [];
-    
-    const last8Weeks = Array.from({ length: 8 }, (_, i) => startOfWeek(subWeeks(today, 7 - i), { weekStartsOn: 1 }));
-    
-    return last8Weeks.map(weekStart => {
-      const weekKey = format(weekStart, 'yyyy-MM-dd');
-      const allocationsForWeek = weeklyAllocations.filter(a => a?.content?.allocation_date === weekKey);
-      const total = allocationsForWeek.reduce((sum, curr) => sum + parseFloat(curr?.content?.allocation_amount || '0'), 0);
-      
-      return {
-        name: weekKey,
-        'Total Allocated FTE': total
-      };
-    });
-  }, [today, loading, weeklyAllocations]);
 
   const handleCardClick = (view: ActiveView) => {
     setActiveView(current => (current === view ? null : view));
@@ -488,26 +488,29 @@ export function DashboardContent() {
                   <CardDescription>{isPageLoading ? <Skeleton className="h-4 w-full" /> : chartDescription}</CardDescription>
                 </div>
                 <Tabs value={chartView} onValueChange={(v) => setChartView(v as any)} className="w-full sm:w-auto">
-                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto sm:h-10">
+                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-auto sm:h-10">
                         <TabsTrigger value="weekly">Weekly</TabsTrigger>
                         <TabsTrigger value="bulk">Bulk</TabsTrigger>
                         <TabsTrigger value="freshservice">Freshservice</TabsTrigger>
                         <TabsTrigger value="targets">Targets</TabsTrigger>
+                        <TabsTrigger value="total">Total</TabsTrigger>
                     </TabsList>
                 </Tabs>
               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-4">
-                  <MultiSelectFilter
-                      placeholder="Filter by Client..."
-                      options={allChartClients}
-                      selected={chartClientFilter}
-                      onValueChange={handleChartClientFilterChange}
-                      disabled={isPageLoading}
-                  />
-                  <Button variant="outline" onClick={clearChartFilters} disabled={isPageLoading || chartClientFilter.length === 0}>
-                    Clear Client Filter
-                  </Button>
-              </div>
+               {chartView !== 'total' && (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-4">
+                    <MultiSelectFilter
+                        placeholder="Filter by Client..."
+                        options={allChartClients}
+                        selected={chartClientFilter}
+                        onValueChange={handleChartClientFilterChange}
+                        disabled={isPageLoading}
+                    />
+                    <Button variant="outline" onClick={clearChartFilters} disabled={isPageLoading || chartClientFilter.length === 0}>
+                      Clear Client Filter
+                    </Button>
+                </div>
+               )}
             </CardHeader>
             <CardContent>
               {isPageLoading ? (
@@ -567,20 +570,6 @@ export function DashboardContent() {
                   </TableBody>
                 </Table>
               </ScrollArea>
-            </CardContent>
-          </Card>
-
-          <Card className="col-span-1 lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Total FTE Allocation Trend</CardTitle>
-              <CardDescription>Aggregate sum of FTEs allocated across all clients (Weekly) over the last 8 weeks.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isPageLoading ? (
-                <Skeleton className="h-[300px] w-full" />
-              ) : (
-                <FteAllocationChart data={aggregateChartData} />
-              )}
             </CardContent>
           </Card>
       </div>
