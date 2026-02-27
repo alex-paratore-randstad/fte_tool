@@ -63,7 +63,6 @@ type MultiWeekGridProps = {
   initialLoading: boolean;
 };
 
-// New self-contained component for the Client dropdown
 const ClientSelect = ({ 
   clients, 
   value, 
@@ -78,7 +77,6 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    // Create a stable sort: special clients first, then alphabetical.
     const sorted = [...clients].sort((a, b) => {
       const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
@@ -87,8 +85,6 @@ const ClientSelect = ({
       if (aIsSpecial && !bIsSpecial) return -1;
       if (!aIsSpecial && bIsSpecial) return 1;
       
-      // If both are special or both are not, sort by name.
-      // Give 'Unallocated' a slight edge over 'PTO' if both present
       if (aIsSpecial && bIsSpecial) {
           return a.DisplayName === 'Unallocated' ? -1 : 1;
       }
@@ -122,7 +118,6 @@ const ClientSelect = ({
   );
 };
 
-// New self-contained component for the Employee dropdown
 const EmployeeSelect = ({ 
   employees, 
   onValueChange,
@@ -168,7 +163,6 @@ const EmployeeSelect = ({
   );
 };
 
-// New self-contained component for the Manager dropdown
 const ManagerSelect = ({ 
   managers, 
   onValueChange,
@@ -233,7 +227,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   useEffect(() => {
     setHasMounted(true);
-    // Set the date only on the client side to avoid hydration errors
     setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   }, []);
 
@@ -246,8 +239,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   }, [currentDate]);
 
   const fetchAllocationsForEmployee = useCallback(async (employee: TeamMember): Promise<AllocationRow[]> => {
-    const blankRow = { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} };
-    if (!currentDate || weeks.length === 0) return [blankRow];
+    if (!currentDate || weeks.length === 0) return [];
   
     try {
         const sourceWeekKeys = weeks.map(w => formatDateKey(w.startDate));
@@ -266,7 +258,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         );
       
         if (employeeAllocations.length === 0) {
-            return [blankRow];
+            return [];
         }
   
         const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: { [weekKey: string]: number } }>();
@@ -290,15 +282,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             weeklyFtes: data.weeklyFtes,
         }));
   
-        return newAllocationRows.length > 0 ? newAllocationRows : [blankRow];
+        return newAllocationRows;
     } catch (error) {
         writeLog('MultiWeekGrid', 'error', `Could not load allocations for ${employee.full_name}`, error);
         toast({ variant: 'destructive', title: 'Error Loading Data', description: `Could not load allocations for ${employee.full_name}.`});
-        return [blankRow];
+        return [];
     }
   }, [currentDate, toast, weeks]);
 
-  // Effect to re-fetch employee allocations when the month changes
   useEffect(() => {
     if (isInitialRender.current) {
         isInitialRender.current = false;
@@ -311,7 +302,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
         setInternalLoading(true);
         
-        // CRITICAL FIX: Clear existing values to prevent stale data leaking across months
         setActiveAllocations(prev => prev.map(emp => ({
             ...emp,
             allocations: emp.allocations.map(a => ({ ...a, weeklyFtes: {} }))
@@ -391,7 +381,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
     } catch (error) {
       writeLog('MultiWeekGrid', 'error', 'Failed to fetch initial data', error);
-      toast({ variant: 'destructive', title: 'Failed to fetch data' });
+      toast({ variant: 'destructive', title: 'Failed to fetch initial data' });
     } finally {
       setInternalLoading(false);
     }
@@ -401,8 +391,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     if (!userLoading) {
         fetchData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLoading]);
+  }, [userLoading, fetchData]);
 
 
   const availableEmployees = useMemo(() => {
@@ -471,7 +460,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 weeklyFtes: {},
             };
         
-            // Map prior month's weeks to current month's weeks by index
             weeks.forEach((currentWeek, index) => {
                 if (index < prevMonthWeeks.length) {
                     const sourceWeekKey = formatDateKey(prevMonthWeeks[index].startDate);
@@ -517,9 +505,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       }
       
       const allocationRows = await fetchAllocationsForEmployee(employeeToAdd);
+      const initialRows = allocationRows.length > 0 ? allocationRows : [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }];
+      
       const newEmployeeAllocation: EmployeeAllocation = {
         employee: employeeToAdd,
-        allocations: allocationRows
+        allocations: initialRows
       };
       
       setActiveAllocations(prev => [newEmployeeAllocation, ...prev]);
@@ -540,18 +530,23 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       return;
     }
     
-    toast({ title: 'Team Loaded', description: `Loading existing data for ${employeesToAdd.length} employees...` });
+    toast({ title: 'Team Loading', description: `Checking allocation data for ${employeesToAdd.length} employees...` });
     
     const allocationPromises = employeesToAdd.map(employee => fetchAllocationsForEmployee(employee));
-
     const resolvedAllocations = await Promise.all(allocationPromises);
 
     const newEmployeeAllocations = employeesToAdd.map((employee, index) => ({
       employee,
       allocations: resolvedAllocations[index],
-    }));
+    })).filter(ea => ea.allocations.length > 0);
+
+    if (newEmployeeAllocations.length === 0) {
+        toast({ title: 'No active allocations', description: 'None of the employees in this team have allocations for the selected month.' });
+        return;
+    }
 
     setActiveAllocations(prev => [...newEmployeeAllocations, ...prev]);
+    toast({ title: 'Team Loaded', description: `Loaded ${newEmployeeAllocations.length} team members with active allocations.` });
   };
 
 
@@ -649,19 +644,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const submissions: any[] = [];
     let hasInvalidAllocation = false;
 
-    // Create a set of week keys for the currently visible month for efficient lookup.
     const currentMonthWeekKeys = new Set(weeks.map(w => formatDateKey(w.startDate)));
     
     activeAllocations.forEach(empAlloc => {
       empAlloc.allocations.forEach(alloc => {
         Object.entries(alloc.weeklyFtes).forEach(([weekKey, fte]) => {
-          // CRITICAL FIX: Only process and save entries for the currently displayed month.
           if (currentMonthWeekKeys.has(weekKey)) {
               if (fte > 0) {
                 if (!alloc.clientId || !alloc.clientName) {
                     hasInvalidAllocation = true;
                     toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${empAlloc.employee.full_name}.` });
-                    return; // exit forEach for this entry
+                    return;
                 }
                 submissions.push({
                   content: {
