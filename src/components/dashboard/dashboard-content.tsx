@@ -6,7 +6,7 @@ import { Users, Briefcase, AlertTriangle, UserMinus, ChevronsUpDown } from 'luci
 import SummaryCard from '@/components/dashboard/summary-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TeamMember, WeeklyAllocation, BulkFteDoc, BulkSummaryDoc, WeeklyTarget } from '@/types';
+import type { TeamMember, WeeklyAllocation, BulkFteDoc, BulkSummaryDoc, WeeklyTarget } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,8 +23,8 @@ import { Checkbox } from '../ui/checkbox';
 type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
 
 type ChartData = {
-  name: string; // Week start date, month, or quarter
-  [key: string]: any; // Client allocations
+  name: string;
+  [key: string]: any;
 };
 
 type FilterOptions = {
@@ -99,16 +99,14 @@ const MultiSelectFilter = ({
 
 export function DashboardContent() {
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState<Date | null>(null); // State for client-side date
+  const [today, setToday] = useState<Date | null>(null);
 
-  // Raw data states
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [weeklyAllocations, setWeeklyAllocations] = useState<WeeklyAllocation[]>([]);
   const [bulkFtes, setBulkFtes] = useState<BulkFteDoc[]>([]);
   const [bulkSummaries, setBulkSummaries] = useState<BulkSummaryDoc[]>([]);
   const [targets, setTargets] = useState<WeeklyTarget[]>([]);
 
-  // UI State
   const [activeView, setActiveView] = useState<ActiveView>('total');
   const [employeeFilters, setEmployeeFilters] = useState({ fullName: [] as string[], title: [] as string[], manager: [] as string[] });
   const [chartClientFilter, setChartClientFilter] = useState<string[]>([]);
@@ -117,7 +115,6 @@ export function DashboardContent() {
   const { toast } = useToast();
   
   useEffect(() => {
-    // Set date only on client-side to prevent hydration mismatch
     setToday(new Date());
 
     async function fetchData() {
@@ -137,17 +134,17 @@ export function DashboardContent() {
           fetch(`/domo/datastores/v1/collections/weekly_targets/documents/`),
         ]);
 
-        const emps = empResponse.ok ? await empResponse.json() : [];
-        const weekly = weeklyAllocResponse.ok ? await weeklyAllocResponse.json() : [];
-        const bFtes = bulkFteResponse.ok ? await bulkFteResponse.json() : [];
-        const bSums = bulkSummaryResponse.ok ? await bulkSummaryResponse.json() : [];
-        const targs = targetsResponse.ok ? await targetsResponse.json() : [];
+        const rawEmps = empResponse.ok ? await empResponse.json() : [];
+        const rawWeekly = weeklyAllocResponse.ok ? await weeklyAllocResponse.json() : [];
+        const rawBFtes = bulkFteResponse.ok ? await bulkFteResponse.json() : [];
+        const rawBSums = bulkSummaryResponse.ok ? await bulkSummaryResponse.json() : [];
+        const rawTargs = targetsResponse.ok ? await targetsResponse.json() : [];
 
-        setAllEmployees(Array.isArray(emps) ? emps.filter(e => e && e.person_id) : []);
-        setWeeklyAllocations(Array.isArray(weekly) ? weekly.filter(a => a?.content) : []);
-        setBulkFtes(Array.isArray(bFtes) ? bFtes.filter(f => f?.content) : []);
-        setBulkSummaries(Array.isArray(bSums) ? bSums.filter(s => s?.content) : []);
-        setTargets(Array.isArray(targs) ? targs.filter(t => t?.content) : []);
+        setAllEmployees(Array.isArray(rawEmps) ? rawEmps.filter(e => e && e.person_id) : []);
+        setWeeklyAllocations(Array.isArray(rawWeekly) ? rawWeekly.filter(a => a?.content) : []);
+        setBulkFtes(Array.isArray(rawBFtes) ? rawBFtes.filter(f => f?.content) : []);
+        setBulkSummaries(Array.isArray(rawBSums) ? rawBSums.filter(s => s?.content) : []);
+        setTargets(Array.isArray(rawTargs) ? rawTargs.filter(t => t?.content) : []);
 
       } catch (error) {
         writeLog('DashboardContent', 'error', 'Failed to load dashboard data', error);
@@ -157,21 +154,19 @@ export function DashboardContent() {
       }
     }
     fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [toast]);
 
-  // Derived state for summary cards and employee lists
   const { totalFtes, allocatedFtes, unallocatedFtes, missingAllocations, allocatedEmployees, unallocatedEmployees } = useMemo(() => {
     if (!today || loading) {
       return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, missingAllocations: 0, allocatedEmployees: [], unallocatedEmployees: [] };
     }
 
-    const safeEmployees = allEmployees.filter(e => e && e.person_id && e.full_name);
+    const safeEmployees = (allEmployees || []).filter(e => e && e.person_id && e.full_name);
     const total = new Set(safeEmployees.map(e => e.person_id)).size;
     
     const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 });
     const currentWeekKey = format(startOfThisWeek, 'yyyy-MM-dd');
-    const currentWeekAllocations = weeklyAllocations.filter(a => a?.content?.allocation_date === currentWeekKey);
+    const currentWeekAllocations = (weeklyAllocations || []).filter(a => a?.content?.allocation_date === currentWeekKey);
     
     const allocatedEmployeeIds = new Set<string>();
     currentWeekAllocations
@@ -198,9 +193,8 @@ export function DashboardContent() {
     };
   }, [today, loading, allEmployees, weeklyAllocations]);
 
-  // Derived state for filter options
   const employeeFilterOptions = useMemo<FilterOptions>(() => {
-    const safeEmployees = allEmployees.filter(e => e && e.person_id && e.full_name);
+    const safeEmployees = (allEmployees || []).filter(e => e && e.person_id && e.full_name);
     const getUniqueSorted = (key: keyof TeamMember) =>
         Array.from(
             new Set(
@@ -220,9 +214,9 @@ export function DashboardContent() {
   const allChartClients = useMemo<string[]>(() => {
     if (loading) return [];
     const clients = new Set<string>();
-    weeklyAllocations.forEach(a => { if (a?.content?.cost_center_name) clients.add(a.content.cost_center_name); });
-    bulkSummaries.forEach(s => { if (s?.content?.cost_center_name) clients.add(s.content.cost_center_name); });
-    targets.forEach(t => { if (t?.content?.targets_cost_center_name) clients.add(t.content.targets_cost_center_name); });
+    (weeklyAllocations || []).forEach(a => { if (a?.content?.cost_center_name) clients.add(a.content.cost_center_name); });
+    (bulkSummaries || []).forEach(s => { if (s?.content?.cost_center_name) clients.add(s.content.cost_center_name); });
+    (targets || []).forEach(t => { if (t?.content?.targets_cost_center_name) clients.add(t.content.targets_cost_center_name); });
     
     return Array.from(clients)
       .filter(c => typeof c === 'string' && c)
@@ -238,16 +232,18 @@ export function DashboardContent() {
     let title: string = '';
     let description: string = '';
 
+    const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
     switch(chartView) {
         case 'bulk': {
-            const bulkSummariesByProfileId = bulkSummaries.reduce((acc, summary) => {
+            const bulkSummariesByProfileId = (bulkSummaries || []).reduce((acc, summary) => {
                 if (!summary?.content?.bulk_allocation_id) return acc;
                 if (!acc[summary.content.bulk_allocation_id]) acc[summary.content.bulk_allocation_id] = [];
                 acc[summary.content.bulk_allocation_id].push(summary);
                 return acc;
             }, {} as Record<string, BulkSummaryDoc[]>);
 
-            const bulkDataByMonth = bulkFtes.reduce((acc, fte) => {
+            const bulkDataByMonth = (bulkFtes || []).reduce((acc, fte) => {
                 const { allocation_monthyear, bulk_allocation_id } = fte?.content || {};
                 if (!allocation_monthyear || !bulk_allocation_id) return acc;
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
@@ -265,8 +261,7 @@ export function DashboardContent() {
             break;
         }
         case 'freshservice': {
-            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-            const freshserviceAllocations = weeklyAllocations.filter(a => a?.content && a.content.cost_center_name === a.content.cost_center_number);
+            const freshserviceAllocations = (weeklyAllocations || []).filter(a => a?.content && a.content.cost_center_name === a.content.cost_center_number);
             const freshserviceDataByMonth = freshserviceAllocations.reduce((acc, alloc) => {
                 const dateStr = alloc?.content?.allocation_date;
                 if (!dateStr) return acc;
@@ -279,7 +274,7 @@ export function DashboardContent() {
                 
                 if (isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) return acc;
 
-                const monthLabel = `${months[monthIndex]} ${year}`;
+                const monthLabel = `${monthsShort[monthIndex]} ${year}`;
                 const clientName = alloc?.content?.cost_center_name || 'Unknown';
                 const amount = parseFloat(alloc?.content?.allocation_amount || '0') || 0;
                 
@@ -293,7 +288,7 @@ export function DashboardContent() {
              break;
         }
         case 'targets': {
-            const targetsByQuarter = targets.reduce((acc, target) => {
+            const targetsByQuarter = (targets || []).reduce((acc, target) => {
                 const dateStr = target?.content?.targets_allocation_date;
                 if (!dateStr) return acc;
                 
@@ -314,11 +309,11 @@ export function DashboardContent() {
             break;
         }
         case 'total': {
-            const allWeeklyClients = Array.from(new Set(weeklyAllocations.map(a => a?.content?.cost_center_name).filter(Boolean)));
+            const allWeeklyClients = Array.from(new Set((weeklyAllocations || []).map(a => a?.content?.cost_center_name).filter(Boolean)));
             const last8Weeks = Array.from({ length: 8 }, (_, i) => startOfWeek(subWeeks(today, 7 - i), { weekStartsOn: 1 }));
             initialChartData = last8Weeks.map(weekStart => {
               const weekKey = format(weekStart, 'yyyy-MM-dd');
-              const allocationsForWeek = weeklyAllocations.filter(a => a?.content?.allocation_date === weekKey);
+              const allocationsForWeek = (weeklyAllocations || []).filter(a => a?.content?.allocation_date === weekKey);
               
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
                 const clientName = curr?.content?.cost_center_name || 'Unknown';
@@ -337,11 +332,11 @@ export function DashboardContent() {
         }
         case 'weekly':
         default: {
-            const allWeeklyClients = Array.from(new Set(weeklyAllocations.map(a => a?.content?.cost_center_name).filter(Boolean)));
+            const allWeeklyClients = Array.from(new Set((weeklyAllocations || []).map(a => a?.content?.cost_center_name).filter(Boolean)));
             const last6Weeks = Array.from({ length: 6 }, (_, i) => startOfWeek(subWeeks(today, 5 - i), { weekStartsOn: 1 }));
             const weeklyData = last6Weeks.map(weekStart => {
               const weekStartDateString = format(weekStart, 'yyyy-MM-dd');
-              const allocationsForWeek = weeklyAllocations.filter(a => a?.content?.allocation_date === weekStartDateString);
+              const allocationsForWeek = (weeklyAllocations || []).filter(a => a?.content?.allocation_date === weekStartDateString);
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
                 const clientName = curr?.content?.cost_center_name || 'Unknown';
                 const amount = Number(curr?.content?.allocation_amount) || 0;
@@ -381,29 +376,29 @@ export function DashboardContent() {
   }, [today, loading, chartView, weeklyAllocations, bulkFtes, bulkSummaries, targets, chartClientFilter]);
 
   const { title: detailTitle, data: detailData, description: detailDescription } = useMemo(() => {
-    let baseData: TeamMember[];
-    let baseTitle: string;
+    let baseData: TeamMember[] = [];
+    let baseTitle: string = 'FTE List';
 
     switch (activeView) {
       case 'total':
-        baseData = allEmployees;
+        baseData = allEmployees || [];
         baseTitle = 'All FTEs';
         break;
       case 'allocated':
-        baseData = allocatedEmployees;
+        baseData = allocatedEmployees || [];
         baseTitle = 'Allocated FTEs (Current Week)';
         break;
       case 'unallocated':
       case 'missing':
-        baseData = unallocatedEmployees;
+        baseData = unallocatedEmployees || [];
         baseTitle = activeView === 'unallocated' ? 'Unallocated FTEs (Current Week)' : 'FTEs with Missing Allocations (Current Week)';
         break;
       default:
-        baseData = allEmployees;
+        baseData = allEmployees || [];
         baseTitle = 'All FTEs';
     }
 
-    const filteredData = baseData.filter(member => {
+    const filteredData = (baseData || []).filter(member => {
         if (!member) return false;
         const nameMatch = employeeFilters.fullName.length === 0 || (member.full_name && employeeFilters.fullName.includes(member.full_name));
         const titleMatch = employeeFilters.title.length === 0 || (member.title && employeeFilters.title.includes(member.title));
@@ -427,7 +422,7 @@ export function DashboardContent() {
 
   const handleEmployeeFilterChange = (filterName: keyof typeof employeeFilters, value: string) => {
     setEmployeeFilters(prev => {
-        const currentValues = prev[filterName];
+        const currentValues = prev[filterName] || [];
         const newValues = currentValues.includes(value)
           ? currentValues.filter(v => v !== value)
           : [...currentValues, value];
@@ -437,9 +432,10 @@ export function DashboardContent() {
   
   const handleChartClientFilterChange = (value: string) => {
     setChartClientFilter(prev => {
-      const newValues = prev.includes(value)
-        ? prev.filter(v => v !== value)
-        : [...prev, value];
+      const currentValues = prev || [];
+      const newValues = currentValues.includes(value)
+        ? currentValues.filter(v => v !== value)
+        : [...currentValues, value];
       return newValues;
     });
   };
@@ -564,7 +560,7 @@ export function DashboardContent() {
                           <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                         </TableRow>
                       ))
-                    ) : detailData.length > 0 ? detailData.map(employee => (
+                    ) : (detailData || []).length > 0 ? detailData.map(employee => (
                       <TableRow key={employee.person_id}>
                         <TableCell>{employee.full_name}</TableCell>
                         <TableCell>{employee.title}</TableCell>

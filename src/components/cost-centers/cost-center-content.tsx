@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { AiReportTable, AiReportData } from './ai-report-table';
+import { AiReportTable } from './ai-report-table';
+import type { AiReportData } from './ai-report-table';
 
 export function CostCenterContent() {
   const [aiReportData, setAiReportData] = useState<AiReportData[]>([]);
@@ -21,7 +22,7 @@ export function CostCenterContent() {
         }
         
         const aiResult: AiReportData[] = response.ok ? await response.json() : [];
-        setAiReportData(aiResult);
+        setAiReportData(Array.isArray(aiResult) ? aiResult : []);
 
       } catch (error) {
         console.error("Failed to fetch client data:", error);

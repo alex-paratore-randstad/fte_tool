@@ -62,7 +62,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
 
   const userHasAccess = (roles?: string[]) => {
     if (loading || !currentUser.role) return false;
-    if (!roles) return true; // No roles defined means public
+    if (!roles) return true;
     return roles.includes(currentUser.role);
   };
   
@@ -86,14 +86,12 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
         .map(g => g.title);
       setOpenGroups(activeGroups);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, pathname, currentUser.role]);
 
   
   return (
     <div className="flex min-h-screen w-full flex-col">
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
-        {/* --- Desktop Navigation --- */}
         <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
           <Link href={getHref('/')} className="flex items-center gap-2 text-lg font-semibold md:text-base">
             <Logo />
@@ -101,7 +99,6 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
           <TopNav />
         </nav>
 
-        {/* --- Mobile Navigation --- */}
         <Sheet>
           <SheetTrigger asChild>
             <Button

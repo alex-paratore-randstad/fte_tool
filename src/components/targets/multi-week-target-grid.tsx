@@ -77,7 +77,8 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const sorted = [...clients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
+    const validClients = clients.filter(c => c && c.DisplayName);
+    const sorted = [...validClients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
     if (!searchTerm) return sorted;
     return sorted.filter(cc => cc.DisplayName && cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [clients, searchTerm]);
@@ -114,7 +115,8 @@ const EmployeeSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
-    const sortedEmployees = [...employees].sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    const validEmps = employees.filter(e => e && e.full_name);
+    const sortedEmployees = [...validEmps].sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
     if (!searchTerm) return sortedEmployees;
     return sortedEmployees.filter(e => e.full_name && e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
@@ -155,7 +157,8 @@ const ManagerSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
-    const sortedManagers = [...managers].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+    const validManagers = managers.filter(m => m && m.name);
+    const sortedManagers = [...validManagers].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
     if (!searchTerm) return sortedManagers;
     return sortedManagers.filter(m => m.name && m.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
@@ -215,8 +218,15 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       if (!empResponse.ok) writeLog('QuarterlyTargetGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
       if (!clientResponse.ok) writeLog('QuarterlyTargetGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')) : [];
-      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
+      const rawEmps = empResponse.ok ? await empResponse.json() : [];
+      const rawClients = clientResponse.ok ? await clientResponse.json() : [];
+
+      const empData: TeamMember[] = (Array.isArray(rawEmps) ? rawEmps : [])
+        .filter((e: TeamMember) => e && e.full_name && e.person_id)
+        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+
+      const clientData: AiReportData[] = (Array.isArray(rawClients) ? rawClients : [])
+        .filter((c: AiReportData) => c && c.Code && c.DisplayName);
       
       const tempWorker: TeamMember = {
         person_id: 'TEMP_WORKER',
@@ -255,7 +265,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
 
   const availableEmployees = useMemo(() => {
     const activeEmployeeIds = new Set(activeTargets.map(a => a.employee.person_id));
-    return allEmployees.filter(e => !activeEmployeeIds.has(e.person_id));
+    return allEmployees.filter(e => e && e.person_id && !activeEmployeeIds.has(e.person_id));
   }, [allEmployees, activeTargets]);
 
   const fetchTargetsForEmployee = useCallback(async (employee: TeamMember, year: number) => {
@@ -267,13 +277,14 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
         const allYearlyTargets: WeeklyTarget[] = (await Promise.all(responses.map(res => res.ok ? res.json() : []))).flat();
 
         const employeeIdString = `[${employee.person_id}]`;
-        const employeeTargets = allYearlyTargets.filter(t => t.content.targets_allocation_name?.startsWith(employeeIdString));
+        const employeeTargets = allYearlyTargets.filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
         
         if (employeeTargets.length === 0) return [blankRow];
 
         const clientTargetsMap = new Map<string, { clientName: string, quarterlyTargets: { [key: string]: number } }>();
 
         employeeTargets.forEach(target => {
+            if (!target?.content) return;
             const clientKey = target.content.targets_cost_center_number;
             if (!clientTargetsMap.has(clientKey)) {
                 clientTargetsMap.set(clientKey, { clientName: target.content.targets_cost_center_name, quarterlyTargets: {} });
@@ -311,7 +322,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
 
         setInternalLoading(true);
         
-        // CRITICAL FIX: Clear existing target values to prevent stale data leaking across years
+        // Clear existing target values to prevent stale data leaking across years
         setActiveTargets(prev => prev.map(emp => ({
             ...emp,
             targets: emp.targets.map(t => ({ ...t, quarterlyTargets: {} }))
@@ -334,7 +345,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   const handleAddEmployee = async (employeeId: string) => {
     if (!employeeId) return;
     setSelectedEmployeeToAdd(employeeId);
-    const employeeToAdd = allEmployees.find(e => e.person_id === employeeId);
+    const employeeToAdd = allEmployees.find(e => e && e.person_id === employeeId);
     if (employeeToAdd) {
       if (activeTargets.some(a => a.employee.person_id === employeeId)) {
           toast({ variant: 'destructive', title: 'Employee already in grid' }); return;
@@ -347,7 +358,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
 
   const handleAddManagerTeam = async (managerId: string) => {
     if (!managerId) return;
-    const teamMembers = allEmployees.filter(e => e.manager_id === managerId && !activeTargets.some(a => a.employee.person_id === e.person_id));
+    const teamMembers = allEmployees.filter(e => e && e.manager_id === managerId && !activeTargets.some(a => a.employee.person_id === e.person_id));
     if (teamMembers.length === 0) { toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' }); return; }
     toast({ title: 'Team Loaded', description: `Loading existing data for ${teamMembers.length} employees...` });
     const targetPromises = teamMembers.map(employee => fetchTargetsForEmployee(employee, currentYear));

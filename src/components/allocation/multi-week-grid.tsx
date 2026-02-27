@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback, useRef } from 'react';
-import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
+import { startOfWeek, endOfWeek, format, isBefore, isSameDay, isValid, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -77,7 +77,8 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const sorted = [...clients].sort((a, b) => {
+    const validClients = (clients || []).filter(c => c && c.DisplayName);
+    const sorted = [...validClients].sort((a, b) => {
       const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
       const bIsSpecial = specialClients.includes(b.DisplayName);
@@ -132,7 +133,8 @@ const EmployeeSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
-    const sortedEmployees = [...employees].sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    const validEmps = (employees || []).filter(e => e && e.full_name);
+    const sortedEmployees = [...validEmps].sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
     if (!searchTerm) {
       return sortedEmployees;
     }
@@ -175,7 +177,8 @@ const ManagerSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
-    const sortedManagers = [...managers].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+    const validManagers = (managers || []).filter(m => m && m.name);
+    const sortedManagers = [...validManagers].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
     if (!searchTerm) {
       return sortedManagers;
     }
@@ -231,7 +234,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   }, []);
 
   const { weeks, fiscalMonthLabel } = useMemo(() => {
-    if (!currentDate) return { weeks: [], fiscalMonthLabel: 'Loading...' };
+    if (!currentDate || !isValid(currentDate)) return { weeks: [], fiscalMonthLabel: 'Loading...' };
     const fiscalData = getFiscalDataForDate(currentDate);
     const monthWeeks: FiscalWeek[] = getWeeksForFiscalMonth(currentDate);
     const label = fiscalData ? `${fiscalData.Reporting_Month} ${fiscalData.Reporting_Year}` : 'Loading...';
@@ -239,7 +242,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   }, [currentDate]);
 
   const fetchAllocationsForEmployee = useCallback(async (employee: TeamMember): Promise<AllocationRow[]> => {
-    if (!currentDate || weeks.length === 0) return [];
+    if (!currentDate || !isValid(currentDate) || weeks.length === 0) return [];
   
     try {
         const sourceWeekKeys = weeks.map(w => formatDateKey(w.startDate));
@@ -311,7 +314,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         const refreshedAllocations = await Promise.all(
             currentActiveAllocs.map(async empAlloc => {
                 const newRows = await fetchAllocationsForEmployee(empAlloc.employee);
-                // Maintain functionality: If employee has no existing >0 allocations, give them a blank row
                 return { 
                     ...empAlloc, 
                     allocations: newRows.length > 0 ? newRows : [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }] 
@@ -335,18 +337,21 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       ]);
 
       if (!empResponse.ok) {
-        const errorPayload = { status: empResponse.status, statusText: empResponse.statusText };
-        writeLog('MultiWeekGrid', 'warning', 'Could not fetch employee data', errorPayload);
-        console.warn("Could not fetch employee data. This may be expected in local dev.");
+        writeLog('MultiWeekGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
       }
       if (!clientResponse.ok) {
-        const errorPayload = { status: clientResponse.status, statusText: clientResponse.statusText };
-        writeLog('MultiWeekGrid', 'warning', 'Could not fetch client data', errorPayload);
-        console.warn("Could not fetch client data. This may be expected in local dev.");
+        writeLog('MultiWeekGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
       }
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e && e.full_name).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')) : [];
-      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c && c.Code && c.DisplayName) : [];
+      const rawEmpData = empResponse.ok ? await empResponse.json() : [];
+      const rawClientData = clientResponse.ok ? await clientResponse.json() : [];
+
+      const empData: TeamMember[] = (Array.isArray(rawEmpData) ? rawEmpData : [])
+        .filter((e: TeamMember) => e && e.full_name && e.person_id)
+        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+
+      const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : [])
+        .filter((c: AiReportData) => c && c.Code && c.DisplayName);
       
       const tempWorker: TeamMember = {
         person_id: 'TEMP_WORKER',
@@ -401,18 +406,18 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   const availableEmployees = useMemo(() => {
     const activeEmployeeIds = new Set(activeAllocations.map(a => a.employee.person_id));
-    return allEmployees.filter(e => e && !activeEmployeeIds.has(e.person_id));
+    return allEmployees.filter(e => e && e.person_id && !activeEmployeeIds.has(e.person_id));
   }, [allEmployees, activeAllocations]);
 
   const handlePrevMonth = () => {
-    if (currentDate) setCurrentDate(getPreviousFiscalMonth(currentDate));
+    if (currentDate && isValid(currentDate)) setCurrentDate(getPreviousFiscalMonth(currentDate));
   };
   const handleNextMonth = () => {
-    if (currentDate) setCurrentDate(getNextFiscalMonth(currentDate));
+    if (currentDate && isValid(currentDate)) setCurrentDate(getNextFiscalMonth(currentDate));
   };
 
   const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
-    if (!currentDate) return;
+    if (!currentDate || !isValid(currentDate)) return;
   
     const prevMonthDate = getPreviousFiscalMonth(currentDate);
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
