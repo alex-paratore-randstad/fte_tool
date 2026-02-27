@@ -1,4 +1,3 @@
-
 'use client';
 
 import { UserNav } from './user-nav';
@@ -51,42 +50,60 @@ const navGroups: NavGroup[] = [
 
 const getHref = (href: string) => {
     if (!href) return '/index.html';
-    if (href === '/') return '/index.html';
-    return `${href.endsWith('/') ? href : `${href}/`}index.html`;
+    const cleanHref = typeof href === 'string' ? href : '/index.html';
+    if (cleanHref === '/') return '/index.html';
+    return `${cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`}index.html`;
 };
 
 export function AppShellClient({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useCurrentUser();
   const pathname = usePathname();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const [hasMounted, setHasMounted] = useState(false);
 
-  const userHasAccess = (roles?: string[]) => {
-    if (loading || !currentUser.role) return false;
-    if (!roles) return true;
-    return roles.includes(currentUser.role);
-  };
-  
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
   const isActive = (href: string) => {
     if (!pathname) return false;
-    if (href === '/') {
-      return pathname === '/index.html' || pathname === '/';
+    
+    // Normalize paths by removing trailing slashes and index.html
+    const normalize = (p: string) => {
+        if (!p) return '';
+        let clean = p.replace(/\/index\.html$/, '');
+        clean = clean.replace(/\/+$/, '');
+        return clean || '/';
+    };
+
+    const currentPath = normalize(pathname);
+    const targetPath = normalize(href);
+
+    if (targetPath === '/') {
+        return currentPath === '/' || currentPath === '';
     }
-    const cleanedPathname = pathname.endsWith('/index.html') ? pathname.slice(0, -11) : pathname;
-    return cleanedPathname === href;
+
+    return currentPath === targetPath;
   };
 
   const isGroupActive = (items: { href: string }[]) => {
     return items.some(item => isActive(item.href));
   }
 
+  const userHasAccess = (roles?: string[]) => {
+    if (loading || !currentUser.role) return false;
+    if (!roles) return true;
+    return roles.includes(currentUser.role);
+  };
+
   useEffect(() => {
-    if (!loading && pathname) {
+    if (hasMounted && !loading && pathname) {
       const activeGroups = navGroups
         .filter(g => isGroupActive(g.items) && userHasAccess(g.roles))
         .map(g => g.title);
       setOpenGroups(activeGroups);
     }
-  }, [loading, pathname, currentUser.role]);
+  }, [loading, pathname, currentUser.role, hasMounted]);
 
   
   return (

@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -50,17 +49,29 @@ export function TopNav() {
 
   const getHref = (href: string) => {
     if (!href) return '/index.html';
-    if (href === '/') return '/index.html';
-    return `${href.endsWith('/') ? href : `${href}/`}index.html`;
+    const cleanHref = typeof href === 'string' ? href : '/index.html';
+    if (cleanHref === '/') return '/index.html';
+    return `${cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`}index.html`;
   };
 
   const isActive = (href: string) => {
     if (!pathname) return false;
-    if (href === '/') {
-      return pathname === '/index.html' || pathname === '/';
+    
+    const normalize = (p: string) => {
+        if (!p) return '';
+        let clean = p.replace(/\/index\.html$/, '');
+        clean = clean.replace(/\/+$/, '');
+        return clean || '/';
+    };
+
+    const currentPath = normalize(pathname);
+    const targetPath = normalize(href);
+
+    if (targetPath === '/') {
+        return currentPath === '/' || currentPath === '';
     }
-    const cleanedPathname = pathname.endsWith('/index.html') ? pathname.slice(0, -11) : pathname;
-    return cleanedPathname === href;
+
+    return currentPath === targetPath;
   };
   
   const userHasAccess = (roles?: string[]) => {

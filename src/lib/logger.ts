@@ -1,4 +1,3 @@
-
 'use client';
 
 import { v4 as uuidv4 } from 'uuid';
@@ -35,7 +34,7 @@ export function writeLog(
             if (typeof rawData === 'string') {
                 logRaw = rawData;
             } else if (rawData instanceof Error) {
-                // Use a more robust error stringification
+                // Use a robust error stringification that handles non-enumerable properties
                 logRaw = JSON.stringify({
                     name: rawData.name,
                     message: rawData.message,
@@ -43,7 +42,15 @@ export function writeLog(
                     ...rawData
                 });
             } else {
-                logRaw = JSON.stringify(rawData);
+                // Use a safe stringify approach to avoid crashes on circular refs
+                const cache = new Set();
+                logRaw = JSON.stringify(rawData, (key, value) => {
+                    if (typeof value === 'object' && value !== null) {
+                        if (cache.has(value)) return '[Circular]';
+                        cache.add(value);
+                    }
+                    return value;
+                });
             }
         }
     } catch (e) {
@@ -59,16 +66,18 @@ export function writeLog(
         log_raw: logRaw,
     };
 
-    // Fire and forget
-    fetch('/domo/datastores/v1/collections/fte_logging/documents/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: payload }),
-    }).catch(error => {
-        // If logging itself fails, log to console as a last resort.
-        console.error('Failed to write to fte_logging collection.', {
-            loggingError: error,
-            originalPayload: payload,
+    // Fire and forget - ensure this only runs in the browser
+    if (typeof window !== 'undefined') {
+        fetch('/domo/datastores/v1/collections/fte_logging/documents/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: payload }),
+        }).catch(error => {
+            // If logging itself fails, log to console as a last resort.
+            console.error('Failed to write to fte_logging collection.', {
+                loggingError: error,
+                originalPayload: payload,
+            });
         });
-    });
+    }
 }

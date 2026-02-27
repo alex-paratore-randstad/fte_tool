@@ -194,11 +194,9 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [clients, setClients] = useState<AiReportData[]>([]);
   const [internalLoading, setInternalLoading] = useState(true);
+  const [yearDataCache, setYearDataCache] = useState<WeeklyTarget[]>([]);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
   const [hasMounted, setHasMounted] = useState(false);
-  const isInitialRender = useRef(true);
-  const activeTargetsRef = useRef(activeTargets);
-  activeTargetsRef.current = activeTargets;
 
   const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
@@ -206,6 +204,58 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   useEffect(() => {
     setHasMounted(true);
   }, []);
+
+  const fetchYearData = useCallback(async () => {
+    setInternalLoading(true);
+    try {
+        const quarterDates = quarters.map(q => getQuarterStartDate(currentYear, q));
+        const requests = quarterDates.map(date => fetch(`/domo/datastores/v1/collections/weekly_targets/documents?q=content.targets_allocation_date='${date}'`));
+        const responses = await Promise.all(requests);
+        const allYearlyTargets: WeeklyTarget[] = (await Promise.all(responses.map(res => res.ok ? res.json() : []))).flat();
+        setYearDataCache(allYearlyTargets);
+
+        // Refresh active employees
+        setActiveTargets(prev => prev.map(empTarget => {
+            const employeeIdString = `[${empTarget.employee.person_id}]`;
+            const employeeTargets = allYearlyTargets.filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
+            
+            if (employeeTargets.length === 0) {
+                return { ...empTarget, targets: [{ id: uuidv4(), clientId: '', clientName: '', quarterlyTargets: {} }] };
+            }
+
+            const clientTargetsMap = new Map<string, { clientName: string, quarterlyTargets: { [key: string]: number } }>();
+            employeeTargets.forEach(target => {
+                const clientKey = target.content.targets_cost_center_number;
+                if (!clientTargetsMap.has(clientKey)) {
+                    clientTargetsMap.set(clientKey, { clientName: target.content.targets_cost_center_name, quarterlyTargets: {} });
+                }
+                const date = new Date(target.content.targets_allocation_date);
+                const quarterIndex = Math.floor(date.getUTCMonth() / 3);
+                clientTargetsMap.get(clientKey)!.quarterlyTargets[quarters[quarterIndex]] = parseInt(target.content.targets_allocation_amount, 10) || 0;
+            });
+
+            const newTargetRows = Array.from(clientTargetsMap.entries()).map(([clientId, data]) => ({
+                id: uuidv4(),
+                clientId,
+                clientName: data.clientName,
+                quarterlyTargets: data.quarterlyTargets,
+            }));
+
+            return { ...empTarget, targets: newTargetRows };
+        }));
+
+    } catch (error) {
+        writeLog('QuarterlyTargetGrid', 'error', 'Failed to fetch year targets cache', error);
+    } finally {
+        setInternalLoading(false);
+    }
+  }, [currentYear]);
+
+  useEffect(() => {
+    if (hasMounted) {
+        fetchYearData();
+    }
+  }, [currentYear, fetchYearData, hasMounted]);
 
   const fetchBaseData = useCallback(async () => {
     setInternalLoading(true);
@@ -215,9 +265,6 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
         fetch(`/data/v1/ai_report`),
       ]);
 
-      if (!empResponse.ok) writeLog('QuarterlyTargetGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
-      if (!clientResponse.ok) writeLog('QuarterlyTargetGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
-      
       const rawEmps = empResponse.ok ? await empResponse.json() : [];
       const rawClients = clientResponse.ok ? await clientResponse.json() : [];
 
@@ -252,7 +299,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       setManagers(Array.from(managerMap, ([id, name]) => ({ id, name })).sort((a, b) => (a.name || '').localeCompare(b.name || '')));
 
     } catch (error) {
-      writeLog('QuarterlyTargetGrid', 'error', 'Failed to fetch base data', error);
+      writeLog('QuarterlyTargetGrid', 'error', 'Failed to fetch metadata', error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
     } finally {
       setInternalLoading(false);
@@ -268,81 +315,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     return allEmployees.filter(e => e && e.person_id && !activeEmployeeIds.has(e.person_id));
   }, [allEmployees, activeTargets]);
 
-  const fetchTargetsForEmployee = useCallback(async (employee: TeamMember, year: number) => {
-    const blankRow = { id: uuidv4(), clientId: '', clientName: '', quarterlyTargets: {} };
-    try {
-        const quarterDates = quarters.map(q => getQuarterStartDate(year, q));
-        const requests = quarterDates.map(date => fetch(`/domo/datastores/v1/collections/weekly_targets/documents?q=content.targets_allocation_date='${date}'`));
-        const responses = await Promise.all(requests);
-        const allYearlyTargets: WeeklyTarget[] = (await Promise.all(responses.map(res => res.ok ? res.json() : []))).flat();
-
-        const employeeIdString = `[${employee.person_id}]`;
-        const employeeTargets = allYearlyTargets.filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
-        
-        if (employeeTargets.length === 0) return [blankRow];
-
-        const clientTargetsMap = new Map<string, { clientName: string, quarterlyTargets: { [key: string]: number } }>();
-
-        employeeTargets.forEach(target => {
-            if (!target?.content) return;
-            const clientKey = target.content.targets_cost_center_number;
-            if (!clientTargetsMap.has(clientKey)) {
-                clientTargetsMap.set(clientKey, { clientName: target.content.targets_cost_center_name, quarterlyTargets: {} });
-            }
-            const date = new Date(target.content.targets_allocation_date);
-            const quarterIndex = Math.floor(date.getUTCMonth() / 3);
-            clientTargetsMap.get(clientKey)!.quarterlyTargets[quarters[quarterIndex]] = parseInt(target.content.targets_allocation_amount, 10) || 0;
-        });
-
-        const newTargetRows = Array.from(clientTargetsMap.entries()).map(([clientId, data]) => ({
-            id: uuidv4(),
-            clientId,
-            clientName: data.clientName,
-            quarterlyTargets: data.quarterlyTargets,
-        }));
-
-        return newTargetRows.length > 0 ? newTargetRows : [blankRow];
-    } catch (error) {
-        writeLog('QuarterlyTargetGrid', 'error', `Could not load targets for ${employee.full_name}`, error);
-        toast({ variant: 'destructive', title: 'Error Loading Data', description: `Could not load targets for ${employee.full_name}.`});
-        return [blankRow];
-    }
-  }, [toast]);
-  
-  // Effect to re-fetch employee targets when the year changes
-  useEffect(() => {
-    if (isInitialRender.current) {
-        isInitialRender.current = false;
-        return;
-    }
-
-    const refreshTargets = async () => {
-        const currentActiveTargets = activeTargetsRef.current;
-        if (currentActiveTargets.length === 0) return;
-
-        setInternalLoading(true);
-        
-        // Clear existing target values to prevent stale data leaking across years
-        setActiveTargets(prev => prev.map(emp => ({
-            ...emp,
-            targets: emp.targets.map(t => ({ ...t, quarterlyTargets: {} }))
-        })));
-
-        const refreshedTargets = await Promise.all(
-            currentActiveTargets.map(async (empTarget) => {
-                const newRows = await fetchTargetsForEmployee(empTarget.employee, currentYear);
-                return { ...empTarget, targets: newRows };
-            })
-        );
-        setActiveTargets(refreshedTargets);
-        setInternalLoading(false);
-    };
-
-    refreshTargets();
-  }, [currentYear, fetchTargetsForEmployee]);
-
-
-  const handleAddEmployee = async (employeeId: string) => {
+  const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
     setSelectedEmployeeToAdd(employeeId);
     const employeeToAdd = allEmployees.find(e => e && e.person_id === employeeId);
@@ -350,21 +323,72 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       if (activeTargets.some(a => a.employee.person_id === employeeId)) {
           toast({ variant: 'destructive', title: 'Employee already in grid' }); return;
       }
-      const newTargets = await fetchTargetsForEmployee(employeeToAdd, currentYear);
-      setActiveTargets(prev => [{ employee: employeeToAdd, targets: newTargets }, ...prev]);
+      
+      const employeeIdString = `[${employeeToAdd.person_id}]`;
+      const employeeTargets = yearDataCache.filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
+      
+      let rows: TargetRow[] = [];
+      if (employeeTargets.length === 0) {
+          rows = [{ id: uuidv4(), clientId: '', clientName: '', quarterlyTargets: {} }];
+      } else {
+          const clientTargetsMap = new Map<string, { clientName: string, quarterlyTargets: { [key: string]: number } }>();
+          employeeTargets.forEach(target => {
+              const clientKey = target.content.targets_cost_center_number;
+              if (!clientTargetsMap.has(clientKey)) {
+                  clientTargetsMap.set(clientKey, { clientName: target.content.targets_cost_center_name, quarterlyTargets: {} });
+              }
+              const date = new Date(target.content.targets_allocation_date);
+              const quarterIndex = Math.floor(date.getUTCMonth() / 3);
+              clientTargetsMap.get(clientKey)!.quarterlyTargets[quarters[quarterIndex]] = parseInt(target.content.targets_allocation_amount, 10) || 0;
+          });
+          rows = Array.from(clientTargetsMap.entries()).map(([clientId, data]) => ({
+              id: uuidv4(),
+              clientId,
+              clientName: data.clientName,
+              quarterlyTargets: data.quarterlyTargets,
+          }));
+      }
+      
+      setActiveTargets(prev => [{ employee: employeeToAdd, targets: rows }, ...prev]);
     }
     setTimeout(() => setSelectedEmployeeToAdd(''), 0);
   };
 
-  const handleAddManagerTeam = async (managerId: string) => {
+  const handleAddManagerTeam = (managerId: string) => {
     if (!managerId) return;
     const teamMembers = allEmployees.filter(e => e && e.manager_id === managerId && !activeTargets.some(a => a.employee.person_id === e.person_id));
     if (teamMembers.length === 0) { toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' }); return; }
-    toast({ title: 'Team Loaded', description: `Loading existing data for ${teamMembers.length} employees...` });
-    const targetPromises = teamMembers.map(employee => fetchTargetsForEmployee(employee, currentYear));
-    const resolvedTargets = await Promise.all(targetPromises);
-    const newEmployeeTargets = teamMembers.map((employee, index) => ({ employee, targets: resolvedTargets[index] }));
+    
+    const newEmployeeTargets = teamMembers.map(employee => {
+        const employeeIdString = `[${employee.person_id}]`;
+        const employeeTargets = yearDataCache.filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
+        
+        let rows: TargetRow[] = [];
+        if (employeeTargets.length === 0) {
+            rows = [{ id: uuidv4(), clientId: '', clientName: '', quarterlyTargets: {} }];
+        } else {
+            const clientTargetsMap = new Map<string, { clientName: string, quarterlyTargets: { [key: string]: number } }>();
+            employeeTargets.forEach(target => {
+                const clientKey = target.content.targets_cost_center_number;
+                if (!clientTargetsMap.has(clientKey)) {
+                    clientTargetsMap.set(clientKey, { clientName: target.content.targets_cost_center_name, quarterlyTargets: {} });
+                }
+                const date = new Date(target.content.targets_allocation_date);
+                const quarterIndex = Math.floor(date.getUTCMonth() / 3);
+                clientTargetsMap.get(clientKey)!.quarterlyTargets[quarters[quarterIndex]] = parseInt(target.content.targets_allocation_amount, 10) || 0;
+            });
+            rows = Array.from(clientTargetsMap.entries()).map(([clientId, data]) => ({
+                id: uuidv4(),
+                clientId,
+                clientName: data.clientName,
+                quarterlyTargets: data.quarterlyTargets,
+            }));
+        }
+        return { employee, targets: rows };
+    });
+
     setActiveTargets(prev => [...newEmployeeTargets, ...prev]);
+    toast({ title: 'Team Loaded', description: `Loaded ${newEmployeeTargets.length} team members.` });
   };
 
   const handleRemoveEmployee = (employeeId: string) => setActiveTargets(prev => prev.filter(a => a.employee.person_id !== employeeId));
@@ -399,7 +423,6 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   };
 
   const handleSave = async () => {
-    // Capture the current year at the start of the save to prevent period leakage
     const yearAtSave = currentYear;
     const submissions: any[] = [];
     let hasInvalidTarget = false;
