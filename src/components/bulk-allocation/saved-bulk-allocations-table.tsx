@@ -24,14 +24,27 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Copy } from 'lucide-react';
+import { Copy, Trash2, PlusCircle, UserPlus, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SelectSearch } from '../ui/select-search';
+import type { TeamMember } from '@/types';
+import { v4 as uuidv4 } from 'uuid';
+
+type AiReportData = {
+    Code: string;
+    Name: string;
+    DisplayName: string;
+    RollsUpTo: string;
+};
 
 type FteDoc = {
   id: string;
   content: { 
     bulk_allocation_id: string; 
+    employee_id: string;
     employee_name: string; 
     allocation_monthyear?: string;
+    bulk_allocation_date: string;
   };
 };
 
@@ -48,18 +61,26 @@ type SummaryDoc = {
 };
 
 export type SummaryEntry = { 
-  id: string;
+  id: string; // This is the doc ID if it exists, or a temp UUID for new rows
   name: string;
   number: string;
   percentage: number;
+  isNew?: boolean;
+};
+
+export type EmployeeEntry = {
+    id: string; // doc ID
+    employeeId: string;
+    name: string;
+    isNew?: boolean;
 };
 
 type ProcessedAllocation = {
-  id: string;
+  id: string; // bulk_allocation_id
   allocationDate: string;
   allocationMonthYear?: string;
   allocationGroup?: string;
-  employees: string[];
+  employees: EmployeeEntry[];
   summaries: SummaryEntry[];
 };
 
@@ -68,35 +89,111 @@ type SavedBulkAllocationsTableProps = {
   onCopyTemplate: (summaries: SummaryEntry[]) => void;
 };
 
+const ClientSelect = ({
+  clients,
+  value,
+  onValueChange,
+  disabled,
+}: {
+  clients: AiReportData[],
+  value: string,
+  onValueChange: (value: string) => void,
+  disabled?: boolean;
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const filteredClients = useMemo(() => {
+    const sorted = [...clients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
+    if (!searchTerm) return sorted;
+    return sorted.filter(c => c.DisplayName?.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [clients, searchTerm]);
+
+  return (
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <SelectTrigger><SelectValue placeholder="Select Client..." /></SelectTrigger>
+      <SelectContent>
+          <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
+          <ScrollArea className="h-64">
+            {filteredClients.map(c => <SelectItem key={c.Code} value={c.DisplayName}>{c.DisplayName}</SelectItem>)}
+          </ScrollArea>
+      </SelectContent>
+    </Select>
+  );
+};
+
+const EmployeeSelect = ({
+    employees,
+    onValueChange,
+    disabled
+}: {
+    employees: TeamMember[],
+    onValueChange: (id: string) => void,
+    disabled?: boolean
+}) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const filtered = useMemo(() => {
+        const sorted = [...employees].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        if (!searchTerm) return sorted;
+        return sorted.filter(e => e.full_name?.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [employees, searchTerm]);
+
+    return (
+        <Select onValueChange={onValueChange} disabled={disabled}>
+            <SelectTrigger className="w-full">
+                <SelectValue placeholder="Add employee..." />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectSearch placeholder="Search name..." onChange={setSearchTerm} />
+                <ScrollArea className="h-64">
+                    {filtered.map(e => <SelectItem key={e.person_id} value={e.person_id}>{e.full_name}</SelectItem>)}
+                </ScrollArea>
+            </SelectContent>
+        </Select>
+    );
+};
+
 export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedBulkAllocationsTableProps) {
   const [originalAllocations, setOriginalAllocations] = useState<ProcessedAllocation[]>([]);
   const [editableAllocations, setEditableAllocations] = useState<ProcessedAllocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState<Record<string, boolean>>({});
+  
+  const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
+  const [allClients, setAllClients] = useState<AiReportData[]>([]);
+
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [fteResponse, summaryResponse] = await Promise.all([
+      const [fteResponse, summaryResponse, metaEmpResponse, metaClientResponse] = await Promise.all([
         fetch('/domo/datastores/v1/collections/bulk_allocation_fte/documents/'),
         fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/'),
+        fetch('/data/v1/consolidated_hr_fte_report_view'),
+        fetch('/data/v1/ai_report'),
       ]);
-
-      if (!fteResponse.ok || !summaryResponse.ok) {
-        console.warn('Could not fetch bulk allocation data.');
-      }
 
       const ftes: FteDoc[] = fteResponse.ok ? await fteResponse.json() : [];
       const summaries: SummaryDoc[] = summaryResponse.ok ? await summaryResponse.json() : [];
+      const emps: TeamMember[] = metaEmpResponse.ok ? await metaEmpResponse.json() : [];
+      const clients: AiReportData[] = metaClientResponse.ok ? await metaClientResponse.json() : [];
+
+      setAllEmployees(emps.filter(e => e && e.full_name));
+      const staticClients: AiReportData[] = [
+        { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
+        { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '' },
+      ];
+      setAllClients([...staticClients, ...clients.filter(c => c && c.DisplayName)]);
 
       const grouped = summaries.reduce((acc, summary) => {
+        if (!summary?.content) return acc;
         const { bulk_allocation_id, cost_center_name, cost_center_number, allocation_percentage, bulk_allocation_date, allocation_group } = summary.content;
         
+        if (!bulk_allocation_id) return acc;
+
         if (!acc[bulk_allocation_id]) {
           acc[bulk_allocation_id] = {
             id: bulk_allocation_id,
-            allocationDate: bulk_allocation_date,
+            allocationDate: bulk_allocation_date || new Date().toISOString(),
             employees: [],
             summaries: [],
             allocationGroup: allocation_group,
@@ -108,8 +205,8 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
 
         acc[bulk_allocation_id].summaries.push({
           id: summary.id,
-          name: cost_center_name,
-          number: cost_center_number,
+          name: cost_center_name || 'Unknown',
+          number: cost_center_number || 'Unknown',
           percentage: decimalPerc,
         });
 
@@ -117,26 +214,32 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       }, {} as Record<string, ProcessedAllocation>);
 
       ftes.forEach(fte => {
-        const { bulk_allocation_id, employee_name, allocation_monthyear } = fte.content;
-        if (grouped[bulk_allocation_id]) {
-          grouped[bulk_allocation_id].employees.push(employee_name);
+        if (!fte?.content) return;
+        const { bulk_allocation_id, employee_id, employee_name, allocation_monthyear } = fte.content;
+        if (bulk_allocation_id && grouped[bulk_allocation_id]) {
+          grouped[bulk_allocation_id].employees.push({
+              id: fte.id,
+              employeeId: employee_id,
+              name: employee_name || 'Unknown'
+          });
           if (allocation_monthyear && !grouped[bulk_allocation_id].allocationMonthYear) {
             grouped[bulk_allocation_id].allocationMonthYear = allocation_monthyear;
           }
         }
       });
       
-      const processed = Object.values(grouped).sort((a, b) => new Date(b.allocationDate).getTime() - new Date(a.allocationDate).getTime());
+      const processed = Object.values(grouped).sort((a, b) => {
+          const dateA = new Date(a.allocationDate || 0).getTime();
+          const dateB = new Date(b.allocationDate || 0).getTime();
+          return dateB - dateA;
+      });
       
       setOriginalAllocations(processed);
       setEditableAllocations(JSON.parse(JSON.stringify(processed)));
 
     } catch (error) {
       console.error('Error fetching bulk allocation data:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Failed to fetch saved allocations',
-      });
+      toast({ variant: 'destructive', title: 'Failed to fetch saved allocations' });
     } finally {
       setLoading(false);
     }
@@ -149,15 +252,81 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
   const handlePercentageChange = (allocId: string, summaryId: string, newPercentage: string) => {
     setEditableAllocations(prev => prev.map(alloc => {
       if (alloc.id === allocId) {
-        const updatedSummaries = alloc.summaries.map(summary => {
-          if (summary.id === summaryId) {
-            return { ...summary, percentage: Number(newPercentage) };
-          }
-          return summary;
-        });
+        const updatedSummaries = alloc.summaries.map(s => s.id === summaryId ? { ...s, percentage: Number(newPercentage) } : s);
         return { ...alloc, summaries: updatedSummaries };
       }
       return alloc;
+    }));
+  };
+
+  const handleClientChange = (allocId: string, summaryId: string, newClientName: string) => {
+    const client = allClients.find(c => c.DisplayName === newClientName);
+    setEditableAllocations(prev => prev.map(alloc => {
+        if (alloc.id === allocId) {
+            const updatedSummaries = alloc.summaries.map(s => s.id === summaryId ? { 
+                ...s, 
+                name: newClientName, 
+                number: client?.Code || 'Unknown' 
+            } : s);
+            return { ...alloc, summaries: updatedSummaries };
+        }
+        return alloc;
+    }));
+  };
+
+  const handleRemoveSummary = (allocId: string, summaryId: string) => {
+    setEditableAllocations(prev => prev.map(alloc => {
+        if (alloc.id === allocId) {
+            return { ...alloc, summaries: alloc.summaries.filter(s => s.id !== summaryId) };
+        }
+        return alloc;
+    }));
+  };
+
+  const handleAddSummary = (allocId: string) => {
+    setEditableAllocations(prev => prev.map(alloc => {
+        if (alloc.id === allocId) {
+            const newSummary: SummaryEntry = {
+                id: `new-${uuidv4()}`,
+                name: '',
+                number: '',
+                percentage: 0,
+                isNew: true
+            };
+            return { ...alloc, summaries: [...alloc.summaries, newSummary] };
+        }
+        return alloc;
+    }));
+  };
+
+  const handleAddEmployee = (allocId: string, employeeId: string) => {
+    const employee = allEmployees.find(e => e.person_id === employeeId);
+    if (!employee) return;
+
+    setEditableAllocations(prev => prev.map(alloc => {
+        if (alloc.id === allocId) {
+            if (alloc.employees.some(e => e.employeeId === employeeId)) {
+                toast({ variant: 'destructive', title: 'Employee already added' });
+                return alloc;
+            }
+            const newEntry: EmployeeEntry = {
+                id: `new-${uuidv4()}`,
+                employeeId: employeeId,
+                name: employee.full_name,
+                isNew: true
+            };
+            return { ...alloc, employees: [...alloc.employees, newEntry] };
+        }
+        return alloc;
+    }));
+  };
+
+  const handleRemoveEmployee = (allocId: string, docId: string) => {
+    setEditableAllocations(prev => prev.map(alloc => {
+        if (alloc.id === allocId) {
+            return { ...alloc, employees: alloc.employees.filter(e => e.id !== docId) };
+        }
+        return alloc;
     }));
   };
 
@@ -180,44 +349,83 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       return;
     }
 
-    const updates = editableAlloc.summaries
-      .filter((summary) => {
-        const originalSummary = originalAlloc.summaries.find(s => s.id === summary.id);
-        if (!originalSummary) return false;
-        // Compare with a tolerance for floating point issues
-        return Math.abs(summary.percentage - originalSummary.percentage) > 0.001;
-      })
-      .map(summary => ({
-          docId: summary.id,
-          content: {
-              bulk_allocation_id: allocId,
-              cost_center_number: summary.number,
-              cost_center_name: summary.name,
-              allocation_percentage: summary.percentage.toString(),
-              bulk_allocation_date: editableAlloc.allocationDate,
-              allocation_group: editableAlloc.allocationGroup,
-          }
-      }));
-
-    if (updates.length === 0) {
-        toast({ title: 'No changes to save.' });
+    if (editableAlloc.employees.length === 0) {
+        toast({ variant: 'destructive', title: 'Validation Error', description: 'Profile must have at least one employee.' });
         setIsSaving(prev => ({...prev, [allocId]: false}));
         return;
     }
 
     try {
-        await Promise.all(updates.map(update =>
-            fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/${update.docId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: update.content }),
-            }).then(res => {
-                if (!res.ok) throw new Error(`Failed to update allocation for ${update.content.cost_center_name}`);
-                return res.json();
-            })
-        ));
-        toast({ title: 'Success', description: `${updates.length} allocation(s) updated for profile ${allocId.substring(0,8)}.` });
-        fetchData(); // Refresh data
+        const operations: Promise<any>[] = [];
+
+        originalAlloc.summaries.forEach(orig => {
+            if (!editableAlloc.summaries.some(edit => edit.id === orig.id)) {
+                operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/${orig.id}`, { method: 'DELETE' }));
+            }
+        });
+        
+        editableAlloc.summaries.forEach(edit => {
+            const content = {
+                bulk_allocation_id: allocId,
+                cost_center_number: edit.number,
+                cost_center_name: edit.name,
+                allocation_percentage: edit.percentage.toString(),
+                bulk_allocation_date: editableAlloc.allocationDate,
+                allocation_group: editableAlloc.allocationGroup,
+            };
+
+            if (edit.isNew) {
+                operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content }),
+                }));
+            } else {
+                const original = originalAlloc.summaries.find(o => o.id === edit.id);
+                if (original && (original.percentage !== edit.percentage || original.number !== edit.number)) {
+                    operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/${edit.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content }),
+                    }));
+                }
+            }
+        });
+
+        originalAlloc.employees.forEach(orig => {
+            if (!editableAlloc.employees.some(edit => edit.id === orig.id)) {
+                operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_fte/documents/${orig.id}`, { method: 'DELETE' }));
+            }
+        });
+        
+        editableAlloc.employees.forEach(edit => {
+            if (edit.isNew) {
+                const content = {
+                    bulk_allocation_id: allocId,
+                    employee_id: edit.employeeId,
+                    employee_name: edit.name,
+                    bulk_allocation_date: editableAlloc.allocationDate,
+                    allocation_monthyear: editableAlloc.allocationMonthYear || '',
+                };
+                operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_fte/documents/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content }),
+                }));
+            }
+        });
+
+        if (operations.length === 0) {
+            toast({ title: 'No changes to save.' });
+            setIsSaving(prev => ({...prev, [allocId]: false}));
+            return;
+        }
+
+        const results = await Promise.all(operations);
+        if (results.some(res => !res.ok)) throw new Error('One or more save operations failed.');
+
+        toast({ title: 'Success', description: `Profile updated successfully.` });
+        fetchData(); 
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
@@ -229,13 +437,8 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
   if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-1/3 mb-2" />
-          <Skeleton className="h-4 w-2/3" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-24 w-full" />
-        </CardContent>
+        <CardHeader><Skeleton className="h-6 w-1/3 mb-2" /><Skeleton className="h-4 w-2/3" /></CardHeader>
+        <CardContent><Skeleton className="h-24 w-full" /></CardContent>
       </Card>
     );
   }
@@ -244,39 +447,61 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
     <Card>
       <CardHeader>
         <CardTitle>Saved Bulk Allocation Profiles</CardTitle>
-        <CardDescription>History of all saved bulk allocation profiles. You can edit allocations here.</CardDescription>
+        <CardDescription>History of all saved bulk allocation profiles. You can fully edit employees and client mixes here.</CardDescription>
       </CardHeader>
       <CardContent>
         {editableAllocations.length === 0 ? (
-          <div className="text-center text-muted-foreground py-10">
-            No bulk allocation profiles found.
-          </div>
+          <div className="text-center text-muted-foreground py-10">No bulk allocation profiles found.</div>
         ) : (
           <Accordion type="single" collapsible className="w-full">
             {editableAllocations.map(alloc => {
-                const totalAllocation = alloc.summaries.reduce((sum, s) => sum + s.percentage, 0);
+                const totalAllocation = (alloc.summaries || []).reduce((sum, s) => sum + s.percentage, 0);
                 const isProfileSaving = isSaving[alloc.id];
+                const displayId = (alloc.id || '').substring(0, 8);
               return (
               <AccordionItem value={alloc.id} key={alloc.id}>
                 <AccordionTrigger>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                        <span className="font-mono text-sm text-primary">{alloc.id.substring(0,8)}...</span>
+                        <span className="font-mono text-sm text-primary">{displayId}...</span>
                         {alloc.allocationGroup && <Badge variant="outline">{alloc.allocationGroup}</Badge>}
                         {alloc.allocationMonthYear && <Badge>{alloc.allocationMonthYear}</Badge>}
-                        <Badge variant="secondary">{alloc.employees.length} Employees</Badge>
+                        <Badge variant="secondary">{(alloc.employees || []).length} Employees</Badge>
                         <span className="text-sm text-muted-foreground hidden sm:inline">
-                            Created: {new Date(alloc.allocationDate).toLocaleDateString()}
+                            Created: {alloc.allocationDate ? new Date(alloc.allocationDate).toLocaleDateString() : 'N/A'}
                         </span>
                     </div>
                 </AccordionTrigger>
                 <AccordionContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/50 rounded-md">
-                        <div>
-                            <h4 className="font-semibold mb-2">Assigned Employees</h4>
-                            <ScrollArea className="h-48">
-                                <ul className="list-disc pl-5 space-y-1 text-sm">
-                                {alloc.employees.map((emp, i) => <li key={i}>{emp}</li>)}
-                                </ul>
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h4 className="font-semibold">Assigned Employees</h4>
+                                <div className="w-48">
+                                    <EmployeeSelect 
+                                        employees={allEmployees} 
+                                        onValueChange={(id) => handleAddEmployee(alloc.id, id)}
+                                        disabled={isProfileSaving}
+                                    />
+                                </div>
+                            </div>
+                            <ScrollArea className="h-64 border rounded-md bg-background">
+                                <div className="p-2 space-y-1">
+                                    {(alloc.employees || []).map((emp) => (
+                                        <div key={emp.id} className="flex items-center justify-between p-2 rounded hover:bg-muted group text-sm">
+                                            <span>{emp.name}</span>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6 opacity-0 group-hover:opacity-100" 
+                                                onClick={() => handleRemoveEmployee(alloc.id, emp.id)}
+                                                disabled={isProfileSaving}
+                                            >
+                                                <X className="h-3 w-3 text-destructive" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    {(!alloc.employees || alloc.employees.length === 0) && <p className="text-center py-4 text-muted-foreground">No employees assigned.</p>}
+                                </div>
                             </ScrollArea>
                         </div>
                         <div>
@@ -285,37 +510,55 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Client</TableHead>
-                                        <TableHead className="text-right w-32">Allocation</TableHead>
+                                        <TableHead className="text-right w-24">Allocation</TableHead>
+                                        <TableHead className="w-10"></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {alloc.summaries.map(s => (
+                                    {(alloc.summaries || []).map(s => (
                                         <TableRow key={s.id}>
-                                            <TableCell>{s.name}</TableCell>
+                                            <TableCell>
+                                                <ClientSelect 
+                                                    clients={allClients} 
+                                                    value={s.name} 
+                                                    onValueChange={(val) => handleClientChange(alloc.id, s.id, val)}
+                                                    disabled={isProfileSaving}
+                                                />
+                                            </TableCell>
                                             <TableCell className="text-right">
                                               <Input 
-                                                type="number"
-                                                min="0"
-                                                max="1"
-                                                step="0.01"
+                                                type="number" min="0" max="1" step="0.01"
                                                 value={s.percentage}
                                                 onChange={(e) => handlePercentageChange(alloc.id, s.id, e.target.value)}
-                                                className="w-24 text-center ml-auto"
-                                                placeholder="0.00"
+                                                className="w-20 text-center ml-auto"
                                                 disabled={isProfileSaving}
                                               />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button 
+                                                    variant="ghost" size="icon" className="h-8 w-8"
+                                                    onClick={() => handleRemoveSummary(alloc.id, s.id)}
+                                                    disabled={isProfileSaving || alloc.summaries.length === 1}
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                              </Table>
-                             <div className="mt-4 space-y-2 flex items-center justify-between">
-                                <Button onClick={() => handleSaveChanges(alloc.id)} disabled={isProfileSaving || Math.abs(totalAllocation - 1.0) > 0.01}>
-                                    {isProfileSaving ? 'Saving...' : 'Save Changes'}
+                             <div className="mt-4 flex items-center justify-between gap-4">
+                                <Button variant="outline" size="sm" onClick={() => handleAddSummary(alloc.id)} disabled={isProfileSaving}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Client
                                 </Button>
-                                 <Button variant="outline" size="sm" onClick={() => onCopyTemplate(alloc.summaries)}>
-                                    <Copy className="mr-2 h-4 w-4" /> Copy as Template
-                                </Button>
+                                <div className="flex gap-2">
+                                    <Button variant="outline" size="sm" onClick={() => onCopyTemplate(alloc.summaries)} disabled={isProfileSaving}>
+                                        <Copy className="mr-2 h-4 w-4" /> Copy
+                                    </Button>
+                                    <Button size="sm" onClick={() => handleSaveChanges(alloc.id)} disabled={isProfileSaving || Math.abs(totalAllocation - 1.0) > 0.01}>
+                                        {isProfileSaving ? 'Saving...' : 'Save Changes'}
+                                    </Button>
+                                </div>
                              </div>
                              <Alert variant={Math.abs(totalAllocation - 1.0) > 0.01 ? 'destructive' : 'default'} className="mt-4">
                                 <AlertDescription>

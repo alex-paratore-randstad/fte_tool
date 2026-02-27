@@ -57,7 +57,6 @@ const months = [
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
 
-// Multi-select filter component
 const MultiSelectFilter = ({
   placeholder,
   options,
@@ -84,11 +83,11 @@ const MultiSelectFilter = ({
           disabled={disabled}
         >
           <span className="truncate">
-            {selected.length === 0
+            {(selected || []).length === 0
               ? placeholder
-              : selected.length <= 2
-              ? selected.join(', ')
-              : `${selected.length} selected`}
+              : (selected || []).length <= 2
+              ? (selected || []).join(', ')
+              : `${(selected || []).length} selected`}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -100,14 +99,14 @@ const MultiSelectFilter = ({
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
               <ScrollArea className="h-64">
-                {options.map(option => (
+                {(options || []).map(option => (
                   <CommandItem
                     key={option}
                     onSelect={() => onValueChange(option)}
                   >
                     <Checkbox
                       className="mr-2"
-                      checked={selected.includes(option)}
+                      checked={(selected || []).includes(option)}
                     />
                     <span>{option}</span>
                   </CommandItem>
@@ -121,7 +120,6 @@ const MultiSelectFilter = ({
   );
 };
 
-// Client dropdown
 const ClientSelect = ({
   clients,
   value,
@@ -136,26 +134,13 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const sorted = [...clients].sort((a, b) => {
-      const specialClients = ['PTO', 'Unallocated'];
-      const aIsSpecial = specialClients.includes(a.DisplayName);
-      const bIsSpecial = specialClients.includes(b.DisplayName);
-
-      if (aIsSpecial && !bIsSpecial) return -1;
-      if (!aIsSpecial && bIsSpecial) return 1;
-      
-      if (aIsSpecial && bIsSpecial) {
-          return a.DisplayName === 'Unallocated' ? -1 : 1;
-      }
-      
-      return (a.DisplayName || '').localeCompare(b.DisplayName || '');
-    });
+    const sorted = [...clients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
 
     if (!searchTerm) {
       return sorted;
     }
     return sorted.filter(client =>
-      client.DisplayName?.toLowerCase().includes(searchTerm.toLowerCase())
+      (client.DisplayName || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [clients, searchTerm]);
 
@@ -195,7 +180,6 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   const [selectedAllocationGroup, setSelectedAllocationGroup] = useState('');
   const [otherAllocationGroup, setOtherAllocationGroup] = useState('');
 
-  // Filters state
   const [employeeFilters, setEmployeeFilters] = useState({
     fullName: [] as string[],
     manager: [] as string[]
@@ -222,8 +206,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       if (!empResponse.ok) writeLog('BulkAllocationGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
       if (!clientResponse.ok) writeLog('BulkAllocationGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a,b) => (a.full_name || '').localeCompare(b.full_name || '')) : [];
-      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e && e.full_name).sort((a,b) => (a.full_name || '').localeCompare(b.full_name || '')) : [];
+      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c && c.Code && c.DisplayName) : [];
       
       const tempWorker: TeamMember = {
         person_id: 'TEMP_WORKER',
@@ -277,15 +261,15 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         });
         const newAllocationRows = templateToCopy.map(summary => ({
           id: uuidv4(),
-          clientName: summary.name,
-          fte: summary.percentage,
+          clientName: summary.name || 'Unknown',
+          fte: summary.percentage || 0,
         }));
         setAllocationRows(newAllocationRows);
       } else {
         const newAllocationRows = templateToCopy.map(summary => ({
           id: uuidv4(),
-          clientName: summary.name,
-          fte: summary.percentage * totalSelectedFte
+          clientName: summary.name || 'Unknown',
+          fte: (summary.percentage || 0) * totalSelectedFte
         }));
         setAllocationRows(newAllocationRows);
         toast({ title: 'Template Copied', description: 'Allocation profile has been copied. Review the FTE distribution.' });
@@ -303,13 +287,12 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     }
   }, [fetchData, userLoading]);
 
-  // Derived state for filter options
   const filterOptions = useMemo(() => {
     const getUniqueSorted = (key: keyof TeamMember) =>
         Array.from(
             new Set(
                 allEmployees
-                    .map(item => item[key])
+                    .map(item => item && item[key])
                     .filter(val => typeof val === 'string' && val) as string[]
             )
         ).sort((a, b) => a.localeCompare(b));
@@ -322,8 +305,9 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
 
   const filteredEmployees = useMemo(() => {
     return allEmployees.filter(emp => {
-      const nameMatch = employeeFilters.fullName.length === 0 || employeeFilters.fullName.includes(emp.full_name);
-      const managerMatch = employeeFilters.manager.length === 0 || employeeFilters.manager.includes(emp.manager);
+      if (!emp) return false;
+      const nameMatch = employeeFilters.fullName.length === 0 || employeeFilters.fullName.includes(emp.full_name || '');
+      const managerMatch = employeeFilters.manager.length === 0 || employeeFilters.manager.includes(emp.manager || '');
       return nameMatch && managerMatch;
     });
   }, [allEmployees, employeeFilters]);
@@ -366,7 +350,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
 
   const handleFilterChange = (filterName: keyof typeof employeeFilters, value: string) => {
     setEmployeeFilters(prev => {
-        const currentValues = prev[filterName];
+        const currentValues = prev[filterName] || [];
         const newValues = currentValues.includes(value)
           ? currentValues.filter(v => v !== value)
           : [...currentValues, value];
@@ -458,9 +442,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       }
       
       writeLog('BulkAllocationGrid', 'success', 'Bulk allocation saved', { count: selectedEmployees.size, month: allocationMonthYear });
-      toast({ title: 'Bulk Allocation Saved', description: `Assigned allocation profile to ${selectedEmployees.size} employees for ${allocationMonthYear}.` });
+      toast({ title: 'Bulk Allocation Saved', description: `Assigned allocation profile to ${selectedEmployees.size} employees.` });
       
-      // Reset form
       setSelectedEmployees(new Set());
       setAllocationRows([{ id: uuidv4(), clientName: '', fte: 0 }]);
       setSelectedAllocationGroup('');
@@ -538,9 +521,9 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                           aria-label={`Select ${emp.full_name}`}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{emp.full_name || ''}</TableCell>
-                      <TableCell className="text-muted-foreground">{emp.title || ''}</TableCell>
-                      <TableCell className="text-muted-foreground">{emp.manager || ''}</TableCell>
+                      <TableCell className="font-medium">{emp.full_name || 'N/A'}</TableCell>
+                      <TableCell className="text-muted-foreground">{emp.title || 'N/A'}</TableCell>
+                      <TableCell className="text-muted-foreground">{emp.manager || 'N/A'}</TableCell>
                     </TableRow>
                   ))
                 ) : (
@@ -630,7 +613,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                     <ul className="space-y-2">
                       {selectedEmployeeDetails.map(emp => (
                         <li key={emp.person_id} className="flex items-center justify-between">
-                          <span>{emp.full_name || ''}</span>
+                          <span>{emp.full_name || 'N/A'}</span>
                           <Badge variant="secondary">FTE: {emp.fte || 'N/A'}</Badge>
                         </li>
                       ))}
