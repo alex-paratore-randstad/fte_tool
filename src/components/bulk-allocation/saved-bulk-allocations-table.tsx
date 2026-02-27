@@ -177,14 +177,14 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       const emps: TeamMember[] = metaEmpResponse.ok ? await metaEmpResponse.json() : [];
       const clients: AiReportData[] = metaClientResponse.ok ? await metaClientResponse.json() : [];
 
-      setAllEmployees(emps.filter(e => e && e.full_name));
+      setAllEmployees(Array.isArray(emps) ? emps.filter(e => e && e.full_name) : []);
       const staticClients: AiReportData[] = [
-        { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
-        { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '' },
+        { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '', Region: '', Country: '' },
+        { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '', Region: '', Country: '' },
       ];
-      setAllClients([...staticClients, ...clients.filter(c => c && c.DisplayName)]);
+      setAllClients([...staticClients, ...(Array.isArray(clients) ? clients.filter(c => c && c.DisplayName) : [])]);
 
-      const grouped = summaries.reduce((acc, summary) => {
+      const grouped = (Array.isArray(summaries) ? summaries : []).reduce((acc, summary) => {
         if (!summary?.content) return acc;
         const { bulk_allocation_id, cost_center_name, cost_center_number, allocation_percentage, bulk_allocation_date, allocation_group } = summary.content;
         
@@ -213,7 +213,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
         return acc;
       }, {} as Record<string, ProcessedAllocation>);
 
-      ftes.forEach(fte => {
+      (Array.isArray(ftes) ? ftes : []).forEach(fte => {
         if (!fte?.content) return;
         const { bulk_allocation_id, employee_id, employee_name, allocation_monthyear } = fte.content;
         if (bulk_allocation_id && grouped[bulk_allocation_id]) {
@@ -229,9 +229,9 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       });
       
       const processed = Object.values(grouped).sort((a, b) => {
-          const dateA = new Date(a.allocationDate || 0).getTime();
-          const dateB = new Date(b.allocationDate || 0).getTime();
-          return dateB - dateA;
+          const timeA = a.allocationDate ? new Date(a.allocationDate).getTime() : 0;
+          const timeB = b.allocationDate ? new Date(b.allocationDate).getTime() : 0;
+          return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
       });
       
       setOriginalAllocations(processed);
@@ -457,7 +457,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
             {editableAllocations.map(alloc => {
                 const totalAllocation = (alloc.summaries || []).reduce((sum, s) => sum + s.percentage, 0);
                 const isProfileSaving = isSaving[alloc.id];
-                const displayId = (alloc.id || '').substring(0, 8);
+                const displayId = alloc.id ? alloc.id.substring(0, 8) : 'unknown';
               return (
               <AccordionItem value={alloc.id} key={alloc.id}>
                 <AccordionTrigger>

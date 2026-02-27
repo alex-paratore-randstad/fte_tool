@@ -137,11 +137,17 @@ export function DashboardContent() {
           fetch(`/domo/datastores/v1/collections/weekly_targets/documents/`),
         ]);
 
-        setAllEmployees(empResponse.ok ? await empResponse.json() : []);
-        setWeeklyAllocations(weeklyAllocResponse.ok ? await weeklyAllocResponse.json() : []);
-        setBulkFtes(bulkFteResponse.ok ? await bulkFteResponse.json() : []);
-        setBulkSummaries(bulkSummaryResponse.ok ? await bulkSummaryResponse.json() : []);
-        setTargets(targetsResponse.ok ? await targetsResponse.json() : []);
+        const emps = empResponse.ok ? await empResponse.json() : [];
+        const weekly = weeklyAllocResponse.ok ? await weeklyAllocResponse.json() : [];
+        const bFtes = bulkFteResponse.ok ? await bulkFteResponse.json() : [];
+        const bSums = bulkSummaryResponse.ok ? await bulkSummaryResponse.json() : [];
+        const targs = targetsResponse.ok ? await targetsResponse.json() : [];
+
+        setAllEmployees(Array.isArray(emps) ? emps : []);
+        setWeeklyAllocations(Array.isArray(weekly) ? weekly : []);
+        setBulkFtes(Array.isArray(bFtes) ? bFtes : []);
+        setBulkSummaries(Array.isArray(bSums) ? bSums : []);
+        setTargets(Array.isArray(targs) ? targs : []);
 
       } catch (error) {
         writeLog('DashboardContent', 'error', 'Failed to load dashboard data', error);

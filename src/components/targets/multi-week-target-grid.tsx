@@ -310,6 +310,13 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
         if (currentActiveTargets.length === 0) return;
 
         setInternalLoading(true);
+        
+        // CRITICAL FIX: Clear existing target values to prevent stale data leaking across years
+        setActiveTargets(prev => prev.map(emp => ({
+            ...emp,
+            targets: emp.targets.map(t => ({ ...t, quarterlyTargets: {} }))
+        })));
+
         const refreshedTargets = await Promise.all(
             currentActiveTargets.map(async (empTarget) => {
                 const newRows = await fetchTargetsForEmployee(empTarget.employee, currentYear);
@@ -381,8 +388,11 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   };
 
   const handleSave = async () => {
+    // Capture the current year at the start of the save to prevent period leakage
+    const yearAtSave = currentYear;
     const submissions: any[] = [];
     let hasInvalidTarget = false;
+
     activeTargets.forEach(emp => {
       emp.targets.forEach(row => {
         Object.entries(row.quarterlyTargets).forEach(([quarter, target]) => {
@@ -393,7 +403,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
                 return;
             }
             submissions.push({ content: {
-                targets_allocation_date: getQuarterStartDate(currentYear, quarter),
+                targets_allocation_date: getQuarterStartDate(yearAtSave, quarter),
                 targets_allocation_name: `[${emp.employee.person_id}] ${emp.employee.full_name}`,
                 targets_cost_center_name: row.clientName,
                 targets_cost_center_number: row.clientId,
@@ -415,8 +425,8 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
                 body: JSON.stringify(entry),
             }).then(res => { if (!res.ok) throw new Error('One or more saves failed.') })
         ));
-        toast({ title: 'Targets Saved', description: `${submissions.length} target entries have been saved.` });
-        writeLog('QuarterlyTargetGrid', 'success', 'Targets saved', { count: submissions.length, year: currentYear });
+        toast({ title: 'Targets Saved', description: `${submissions.length} target entries have been saved for ${yearAtSave}.` });
+        writeLog('QuarterlyTargetGrid', 'success', 'Targets saved', { count: submissions.length, year: yearAtSave });
         onSaveSuccess();
     } catch (error: any) {
         writeLog('QuarterlyTargetGrid', 'error', 'Save failed', error);

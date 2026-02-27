@@ -310,6 +310,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         if (currentActiveAllocs.length === 0) return;
 
         setInternalLoading(true);
+        
+        // CRITICAL FIX: Clear existing values to prevent stale data leaking across months
+        setActiveAllocations(prev => prev.map(emp => ({
+            ...emp,
+            allocations: emp.allocations.map(a => ({ ...a, weeklyFtes: {} }))
+        })));
+
         const refreshedAllocations = await Promise.all(
             currentActiveAllocs.map(async empAlloc => {
                 const newRows = await fetchAllocationsForEmployee(empAlloc.employee);
@@ -553,12 +560,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   };
   
   const handleFteChange = (employeeId: string, allocId: string, weekKey: string, newFteValue: string) => {
-    const newFte = parseFloat(newFteValue) || 0;
+    const fte = parseFloat(newFteValue) || 0;
     setActiveAllocations(prev => prev.map(empAlloc => {
         if (empAlloc.employee.person_id === employeeId) {
             const newAllocations = empAlloc.allocations.map(alloc => {
                 if (alloc.id === allocId) {
-                    return { ...alloc, weeklyFtes: { ...alloc.weeklyFtes, [weekKey]: newFte } };
+                    return { ...alloc, weeklyFtes: { ...alloc.weeklyFtes, [weekKey]: fte } };
                 }
                 return alloc;
             });
