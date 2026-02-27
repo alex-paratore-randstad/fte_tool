@@ -137,7 +137,7 @@ const EmployeeSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
-    const sortedEmployees = employees.sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    const sortedEmployees = [...employees].sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
     if (!searchTerm) {
       return sortedEmployees;
     }
@@ -181,7 +181,7 @@ const ManagerSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
-    const sortedManagers = managers.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+    const sortedManagers = [...managers].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
     if (!searchTerm) {
       return sortedManagers;
     }

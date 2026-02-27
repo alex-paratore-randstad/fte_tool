@@ -59,11 +59,11 @@ const MultiSelectFilter = ({
           disabled={disabled}
         >
           <span className="truncate">
-            {selected.length === 0
+            {(selected || []).length === 0
               ? placeholder
-              : selected.length <= 2
-              ? selected.join(', ')
-              : `${selected.length} selected`}
+              : (selected || []).length <= 2
+              ? (selected || []).join(', ')
+              : `${(selected || []).length} selected`}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -75,14 +75,14 @@ const MultiSelectFilter = ({
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
               <ScrollArea className="h-64">
-                {options.map(option => (
+                {(options || []).map(option => (
                   <CommandItem
                     key={option}
                     onSelect={() => onValueChange(option)}
                   >
                     <Checkbox
                       className="mr-2"
-                      checked={selected.includes(option)}
+                      checked={(selected || []).includes(option)}
                     />
                     <span>{option}</span>
                   </CommandItem>
@@ -308,19 +308,25 @@ export function DashboardContent() {
             break;
         }
         case 'total': {
+            const allWeeklyClients = Array.from(new Set(weeklyAllocations.map(a => a?.content?.cost_center_name).filter(Boolean)));
             const last8Weeks = Array.from({ length: 8 }, (_, i) => startOfWeek(subWeeks(today, 7 - i), { weekStartsOn: 1 }));
             initialChartData = last8Weeks.map(weekStart => {
               const weekKey = format(weekStart, 'yyyy-MM-dd');
               const allocationsForWeek = weeklyAllocations.filter(a => a?.content?.allocation_date === weekKey);
-              const total = allocationsForWeek.reduce((sum, curr) => sum + parseFloat(curr?.content?.allocation_amount || '0'), 0);
               
-              return {
-                name: weekKey,
-                'Total Allocated FTE': total
-              };
+              const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
+                const clientName = curr?.content?.cost_center_name || 'Unknown';
+                const amount = Number(curr?.content?.allocation_amount) || 0;
+                acc[clientName] = (acc[clientName] || 0) + amount;
+                return acc;
+              }, {} as Record<string, number>);
+              
+              const completeWeeklyData: Record<string, any> = { name: weekKey };
+              allWeeklyClients.forEach(client => { if (client) completeWeeklyData[client as string] = weeklyTotals[client as string] || 0; });
+              return completeWeeklyData;
             });
             title = "Total FTE Allocation Trend";
-            description = "Aggregate sum of FTEs allocated across all clients (Weekly) over the last 8 weeks.";
+            description = "FTEs allocated per client (Weekly) over the last 8 weeks.";
             break;
         }
         case 'weekly':
@@ -338,7 +344,7 @@ export function DashboardContent() {
               }, {} as Record<string, number>);
               
               const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
-              allWeeklyClients.forEach(client => { completeWeeklyData[client as string] = weeklyTotals[client as string] || 0; });
+              allWeeklyClients.forEach(client => { if (client) completeWeeklyData[client as string] = weeklyTotals[client as string] || 0; });
               return completeWeeklyData;
             });
             initialChartData = weeklyData;
@@ -349,7 +355,7 @@ export function DashboardContent() {
     }
 
     const finalChartData =
-      chartClientFilter.length > 0 && chartView !== 'total'
+      chartClientFilter.length > 0
         ? initialChartData.map(item => {
             const newItem: { [key: string]: any } = { name: item.name };
             chartClientFilter.forEach(client => {
@@ -497,20 +503,18 @@ export function DashboardContent() {
                     </TabsList>
                 </Tabs>
               </div>
-               {chartView !== 'total' && (
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-4">
-                    <MultiSelectFilter
-                        placeholder="Filter by Client..."
-                        options={allChartClients}
-                        selected={chartClientFilter}
-                        onValueChange={handleChartClientFilterChange}
-                        disabled={isPageLoading}
-                    />
-                    <Button variant="outline" onClick={clearChartFilters} disabled={isPageLoading || chartClientFilter.length === 0}>
-                      Clear Client Filter
-                    </Button>
-                </div>
-               )}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-4">
+                  <MultiSelectFilter
+                      placeholder="Filter by Client..."
+                      options={allChartClients}
+                      selected={chartClientFilter}
+                      onValueChange={handleChartClientFilterChange}
+                      disabled={isPageLoading}
+                  />
+                  <Button variant="outline" onClick={clearChartFilters} disabled={isPageLoading || chartClientFilter.length === 0}>
+                    Clear Client Filter
+                  </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {isPageLoading ? (

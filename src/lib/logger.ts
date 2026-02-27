@@ -32,7 +32,13 @@ export function writeLog(
     try {
         if (rawData !== null && rawData !== undefined) {
             // Safe stringification even if rawData is an Error or null
-            logRaw = typeof rawData === 'string' ? rawData : JSON.stringify(rawData, Object.getOwnPropertyNames(rawData));
+            if (typeof rawData === 'string') {
+                logRaw = rawData;
+            } else if (rawData instanceof Error) {
+                logRaw = JSON.stringify(rawData, Object.getOwnPropertyNames(rawData));
+            } else {
+                logRaw = JSON.stringify(rawData);
+            }
         }
     } catch (e) {
         logRaw = 'failed-to-stringify';
@@ -40,10 +46,10 @@ export function writeLog(
 
     const payload: LogPayload = {
         log_id: uuidv4(),
-        page_name: pageName,
+        page_name: pageName || 'Unknown Page',
         log_date: new Date().toISOString(),
-        log_type: logType,
-        log_message: logMessage,
+        log_type: logType || 'info',
+        log_message: logMessage || 'No message provided',
         log_raw: logRaw,
     };
 
