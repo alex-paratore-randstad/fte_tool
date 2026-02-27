@@ -372,6 +372,23 @@ export function DashboardContent() {
     return { title: baseTitle, data: filteredData, description: description };
   }, [activeView, allEmployees, allocatedEmployees, unallocatedEmployees, employeeFilters]);
 
+  const aggregateChartData = useMemo(() => {
+    if (!today || loading) return [];
+    
+    const last8Weeks = Array.from({ length: 8 }, (_, i) => startOfWeek(subWeeks(today, 7 - i), { weekStartsOn: 1 }));
+    
+    return last8Weeks.map(weekStart => {
+      const weekKey = format(weekStart, 'yyyy-MM-dd');
+      const allocationsForWeek = weeklyAllocations.filter(a => a.content.allocation_date === weekKey);
+      const total = allocationsForWeek.reduce((sum, curr) => sum + parseFloat(curr.content.allocation_amount || '0'), 0);
+      
+      return {
+        name: weekKey,
+        'Total Allocated FTE': total
+      };
+    });
+  }, [today, loading, weeklyAllocations]);
+
   const handleCardClick = (view: ActiveView) => {
     setActiveView(current => (current === view ? null : view));
   };
@@ -530,6 +547,20 @@ export function DashboardContent() {
                   </TableBody>
                 </Table>
               </ScrollArea>
+            </CardContent>
+          </Card>
+
+          <Card className="col-span-1 lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Total FTE Allocation Trend</CardTitle>
+              <CardDescription>Aggregate sum of FTEs allocated across all clients (Weekly) over the last 8 weeks.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isPageLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <FteAllocationChart data={aggregateChartData} />
+              )}
             </CardContent>
           </Card>
       </div>
