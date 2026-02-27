@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
-import { startOfWeek, subWeeks, format, isValid } from 'date-fns';
+import { startOfWeek, subWeeks, format, isValid, parseISO } from 'date-fns';
 import { PageHeader } from '../page-header';
 import { writeLog } from '@/lib/logger';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -164,14 +164,16 @@ export function DashboardContent() {
     const total = new Set(safeEmployees.map(e => e.person_id)).size;
     
     const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 });
-    const currentWeekAllocations = weeklyAllocations.filter(a => a.content.allocation_date === format(startOfThisWeek, 'yyyy-MM-dd'));
+    const currentWeekKey = format(startOfThisWeek, 'yyyy-MM-dd');
+    const currentWeekAllocations = weeklyAllocations.filter(a => a?.content?.allocation_date === currentWeekKey);
     
     const allocatedEmployeeIds = new Set<string>();
     currentWeekAllocations
       .filter(a => a?.content && parseFloat(a.content.allocation_amount) > 0)
       .forEach(a => {
-        if (a.content.employee_id) allocatedEmployeeIds.add(a.content.employee_id);
-        else if (a.content.allocation_name) {
+        if (a.content.employee_id) {
+          allocatedEmployeeIds.add(a.content.employee_id);
+        } else if (a.content.allocation_name) {
           const match = a.content.allocation_name.match(/\[(.*?)\]/);
           if (match && match[1]) allocatedEmployeeIds.add(match[1]);
         }
@@ -212,10 +214,13 @@ export function DashboardContent() {
   const allChartClients = useMemo<string[]>(() => {
     if (loading) return [];
     const clients = new Set<string>();
-    weeklyAllocations.forEach(a => clients.add(a.content.cost_center_name));
-    bulkSummaries.forEach(s => clients.add(s.content.cost_center_name));
-    targets.forEach(t => clients.add(t.content.targets_cost_center_name));
-    return Array.from(clients).sort((a,b) => a.localeCompare(b));
+    weeklyAllocations.forEach(a => { if (a?.content?.cost_center_name) clients.add(a.content.cost_center_name); });
+    bulkSummaries.forEach(s => { if (s?.content?.cost_center_name) clients.add(s.content.cost_center_name); });
+    targets.forEach(t => { if (t?.content?.targets_cost_center_name) clients.add(t.content.targets_cost_center_name); });
+    
+    return Array.from(clients)
+      .filter(c => typeof c === 'string' && c)
+      .sort((a,b) => a.localeCompare(b));
   }, [loading, weeklyAllocations, bulkSummaries, targets]);
 
   const { chartData, chartTitle, chartDescription } = useMemo(() => {
@@ -230,19 +235,21 @@ export function DashboardContent() {
     switch(chartView) {
         case 'bulk': {
             const bulkSummariesByProfileId = bulkSummaries.reduce((acc, summary) => {
+                if (!summary?.content?.bulk_allocation_id) return acc;
                 if (!acc[summary.content.bulk_allocation_id]) acc[summary.content.bulk_allocation_id] = [];
                 acc[summary.content.bulk_allocation_id].push(summary);
                 return acc;
             }, {} as Record<string, BulkSummaryDoc[]>);
 
             const bulkDataByMonth = bulkFtes.reduce((acc, fte) => {
-                const { allocation_monthyear, bulk_allocation_id } = fte.content;
-                if (!allocation_monthyear) return acc;
+                const { allocation_monthyear, bulk_allocation_id } = fte?.content || {};
+                if (!allocation_monthyear || !bulk_allocation_id) return acc;
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
                 if (!acc[allocation_monthyear]) acc[allocation_monthyear] = {};
                 summariesForFte.forEach(summary => {
-                    const percentage = parseFloat(summary.content.allocation_percentage) || 0;
-                    acc[allocation_monthyear][summary.content.cost_center_name] = (acc[allocation_monthyear][summary.content.cost_center_name] || 0) + percentage;
+                    const percentage = parseFloat(summary?.content?.allocation_percentage) || 0;
+                    const clientName = summary?.content?.cost_center_name || 'Unknown';
+                    acc[allocation_monthyear][clientName] = (acc[allocation_monthyear][clientName] || 0) + percentage;
                 });
                 return acc;
             }, {} as Record<string, Record<string, number>>);
@@ -253,21 +260,25 @@ export function DashboardContent() {
         }
         case 'freshservice': {
             const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-            const freshserviceAllocations = weeklyAllocations.filter(a => a.content.cost_center_name === a.content.cost_center_number);
+            const freshserviceAllocations = weeklyAllocations.filter(a => a?.content && a.content.cost_center_name === a.content.cost_center_number);
             const freshserviceDataByMonth = freshserviceAllocations.reduce((acc, alloc) => {
-                // Use date string parts to avoid timezone-related hydration mismatches.
-                const dateParts = alloc.content.allocation_date.split('-');
+                const dateStr = alloc?.content?.allocation_date;
+                if (!dateStr) return acc;
+                
+                const dateParts = dateStr.split('-');
                 if (dateParts.length !== 3) return acc;
                 
                 const year = dateParts[0];
                 const monthIndex = parseInt(dateParts[1], 10) - 1;
                 
-                if (monthIndex < 0 || monthIndex > 11) return acc;
+                if (isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) return acc;
 
                 const monthLabel = `${months[monthIndex]} ${year}`;
+                const clientName = alloc.content.cost_center_name || 'Unknown';
+                const amount = parseFloat(alloc.content.allocation_amount) || 0;
                 
                 acc[monthLabel] = acc[monthLabel] || {};
-                acc[monthLabel][alloc.content.cost_center_name] = (acc[monthLabel][alloc.content.cost_center_name] || 0) + parseFloat(alloc.content.allocation_amount);
+                acc[monthLabel][clientName] = (acc[monthLabel][clientName] || 0) + amount;
                 return acc;
             }, {} as Record<string, Record<string, number>>);
              initialChartData = Object.entries(freshserviceDataByMonth).map(([month, totals]) => ({ name: month, ...totals }));
@@ -277,11 +288,18 @@ export function DashboardContent() {
         }
         case 'targets': {
             const targetsByQuarter = targets.reduce((acc, target) => {
-                const date = new Date(target.content.targets_allocation_date);
-                 if (!isValid(date)) return acc;
+                const dateStr = target?.content?.targets_allocation_date;
+                if (!dateStr) return acc;
+                
+                const date = parseISO(dateStr);
+                if (!isValid(date)) return acc;
+                
                 const quarter = `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`;
+                const clientName = target.content.targets_cost_center_name || 'Unknown';
+                const amount = parseInt(target.content.targets_allocation_amount, 10) || 0;
+                
                 acc[quarter] = acc[quarter] || {};
-                acc[quarter][target.content.targets_cost_center_name] = (acc[quarter][target.content.targets_cost_center_name] || 0) + parseInt(target.content.targets_allocation_amount, 10);
+                acc[quarter][clientName] = (acc[quarter][clientName] || 0) + amount;
                 return acc;
             }, {} as Record<string, Record<string, number>>);
             initialChartData = Object.entries(targetsByQuarter).map(([quarter, totals]) => ({ name: quarter, ...totals }));
@@ -291,13 +309,15 @@ export function DashboardContent() {
         }
         case 'weekly':
         default: {
-            const allWeeklyClients = Array.from(new Set(weeklyAllocations.map(a => a.content.cost_center_name)));
+            const allWeeklyClients = Array.from(new Set(weeklyAllocations.map(a => a?.content?.cost_center_name).filter(Boolean)));
             const last6Weeks = Array.from({ length: 6 }, (_, i) => startOfWeek(subWeeks(today, 5 - i), { weekStartsOn: 1 }));
             const weeklyData = last6Weeks.map(weekStart => {
               const weekStartDateString = format(weekStart, 'yyyy-MM-dd');
-              const allocationsForWeek = weeklyAllocations.filter(a => a.content.allocation_date === weekStartDateString);
+              const allocationsForWeek = weeklyAllocations.filter(a => a?.content?.allocation_date === weekStartDateString);
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
-                acc[curr.content.cost_center_name] = (acc[curr.content.cost_center_name] || 0) + Number(curr.content.allocation_amount);
+                const clientName = curr?.content?.cost_center_name || 'Unknown';
+                const amount = Number(curr?.content?.allocation_amount) || 0;
+                acc[clientName] = (acc[clientName] || 0) + amount;
                 return acc;
               }, {} as Record<string, number>);
               
@@ -356,9 +376,9 @@ export function DashboardContent() {
     }
 
     const filteredData = baseData.filter(member => {
-        const nameMatch = employeeFilters.fullName.length === 0 || employeeFilters.fullName.includes(member.full_name);
-        const titleMatch = employeeFilters.title.length === 0 || employeeFilters.title.includes(member.title);
-        const managerMatch = employeeFilters.manager.length === 0 || employeeFilters.manager.includes(member.manager);
+        const nameMatch = employeeFilters.fullName.length === 0 || (member.full_name && employeeFilters.fullName.includes(member.full_name));
+        const titleMatch = employeeFilters.title.length === 0 || (member.title && employeeFilters.title.includes(member.title));
+        const managerMatch = employeeFilters.manager.length === 0 || (member.manager && employeeFilters.manager.includes(member.manager));
         return nameMatch && titleMatch && managerMatch;
     });
 
@@ -379,8 +399,8 @@ export function DashboardContent() {
     
     return last8Weeks.map(weekStart => {
       const weekKey = format(weekStart, 'yyyy-MM-dd');
-      const allocationsForWeek = weeklyAllocations.filter(a => a.content.allocation_date === weekKey);
-      const total = allocationsForWeek.reduce((sum, curr) => sum + parseFloat(curr.content.allocation_amount || '0'), 0);
+      const allocationsForWeek = weeklyAllocations.filter(a => a?.content?.allocation_date === weekKey);
+      const total = allocationsForWeek.reduce((sum, curr) => sum + parseFloat(curr?.content?.allocation_amount || '0'), 0);
       
       return {
         name: weekKey,

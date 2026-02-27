@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, X } from 'lucide-react';
+import { PlusCircle, X, ChevronsUpDown } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +34,8 @@ import { Label } from '../ui/label';
 import type { SummaryEntry } from './saved-bulk-allocations-table';
 import { writeLog } from '@/lib/logger';
 import { Badge } from '../ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 type AiReportData = {
     Code: string;
@@ -55,7 +57,71 @@ const months = [
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
 
-// New self-contained component for the Client dropdown
+// Multi-select filter component
+const MultiSelectFilter = ({
+  placeholder,
+  options,
+  selected,
+  onValueChange,
+  disabled,
+}: {
+  placeholder: string;
+  options: string[];
+  selected: string[];
+  onValueChange: (value: string) => void;
+  disabled?: boolean;
+}) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+          disabled={disabled}
+        >
+          <span className="truncate">
+            {selected.length === 0
+              ? placeholder
+              : selected.length <= 2
+              ? selected.join(', ')
+              : `${selected.length} selected`}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput placeholder="Search..." />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              <ScrollArea className="h-64">
+                {options.map(option => (
+                  <CommandItem
+                    key={option}
+                    onSelect={() => onValueChange(option)}
+                  >
+                    <Checkbox
+                      className="mr-2"
+                      checked={selected.includes(option)}
+                    />
+                    <span>{option}</span>
+                  </CommandItem>
+                ))}
+              </ScrollArea>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+// Client dropdown
 const ClientSelect = ({
   clients,
   value,
@@ -70,7 +136,6 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    // Create a stable sort: special clients first, then alphabetical.
     const sorted = [...clients].sort((a, b) => {
       const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
@@ -114,74 +179,33 @@ const ClientSelect = ({
   );
 };
 
-const ManagerSelect = ({ 
-  managers, 
-  onValueChange,
-  disabled,
-}: { 
-  managers: {id: string, name: string}[], 
-  onValueChange: (value: string) => void,
-  disabled?: boolean,
-}) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredManagers = useMemo(() => {
-    const sortedManagers = managers.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
-    if (!searchTerm) {
-      return sortedManagers;
-    }
-    return sortedManagers.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [managers, searchTerm]);
-
-  return (
-    <Select onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger className="w-full">
-            <SelectValue placeholder="Load Team..." />
-        </SelectTrigger>
-        <SelectContent>
-            <SelectSearch placeholder="Search manager..." onChange={setSearchTerm} />
-            <ScrollArea className="h-64">
-              {filteredManagers.map(m => (
-                  <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                  </SelectItem>
-              ))}
-              {filteredManagers.length === 0 && (
-                <div className="p-4 text-sm text-center text-muted-foreground">
-                    No managers found.
-                </div>
-              )}
-            </ScrollArea>
-        </SelectContent>
-    </Select>
-  );
-};
-
 
 export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAllocationGridProps) {
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [clients, setClients] = useState<AiReportData[]>([]);
-  const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
 
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [allocationRows, setAllocationRows] = useState<AllocationRow[]>([]);
-  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
   
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [selectedAllocationGroup, setSelectedAllocationGroup] = useState('');
   const [otherAllocationGroup, setOtherAllocationGroup] = useState('');
 
+  // Filters state
+  const [employeeFilters, setEmployeeFilters] = useState({
+    fullName: [] as string[],
+    manager: [] as string[]
+  });
 
   const { currentUser, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
   
   useEffect(() => {
     setHasMounted(true);
-    // Set date state on client to avoid hydration mismatch
     const now = new Date();
     setSelectedMonth(months[now.getMonth()]);
     setSelectedYear(now.getFullYear().toString());
@@ -225,16 +249,6 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       ];
       setClients([...staticClients, ...clientData]);
 
-      const managerMap = new Map<string, string>();
-      empData.forEach(emp => {
-          if(emp.manager_id && emp.manager) {
-              managerMap.set(emp.manager_id, emp.manager);
-          }
-      });
-      const uniqueManagers = Array.from(managerMap, ([id, name]) => ({ id, name }))
-        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      setManagers(uniqueManagers);
-
     } catch (error) {
       writeLog('BulkAllocationGrid', 'error', 'Failed to fetch initial data', error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
@@ -264,7 +278,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         const newAllocationRows = templateToCopy.map(summary => ({
           id: uuidv4(),
           clientName: summary.name,
-          fte: summary.percentage, // Show percentage as FTE for now
+          fte: summary.percentage,
         }));
         setAllocationRows(newAllocationRows);
       } else {
@@ -277,28 +291,42 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         toast({ title: 'Template Copied', description: 'Allocation profile has been copied. Review the FTE distribution.' });
       }
     } else {
-        // Only set the initial row if the allocationRows array is empty.
-        // This prevents overwriting user's manually entered rows when they select employees.
         if (allocationRows.length === 0) {
             setAllocationRows([{ id: uuidv4(), clientName: '', fte: 0 }]);
         }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateToCopy, totalSelectedFte]);
+  }, [templateToCopy, totalSelectedFte, toast]);
 
   useEffect(() => {
     if (!userLoading) {
       fetchData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchData, userLoading]);
 
+  // Derived state for filter options
+  const filterOptions = useMemo(() => {
+    const getUniqueSorted = (key: keyof TeamMember) =>
+        Array.from(
+            new Set(
+                allEmployees
+                    .map(item => item[key])
+                    .filter(val => typeof val === 'string' && val) as string[]
+            )
+        ).sort((a, b) => a.localeCompare(b));
+
+    return {
+      fullNames: getUniqueSorted('full_name'),
+      managers: getUniqueSorted('manager'),
+    };
+  }, [allEmployees]);
+
   const filteredEmployees = useMemo(() => {
-    if (!employeeSearchTerm) {
-      return allEmployees;
-    }
-    return allEmployees.filter(e => e.full_name?.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
-  }, [allEmployees, employeeSearchTerm]);
+    return allEmployees.filter(emp => {
+      const nameMatch = employeeFilters.fullName.length === 0 || employeeFilters.fullName.includes(emp.full_name);
+      const managerMatch = employeeFilters.manager.length === 0 || employeeFilters.manager.includes(emp.manager);
+      return nameMatch && managerMatch;
+    });
+  }, [allEmployees, employeeFilters]);
   
   const totalAllocatedFte = useMemo(() => {
     return allocationRows.reduce((sum, row) => sum + (Number(row.fte) || 0), 0);
@@ -336,25 +364,18 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     }));
   };
 
-  const handleLoadManagerTeam = (managerId: string) => {
-    if (!managerId) return;
-
-    const teamMemberIds = allEmployees
-        .filter(e => e.manager_id === managerId)
-        .map(e => e.person_id);
-
-    if (teamMemberIds.length === 0) {
-      toast({ title: 'No employees found for this manager.' });
-      return;
-    }
-
-    setSelectedEmployees(prev => {
-        const newSet = new Set(prev);
-        teamMemberIds.forEach(id => newSet.add(id));
-        return newSet;
+  const handleFilterChange = (filterName: keyof typeof employeeFilters, value: string) => {
+    setEmployeeFilters(prev => {
+        const currentValues = prev[filterName];
+        const newValues = currentValues.includes(value)
+          ? currentValues.filter(v => v !== value)
+          : [...currentValues, value];
+        return { ...prev, [filterName]: newValues };
     });
+  };
 
-    toast({ title: 'Team Loaded', description: `${teamMemberIds.length} employee(s) have been selected.` });
+  const clearEmployeeFilters = () => {
+    setEmployeeFilters({ fullName: [], manager: [] });
   };
 
   const handleSave = async () => {
@@ -411,7 +432,6 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
 
     const summarySubmissions = allocationRows.map(row => {
       const client = clients.find(c => c.DisplayName === row.clientName);
-      // Convert FTE back to percentage for storage in the "profile"
       const percentage = totalSelectedFte > 0 ? row.fte / totalSelectedFte : 0;
       return fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/', {
         method: 'POST',
@@ -463,19 +483,27 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
       <Card>
         <CardHeader>
-          <CardTitle>Step 1: Select Employees</CardTitle>
-          <CardDescription>Choose the employees who will share this allocation profile.</CardDescription>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <Input 
-              placeholder="Search employees..." 
-              value={employeeSearchTerm}
-              onChange={e => setEmployeeSearchTerm(e.target.value)}
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <CardTitle>Step 1: Select Employees</CardTitle>
+              <CardDescription>Choose the employees who will share this allocation profile.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={clearEmployeeFilters} disabled={isPageLoading}>Clear Filters</Button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+            <MultiSelectFilter
+              placeholder="Filter by Name..."
+              options={filterOptions.fullNames}
+              selected={employeeFilters.fullName}
+              onValueChange={value => handleFilterChange('fullName', value)}
               disabled={isPageLoading}
             />
-             <ManagerSelect 
-                managers={managers} 
-                onValueChange={handleLoadManagerTeam} 
-                disabled={isPageLoading}
+            <MultiSelectFilter
+              placeholder="Filter by Manager..."
+              options={filterOptions.managers}
+              selected={employeeFilters.manager}
+              onValueChange={value => handleFilterChange('manager', value)}
+              disabled={isPageLoading}
             />
           </div>
         </CardHeader>
@@ -487,6 +515,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                   <TableHead className="w-[50px]"></TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Title</TableHead>
+                  <TableHead>Manager</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -494,7 +523,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                   Array.from({ length: 8 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-5 w-5 rounded" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                     </TableRow>
                   ))
@@ -510,12 +540,13 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                       </TableCell>
                       <TableCell className="font-medium">{emp.full_name || ''}</TableCell>
                       <TableCell className="text-muted-foreground">{emp.title || ''}</TableCell>
+                      <TableCell className="text-muted-foreground">{emp.manager || ''}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
-                      No employees to display.
+                    <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                      No employees match the current filters.
                     </TableCell>
                   </TableRow>
                 )}
