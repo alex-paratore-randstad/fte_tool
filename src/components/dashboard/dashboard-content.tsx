@@ -109,6 +109,7 @@ export function DashboardContent() {
   const [activeView, setActiveView] = useState<ActiveView>('total');
   const [employeeFilters, setEmployeeFilters] = useState({ fullName: [] as string[], title: [] as string[], manager: [] as string[] });
   const [chartClientFilter, setChartClientFilter] = useState<string[]>([]);
+  const [chartDepartmentFilter, setChartDepartmentFilter] = useState<string[]>([]);
   const [chartView, setChartView] = useState<'weekly' | 'bulk' | 'freshservice' | 'targets' | 'total'>('weekly');
   
   const { toast } = useToast();
@@ -222,11 +223,40 @@ export function DashboardContent() {
       .sort((a,b) => a.localeCompare(b));
   }, [loading, weeklyAllocations, bulkSummaries, targets]);
 
+  const allChartDepartments = useMemo<string[]>(() => {
+    if (loading) return [];
+    const depts = new Set<string>();
+    (allEmployees || []).forEach(e => { if (e && e.department) depts.add(e.department); });
+    return Array.from(depts).sort((a, b) => a.localeCompare(b));
+  }, [loading, allEmployees]);
+
   const { chartData, chartTitle, chartDescription } = useMemo(() => {
     if (!today || loading) {
         return { chartData: [], chartTitle: 'Loading Chart...', chartDescription: '...'};
     }
     
+    const employeeIdToDeptMap = new Map<string, string>();
+    const employeeNameToDeptMap = new Map<string, string>();
+    allEmployees.forEach(e => {
+        if (e.person_id && e.department) employeeIdToDeptMap.set(e.person_id, e.department);
+        if (e.full_name && e.department) employeeNameToDeptMap.set(e.full_name, e.department);
+    });
+
+    const isDeptMatch = (id?: string, name?: string) => {
+        if (chartDepartmentFilter.length === 0) return true;
+        let dept = '';
+        if (id) dept = employeeIdToDeptMap.get(id) || '';
+        if (!dept && name) {
+            const match = name.match(/\[(.*?)\]/);
+            if (match && match[1]) {
+                dept = employeeIdToDeptMap.get(match[1]) || '';
+            } else {
+                dept = employeeNameToDeptMap.get(name) || '';
+            }
+        }
+        return dept && chartDepartmentFilter.includes(dept);
+    };
+
     let initialChartData: ChartData[] = [];
     let title: string = '';
     let description: string = '';
@@ -243,8 +273,11 @@ export function DashboardContent() {
             }, {} as Record<string, BulkSummaryDoc[]>);
 
             const bulkDataByMonth = (bulkFtes || []).reduce((acc, fte) => {
-                const { allocation_monthyear, bulk_allocation_id } = fte?.content || {};
+                const { allocation_monthyear, bulk_allocation_id, employee_id, employee_name } = fte?.content || {};
                 if (!allocation_monthyear || !bulk_allocation_id) return acc;
+                
+                if (!isDeptMatch(employee_id, employee_name)) return acc;
+
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
                 if (!acc[allocation_monthyear]) acc[allocation_monthyear] = {};
                 summariesForFte.forEach(summary => {
@@ -260,7 +293,12 @@ export function DashboardContent() {
             break;
         }
         case 'freshservice': {
-            const freshserviceAllocations = (weeklyAllocations || []).filter(a => a?.content && a.content.cost_center_name === a.content.cost_center_number);
+            const freshserviceAllocations = (weeklyAllocations || []).filter(a => {
+                if (!a?.content) return false;
+                const matchesClient = a.content.cost_center_name === a.content.cost_center_number;
+                const matchesDept = isDeptMatch(a.content.employee_id, a.content.allocation_name);
+                return matchesClient && matchesDept;
+            });
             const freshserviceDataByMonth = freshserviceAllocations.reduce((acc, alloc) => {
                 const dateStr = alloc?.content?.allocation_date;
                 if (!dateStr) return acc;
@@ -291,6 +329,8 @@ export function DashboardContent() {
                 const dateStr = target?.content?.targets_allocation_date;
                 if (!dateStr) return acc;
                 
+                if (!isDeptMatch(undefined, target.content.targets_allocation_name)) return acc;
+
                 const date = parseISO(dateStr);
                 if (!isValid(date)) return acc;
                 
@@ -307,12 +347,20 @@ export function DashboardContent() {
             description = "Total hires targeted per client, grouped by quarter.";
             break;
         }
-        case 'total': {
+        case 'total':
+        case 'weekly':
+        default: {
+            const isTotal = chartView === 'total';
+            const weeksCount = isTotal ? 8 : 6;
             const allWeeklyClients = Array.from(new Set((weeklyAllocations || []).map(a => a?.content?.cost_center_name).filter(Boolean)));
-            const last8Weeks = Array.from({ length: 8 }, (_, i) => startOfWeek(subWeeks(today, 7 - i), { weekStartsOn: 1 }));
-            initialChartData = last8Weeks.map(weekStart => {
+            const lastPeriod = Array.from({ length: weeksCount }, (_, i) => startOfWeek(subWeeks(today, (weeksCount - 1) - i), { weekStartsOn: 1 }));
+            
+            initialChartData = lastPeriod.map(weekStart => {
               const weekKey = format(weekStart, 'yyyy-MM-dd');
-              const allocationsForWeek = (weeklyAllocations || []).filter(a => a?.content?.allocation_date === weekKey);
+              const allocationsForWeek = (weeklyAllocations || []).filter(a => {
+                  if (a?.content?.allocation_date !== weekKey) return false;
+                  return isDeptMatch(a.content.employee_id, a.content.allocation_name);
+              });
               
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
                 const clientName = curr?.content?.cost_center_name || 'Unknown';
@@ -325,31 +373,11 @@ export function DashboardContent() {
               allWeeklyClients.forEach(client => { if (client) completeWeeklyData[client as string] = weeklyTotals[client as string] || 0; });
               return completeWeeklyData;
             });
-            title = "Total FTE Allocation Trend";
-            description = "FTEs allocated per client (Weekly) over the last 8 weeks.";
-            break;
-        }
-        case 'weekly':
-        default: {
-            const allWeeklyClients = Array.from(new Set((weeklyAllocations || []).map(a => a?.content?.cost_center_name).filter(Boolean)));
-            const last6Weeks = Array.from({ length: 6 }, (_, i) => startOfWeek(subWeeks(today, 5 - i), { weekStartsOn: 1 }));
-            const weeklyData = last6Weeks.map(weekStart => {
-              const weekStartDateString = format(weekStart, 'yyyy-MM-dd');
-              const allocationsForWeek = (weeklyAllocations || []).filter(a => a?.content?.allocation_date === weekStartDateString);
-              const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
-                const clientName = curr?.content?.cost_center_name || 'Unknown';
-                const amount = Number(curr?.content?.allocation_amount) || 0;
-                acc[clientName] = (acc[clientName] || 0) + amount;
-                return acc;
-              }, {} as Record<string, number>);
-              
-              const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
-              allWeeklyClients.forEach(client => { if (client) completeWeeklyData[client as string] = weeklyTotals[client as string] || 0; });
-              return completeWeeklyData;
-            });
-            initialChartData = weeklyData;
-            title = "Weekly Client Allocation";
-            description = "Total FTEs allocated per client over the last 6 weeks.";
+            
+            title = isTotal ? "Total FTE Allocation Trend" : "Weekly Client Allocation";
+            description = isTotal 
+                ? "FTEs allocated per client (Weekly) over the last 8 weeks." 
+                : "Total FTEs allocated per client over the last 6 weeks.";
             break;
         }
     }
@@ -372,7 +400,7 @@ export function DashboardContent() {
         chartTitle: title, 
         chartDescription: description
     };
-  }, [today, loading, chartView, weeklyAllocations, bulkFtes, bulkSummaries, targets, chartClientFilter]);
+  }, [today, loading, chartView, weeklyAllocations, bulkFtes, bulkSummaries, targets, chartClientFilter, chartDepartmentFilter, allEmployees]);
 
   const { title: detailTitle, data: detailData, description: detailDescription } = useMemo(() => {
     let baseData: TeamMember[] = [];
@@ -439,12 +467,23 @@ export function DashboardContent() {
     });
   };
 
+  const handleChartDepartmentFilterChange = (value: string) => {
+    setChartDepartmentFilter(prev => {
+      const currentValues = prev || [];
+      const newValues = currentValues.includes(value)
+        ? currentValues.filter(v => v !== value)
+        : [...currentValues, value];
+      return newValues;
+    });
+  };
+
   const clearEmployeeFilters = () => {
     setEmployeeFilters({ fullName: [], title: [], manager: [] });
   };
   
   const clearChartFilters = () => {
     setChartClientFilter([]);
+    setChartDepartmentFilter([]);
   };
   
   const isPageLoading = loading || !today;
@@ -504,7 +543,7 @@ export function DashboardContent() {
                     </TabsList>
                 </Tabs>
               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-4">
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-4">
                   <MultiSelectFilter
                       placeholder="Filter by Client..."
                       options={allChartClients}
@@ -512,8 +551,15 @@ export function DashboardContent() {
                       onValueChange={handleChartClientFilterChange}
                       disabled={isPageLoading}
                   />
-                  <Button variant="outline" onClick={clearChartFilters} disabled={isPageLoading || chartClientFilter.length === 0}>
-                    Clear Client Filter
+                  <MultiSelectFilter
+                      placeholder="Filter by Dept..."
+                      options={allChartDepartments}
+                      selected={chartDepartmentFilter}
+                      onValueChange={handleChartDepartmentFilterChange}
+                      disabled={isPageLoading}
+                  />
+                  <Button variant="outline" onClick={clearChartFilters} disabled={isPageLoading || (chartClientFilter.length === 0 && chartDepartmentFilter.length === 0)}>
+                    Clear Chart Filters
                   </Button>
               </div>
             </CardHeader>
