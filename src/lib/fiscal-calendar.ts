@@ -27,17 +27,16 @@ let parsedCalendar: FiscalCalendarEntry[] = [];
  */
 export function initializeFiscalCalendar(data: Omit<FiscalCalendarEntry, 'parsedDate' | 'Date' | 'Day'>[]): void {
   if (parsedCalendar.length > 0) return; // Already initialized
+  if (!Array.isArray(data)) return;
 
   parsedCalendar = data
     .map(d => {
       // Validate the date before parsing to prevent crashes
-      if (!d.Reporting_Week_Date) {
-        console.warn('Skipping calendar entry due to missing Reporting_Week_Date:', d);
+      if (!d || !d.Reporting_Week_Date) {
         return null;
       }
       const parsed = parse(d.Reporting_Week_Date, 'yyyy-MM-dd', new Date());
       if (!isValid(parsed)) {
-        console.warn('Skipping calendar entry due to invalid Reporting_Week_Date:', d);
         return null;
       }
       return {
@@ -57,8 +56,7 @@ export function initializeFiscalCalendar(data: Omit<FiscalCalendarEntry, 'parsed
  */
 export function getFiscalDataForDate(date: Date): Omit<FiscalCalendarEntry, 'parsedDate'> | undefined {
     // Add a guard to prevent operations on an invalid date
-    if (!isValid(date)) {
-        console.warn('getFiscalDataForDate called with an invalid date.');
+    if (!date || !isValid(date)) {
         return undefined;
     }
     // Find the week where the given date falls between its start (Monday) and end (Sunday)
@@ -83,17 +81,18 @@ export function getFiscalDataForDate(date: Date): Omit<FiscalCalendarEntry, 'par
  * @returns An array of week-starting dates.
  */
 export function getWeeksForFiscalMonth(date: Date): FiscalWeek[] {
+  if (!date || !isValid(date)) return [];
+  
   const currentFiscalData = getFiscalDataForDate(date);
   if (!currentFiscalData || parsedCalendar.length === 0) {
     // Return empty array if calendar is not initialized or date is not found.
-    // The UI will show a loading state and re-calculate when data is ready.
     return [];
   }
 
   const { Reporting_Month, Reporting_Year } = currentFiscalData;
 
   const weeksInMonth = parsedCalendar.filter(
-    d => d.Reporting_Month === Reporting_Month && d.Reporting_Year === Reporting_Year
+    d => d && d.Reporting_Month === Reporting_Month && d.Reporting_Year === Reporting_Year
   );
   
   // The data is already unique per week, so we just need to sort and map it.
@@ -113,6 +112,8 @@ export function getWeeksForFiscalMonth(date: Date): FiscalWeek[] {
  * @returns A Date object for the first day of the previous fiscal month.
  */
 export function getPreviousFiscalMonth(currentDate: Date): Date {
+  if (!currentDate || !isValid(currentDate)) return new Date();
+  
   const currentFiscalData = getFiscalDataForDate(currentDate);
   if (!currentFiscalData || parsedCalendar.length === 0) {
     return subMonths(currentDate, 1);
@@ -120,7 +121,7 @@ export function getPreviousFiscalMonth(currentDate: Date): Date {
 
   // Find the first week of the current fiscal month
   const firstWeekOfCurrentMonth = parsedCalendar.find(d => 
-    d.Reporting_Month === currentFiscalData.Reporting_Month && d.Reporting_Year === currentFiscalData.Reporting_Year
+    d && d.Reporting_Month === currentFiscalData.Reporting_Month && d.Reporting_Year === currentFiscalData.Reporting_Year
   );
   
   if (!firstWeekOfCurrentMonth) return subMonths(currentDate, 1); // Fallback
@@ -134,7 +135,7 @@ export function getPreviousFiscalMonth(currentDate: Date): Date {
 
   // Find the first week of that previous fiscal month
   const firstWeekOfPrevFiscalMonth = parsedCalendar.find(d => 
-    d.Reporting_Month === prevMonthFiscalData.Reporting_Month && d.Reporting_Year === prevMonthFiscalData.Reporting_Year
+    d && d.Reporting_Month === prevMonthFiscalData.Reporting_Month && d.Reporting_Year === prevMonthFiscalData.Reporting_Year
   );
 
   return firstWeekOfPrevFiscalMonth ? startOfWeek(firstWeekOfPrevFiscalMonth.parsedDate, { weekStartsOn: 1}) : subMonths(currentDate, 1);
@@ -146,6 +147,8 @@ export function getPreviousFiscalMonth(currentDate: Date): Date {
  * @returns A Date object for the first day of the next fiscal month.
  */
 export function getNextFiscalMonth(currentDate: Date): Date {
+    if (!currentDate || !isValid(currentDate)) return new Date();
+    
     const currentFiscalData = getFiscalDataForDate(currentDate);
     if (!currentFiscalData || parsedCalendar.length === 0) {
         return addMonths(currentDate, 1);
@@ -153,7 +156,7 @@ export function getNextFiscalMonth(currentDate: Date): Date {
     
     // Find all weeks in the current fiscal month
     const allWeeksOfCurrentMonth = parsedCalendar.filter(d => 
-        d.Reporting_Month === currentFiscalData.Reporting_Month && d.Reporting_Year === currentFiscalData.Reporting_Year
+        d && d.Reporting_Month === currentFiscalData.Reporting_Month && d.Reporting_Year === currentFiscalData.Reporting_Year
     );
 
     if (allWeeksOfCurrentMonth.length === 0) return addMonths(currentDate, 1); // Fallback
@@ -170,7 +173,7 @@ export function getNextFiscalMonth(currentDate: Date): Date {
     
     // Find the first week of that next fiscal month
     const firstWeekOfNextFiscalMonth = parsedCalendar.find(d =>
-        d.Reporting_Month === nextMonthFiscalData.Reporting_Month && d.Reporting_Year === nextMonthFiscalData.Reporting_Year
+        d && d.Reporting_Month === nextMonthFiscalData.Reporting_Month && d.Reporting_Year === nextMonthFiscalData.Reporting_Year
     );
     
     return firstWeekOfNextFiscalMonth ? startOfWeek(firstWeekOfNextFiscalMonth.parsedDate, { weekStartsOn: 1 }) : addMonths(currentDate, 1);

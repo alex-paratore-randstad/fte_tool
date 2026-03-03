@@ -9,12 +9,6 @@ export const metadata: Metadata = {
   description: 'FTE Allocation Tracking Tool',
 };
 
-// This function is required to prevent a build error from a missing favicon.ico
-// in a static export build. It tells Next.js to ignore the path.
-export async function generateStaticParams() {
-  return [];
-}
-
 export default function RootLayout({
   children,
 }: Readonly<{

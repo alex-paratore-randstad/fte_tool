@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -24,11 +23,22 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Copy, Trash2, PlusCircle, UserPlus, X } from 'lucide-react';
+import { Copy, Trash2, PlusCircle, UserPlus, X, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SelectSearch } from '../ui/select-search';
 import type { TeamMember } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type AiReportData = {
     Code: string;
@@ -156,6 +166,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
   const [editableAllocations, setEditableAllocations] = useState<ProcessedAllocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState<Record<string, boolean>>({});
+  const [isDeleting, setIsDeleting] = useState<Record<string, boolean>>({});
   
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [allClients, setAllClients] = useState<AiReportData[]>([]);
@@ -433,6 +444,40 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
     }
   };
 
+  const handleDeleteProfile = async (allocId: string) => {
+    setIsDeleting(prev => ({...prev, [allocId]: true}));
+    
+    const profile = originalAllocations.find(a => a.id === allocId);
+    if (!profile) {
+        setIsDeleting(prev => ({...prev, [allocId]: false}));
+        return;
+    }
+
+    try {
+        const operations: Promise<any>[] = [];
+        
+        // Delete all employees assigned to this profile
+        profile.employees.forEach(emp => {
+            operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_fte/documents/${emp.id}`, { method: 'DELETE' }));
+        });
+        
+        // Delete all summaries (clients) assigned to this profile
+        profile.summaries.forEach(sum => {
+            operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/${sum.id}`, { method: 'DELETE' }));
+        });
+
+        const results = await Promise.all(operations);
+        if (results.some(res => !res.ok)) throw new Error('Failed to delete some records associated with this profile.');
+
+        toast({ title: 'Profile Deleted', description: 'The bulk allocation profile and all its associated records have been removed.' });
+        fetchData();
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Delete Failed', description: error.message });
+    } finally {
+        setIsDeleting(prev => ({...prev, [allocId]: false}));
+    }
+  };
+
 
   if (loading) {
     return (
@@ -457,6 +502,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
             {editableAllocations.map(alloc => {
                 const totalAllocation = (alloc.summaries || []).reduce((sum, s) => sum + s.percentage, 0);
                 const isProfileSaving = isSaving[alloc.id];
+                const isProfileDeleting = isDeleting[alloc.id];
                 const displayId = alloc.id ? alloc.id.substring(0, 8) : 'unknown';
               return (
               <AccordionItem value={alloc.id} key={alloc.id}>
@@ -480,7 +526,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                     <EmployeeSelect 
                                         employees={allEmployees} 
                                         onValueChange={(id) => handleAddEmployee(alloc.id, id)}
-                                        disabled={isProfileSaving}
+                                        disabled={isProfileSaving || isProfileDeleting}
                                     />
                                 </div>
                             </div>
@@ -494,7 +540,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                                 size="icon" 
                                                 className="h-6 w-6 opacity-0 group-hover:opacity-100" 
                                                 onClick={() => handleRemoveEmployee(alloc.id, emp.id)}
-                                                disabled={isProfileSaving}
+                                                disabled={isProfileSaving || isProfileDeleting}
                                             >
                                                 <X className="h-3 w-3 text-destructive" />
                                             </Button>
@@ -522,7 +568,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                                     clients={allClients} 
                                                     value={s.name} 
                                                     onValueChange={(val) => handleClientChange(alloc.id, s.id, val)}
-                                                    disabled={isProfileSaving}
+                                                    disabled={isProfileSaving || isProfileDeleting}
                                                 />
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -531,14 +577,14 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                                 value={s.percentage}
                                                 onChange={(e) => handlePercentageChange(alloc.id, s.id, e.target.value)}
                                                 className="w-20 text-center ml-auto"
-                                                disabled={isProfileSaving}
+                                                disabled={isProfileSaving || isProfileDeleting}
                                               />
                                             </TableCell>
                                             <TableCell>
                                                 <Button 
                                                     variant="ghost" size="icon" className="h-8 w-8"
                                                     onClick={() => handleRemoveSummary(alloc.id, s.id)}
-                                                    disabled={isProfileSaving || alloc.summaries.length === 1}
+                                                    disabled={isProfileSaving || isProfileDeleting || alloc.summaries.length === 1}
                                                 >
                                                     <Trash2 className="h-4 w-4 text-destructive" />
                                                 </Button>
@@ -547,25 +593,52 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                     ))}
                                 </TableBody>
                              </Table>
-                             <div className="mt-4 flex items-center justify-between gap-4">
-                                <Button variant="outline" size="sm" onClick={() => handleAddSummary(alloc.id)} disabled={isProfileSaving}>
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Client
-                                </Button>
-                                <div className="flex gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => onCopyTemplate(alloc.summaries)} disabled={isProfileSaving}>
-                                        <Copy className="mr-2 h-4 w-4" /> Copy
+                             <div className="mt-4 flex flex-col gap-4">
+                                <div className="flex items-center justify-between">
+                                    <Button variant="outline" size="sm" onClick={() => handleAddSummary(alloc.id)} disabled={isProfileSaving || isProfileDeleting}>
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Add Client
                                     </Button>
-                                    <Button size="sm" onClick={() => handleSaveChanges(alloc.id)} disabled={isProfileSaving || Math.abs(totalAllocation - 1.0) > 0.01}>
-                                        {isProfileSaving ? 'Saving...' : 'Save Changes'}
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => onCopyTemplate(alloc.summaries)} disabled={isProfileSaving || isProfileDeleting}>
+                                            <Copy className="mr-2 h-4 w-4" /> Copy
+                                        </Button>
+                                        <Button size="sm" onClick={() => handleSaveChanges(alloc.id)} disabled={isProfileSaving || isProfileDeleting || Math.abs(totalAllocation - 1.0) > 0.01}>
+                                            {isProfileSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                            {isProfileSaving ? 'Saving...' : 'Save Changes'}
+                                        </Button>
+                                    </div>
+                                </div>
+                                <Alert variant={Math.abs(totalAllocation - 1.0) > 0.01 ? 'destructive' : 'default'}>
+                                    <AlertDescription>
+                                    Total Allocation: <span className="font-bold">{totalAllocation.toFixed(2)}</span>
+                                    {Math.abs(totalAllocation - 1.0) > 0.01 && " (Must equal 1.00)"}
+                                    </AlertDescription>
+                                </Alert>
+                                <div className="border-t pt-4 mt-2">
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="destructive" size="sm" className="w-full" disabled={isProfileSaving || isProfileDeleting}>
+                                                {isProfileDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                                                {isProfileDeleting ? 'Deleting...' : 'Delete Profile Entirely'}
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will permanently delete this bulk allocation profile and all associated employee assignments. This action cannot be undone.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteProfile(alloc.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                                    Delete Profile
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </div>
                              </div>
-                             <Alert variant={Math.abs(totalAllocation - 1.0) > 0.01 ? 'destructive' : 'default'} className="mt-4">
-                                <AlertDescription>
-                                Total Allocation: <span className="font-bold">{totalAllocation.toFixed(2)}</span>
-                                {Math.abs(totalAllocation - 1.0) > 0.01 && " (Must equal 1.00)"}
-                                </AlertDescription>
-                            </Alert>
                         </div>
                     </div>
                 </AccordionContent>

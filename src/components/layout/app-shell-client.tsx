@@ -1,3 +1,4 @@
+
 'use client';
 
 import { UserNav } from './user-nav';
@@ -18,7 +19,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { NavGroup } from '@/types/navigation';
 import { Skeleton } from '../ui/skeleton';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const navGroups: NavGroup[] = [
   {
@@ -65,7 +66,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     setHasMounted(true);
   }, []);
 
-  const isActive = (href: string) => {
+  const isActive = useCallback((href: string) => {
     if (!pathname) return false;
     
     // Normalize paths by removing trailing slashes and index.html
@@ -84,17 +85,17 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     }
 
     return currentPath === targetPath;
-  };
+  }, [pathname]);
 
-  const isGroupActive = (items: { href: string }[]) => {
+  const isGroupActive = useCallback((items: { href: string }[]) => {
     return items.some(item => isActive(item.href));
-  }
+  }, [isActive]);
 
-  const userHasAccess = (roles?: string[]) => {
+  const userHasAccess = useCallback((roles?: string[]) => {
     if (loading || !currentUser.role) return false;
     if (!roles) return true;
     return roles.includes(currentUser.role);
-  };
+  }, [loading, currentUser.role]);
 
   useEffect(() => {
     if (hasMounted && !loading && pathname) {
@@ -103,7 +104,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
         .map(g => g.title);
       setOpenGroups(activeGroups);
     }
-  }, [loading, pathname, currentUser.role, hasMounted]);
+  }, [loading, pathname, userHasAccess, isGroupActive, hasMounted]);
 
   
   return (

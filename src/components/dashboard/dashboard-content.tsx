@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -199,7 +200,7 @@ export function DashboardContent() {
         Array.from(
             new Set(
                 safeEmployees
-                    .map(item => item[key])
+                    .map(item => item && item[key])
                     .filter(val => typeof val === 'string' && val) as string[]
             )
         ).sort((a, b) => a.localeCompare(b));
@@ -238,8 +239,8 @@ export function DashboardContent() {
     const employeeIdToDeptMap = new Map<string, string>();
     const employeeNameToDeptMap = new Map<string, string>();
     allEmployees.forEach(e => {
-        if (e.person_id && e.department) employeeIdToDeptMap.set(e.person_id, e.department);
-        if (e.full_name && e.department) employeeNameToDeptMap.set(e.full_name, e.department);
+        if (e && e.person_id && e.department) employeeIdToDeptMap.set(e.person_id, e.department);
+        if (e && e.full_name && e.department) employeeNameToDeptMap.set(e.full_name, e.department);
     });
 
     const isDeptMatch = (id?: string, name?: string) => {
@@ -385,9 +386,9 @@ export function DashboardContent() {
     const finalChartData =
       chartClientFilter.length > 0
         ? initialChartData.map(item => {
-            const newItem: { [key: string]: any } = { name: item.name };
+            const newItem: { [key: string]: any } = { name: item?.name || 'Unknown' };
             chartClientFilter.forEach(client => {
-              if (item[client] !== undefined) {
+              if (item && item[client] !== undefined) {
                 newItem[client] = item[client];
               }
             });
