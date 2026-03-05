@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -106,11 +105,11 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
 
 
   if (!data || data.length === 0) {
-    return <Skeleton className="h-[300px] w-full" />;
+    return <Skeleton className="h-[400px] w-full" />;
   }
 
   return (
-    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+    <ChartContainer config={chartConfig} className="aspect-auto h-[400px] w-full">
       <ResponsiveContainer>
         <BarChart data={formattedData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
           <XAxis

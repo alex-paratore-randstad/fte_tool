@@ -280,13 +280,13 @@ const ChartLegendContent = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          "flex items-center justify-center gap-4",
+          "flex items-center justify-center gap-4 flex-wrap",
           verticalAlign === "top" ? "pb-3" : "pt-3",
           className
         )}
       >
         {payload.map((item) => {
-          const key = `${nameKey || item.dataKey || "value"}`
+          const key = `${nameKey || item.name || item.dataKey || "value"}`
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
 
           return (
@@ -306,7 +306,9 @@ const ChartLegendContent = React.forwardRef<
                   }}
                 />
               )}
-              {itemConfig?.label}
+              <span className="max-w-[120px] truncate text-muted-foreground">
+                {itemConfig?.label || item.name}
+              </span>
             </div>
           )
         })}

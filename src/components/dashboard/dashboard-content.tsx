@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -566,7 +565,7 @@ export function DashboardContent() {
             </CardHeader>
             <CardContent>
               {isPageLoading ? (
-                <Skeleton className="h-[300px] w-full" />
+                <Skeleton className="h-[400px] w-full" />
               ) : (
                 <FteAllocationChart data={chartData} />
               )}
