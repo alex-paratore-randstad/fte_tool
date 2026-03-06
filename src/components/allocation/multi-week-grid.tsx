@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback, useRef } from 'react';
@@ -77,7 +76,7 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const validClients = (clients || []).filter(c => c && c.DisplayName);
+    const validClients = (clients || []).filter(c => c && c.DisplayName && c.Code);
     const sorted = [...validClients].sort((a, b) => {
       const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
@@ -93,13 +92,28 @@ const ClientSelect = ({
       return (a.DisplayName || '').localeCompare(b.DisplayName || '');
     });
 
-    if (!searchTerm) return sorted;
     const lowerSearch = searchTerm.toLowerCase();
-    return sorted.filter(cc =>
-      (cc.DisplayName && cc.DisplayName.toLowerCase().includes(lowerSearch)) ||
-      (cc.Code && cc.Code.toLowerCase().includes(lowerSearch))
-    );
-  }, [clients, searchTerm]);
+    let results = sorted;
+    
+    if (searchTerm) {
+      results = sorted.filter(cc =>
+        (cc.DisplayName && cc.DisplayName.toLowerCase().includes(lowerSearch)) ||
+        (cc.Code && cc.Code.toLowerCase().includes(lowerSearch))
+      );
+    }
+
+    // CRITICAL: Ensure current selected value is always in the rendered list
+    // so Radix SelectValue can always resolve the display text
+    if (value) {
+      const trimmedValue = String(value).trim();
+      const selected = validClients.find(c => c.Code.trim() === trimmedValue);
+      if (selected && !results.some(r => r.Code.trim() === trimmedValue)) {
+        results.push(selected);
+      }
+    }
+
+    return results;
+  }, [clients, searchTerm, value]);
 
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
@@ -325,7 +339,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
 
       const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : [])
-        .filter((c: AiReportData) => c && c.Code && c.DisplayName);
+        .filter((c: AiReportData) => c && c.Code && c.DisplayName)
+        .map(c => ({ ...c, Code: String(c.Code).trim() })); // TRIMMING IS CRITICAL
       
       const tempWorker: TeamMember = {
         person_id: 'TEMP_WORKER',
@@ -642,10 +657,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         if (empAlloc.employee.person_id === employeeId) {
             const newAllocations = empAlloc.allocations.map(alloc => {
                 if (alloc.id === allocId) {
-                    const selectedCc = clients.find(cc => cc && cc.Code === newClientId);
+                    // Normalize lookup with trimmed code
+                    const trimmedCode = String(newClientId).trim();
+                    const selectedCc = clients.find(cc => cc && String(cc.Code).trim() === trimmedCode);
                     return { 
                         ...alloc, 
-                        clientId: newClientId, 
+                        clientId: trimmedCode, 
                         clientName: (selectedCc?.DisplayName || '').trim() 
                     };
                 }

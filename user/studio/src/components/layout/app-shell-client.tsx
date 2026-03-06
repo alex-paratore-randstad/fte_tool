@@ -1,4 +1,3 @@
-
 'use client';
 
 import { UserNav } from './user-nav';
@@ -66,9 +65,9 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     if (!pathname) return false;
     
     // Normalize paths by removing trailing slashes and index.html
-    const normalize = (p: string) => {
+    const normalize = (p: string | null) => {
         if (!p) return '';
-        let clean = p.replace(/\/index\.html$/, '');
+        let clean = String(p).replace(/\/index\.html$/, '');
         clean = clean.replace(/\/+$/, '');
         return clean || '/';
     };

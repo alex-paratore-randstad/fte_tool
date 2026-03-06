@@ -175,7 +175,7 @@ export function DashboardContent() {
         if (a?.content?.employee_id) {
           allocatedEmployeeIds.add(a.content.employee_id);
         } else if (a?.content?.allocation_name) {
-          const match = a.content.allocation_name.match(/\[(.*?)\]/);
+          const match = String(a.content.allocation_name).match(/\[(.*?)\]/);
           if (match && match[1]) allocatedEmployeeIds.add(match[1]);
         }
       });
@@ -246,7 +246,7 @@ export function DashboardContent() {
         if (chartDepartmentFilter.length === 0) return true;
         let dept = '';
         if (id) dept = employeeIdToDeptMap.get(id) || '';
-        if (!dept && name) {
+        if (!dept && name && typeof name === 'string') {
             const match = name.match(/\[(.*?)\]/);
             if (match && match[1]) {
                 dept = employeeIdToDeptMap.get(match[1]) || '';

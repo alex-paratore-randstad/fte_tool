@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -56,7 +55,8 @@ export function DashboardContent() {
         }
 
         const employees: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
-        const allocations: WeeklyAllocation[] = allocResponse.ok ? await allocResponse.json() : [];
+        const rawAllocations: WeeklyAllocation[] = allocResponse.ok ? await allocResponse.json() : [];
+        const allocations = (Array.isArray(rawAllocations) ? rawAllocations : []).filter(a => a?.content);
 
         try {
             const safeEmployees = (Array.isArray(employees) ? employees : []).filter(e => e && (e.person_id || e.Person_Number) && (e.full_name || e.Full_Name));
@@ -66,7 +66,7 @@ export function DashboardContent() {
 
             const today = startOfWeek(new Date(), { weekStartsOn: 1 });
             const currentWeekKey = format(today, 'yyyy-MM-dd');
-            const currentWeekAllocations = (Array.isArray(allocations) ? allocations : []).filter(a => a?.content?.allocation_date === currentWeekKey);
+            const currentWeekAllocations = allocations.filter(a => a?.content?.allocation_date === currentWeekKey);
 
             const allocatedEmployeeIds = new Set<string>();
 
@@ -76,7 +76,7 @@ export function DashboardContent() {
                 if (a.content.employee_id) {
                   allocatedEmployeeIds.add(a.content.employee_id);
                 } else if (a.content.allocation_name) {
-                  const match = a.content.allocation_name.match(/\[(.*?)\]/);
+                  const match = String(a.content.allocation_name).match(/\[(.*?)\]/);
                   if (match && match[1]) {
                     allocatedEmployeeIds.add(match[1]);
                   }
