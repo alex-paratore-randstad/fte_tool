@@ -19,6 +19,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { NavGroup } from '@/types/navigation';
 import { Skeleton } from '../ui/skeleton';
+import { useState, useEffect, useCallback } from 'react';
 
 const navGroups: NavGroup[] = [
   {
@@ -45,36 +46,66 @@ const navGroups: NavGroup[] = [
 ];
 
 const getHref = (href: string) => {
-    if (href === '/') return '/index.html';
-    return `${href.endsWith('/') ? href : `${href}/`}index.html`;
+    if (!href) return '/index.html';
+    const cleanHref = typeof href === 'string' ? href : '/index.html';
+    if (cleanHref === '/') return '/index.html';
+    return `${cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`}index.html`;
 };
 
 export function AppShellClient({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useCurrentUser();
   const pathname = usePathname();
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const [hasMounted, setHasMounted] = useState(false);
 
-  const userHasAccess = (roles?: string[]) => {
-    if (loading || !currentUser.role) return false;
-    if (!roles) return true; // No roles defined means public
-    return roles.includes(currentUser.role);
-  };
-  
-  const isActive = (href: string) => {
-    if (href === '/') {
-      return pathname === '/index.html' || pathname === '/';
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  const isActive = useCallback((href: string) => {
+    if (!pathname) return false;
+    
+    // Normalize paths by removing trailing slashes and index.html
+    const normalize = (p: string) => {
+        if (!p) return '';
+        let clean = p.replace(/\/index\.html$/, '');
+        clean = clean.replace(/\/+$/, '');
+        return clean || '/';
+    };
+
+    const currentPath = normalize(pathname);
+    const targetPath = normalize(href);
+
+    if (targetPath === '/') {
+        return currentPath === '/' || currentPath === '';
     }
-    const cleanedPathname = pathname.endsWith('/index.html') ? pathname.slice(0, -11) : pathname;
-    return cleanedPathname === href;
-  };
 
-  const isGroupActive = (items: { href: string }[]) => {
+    return currentPath === targetPath;
+  }, [pathname]);
+
+  const isGroupActive = useCallback((items: { href: string }[]) => {
     return items.some(item => isActive(item.href));
-  }
+  }, [isActive]);
+
+  const userHasAccess = useCallback((roles?: string[]) => {
+    if (loading || !currentUser.role) return false;
+    if (!roles) return true;
+    return roles.includes(currentUser.role);
+  }, [loading, currentUser.role]);
+
+  useEffect(() => {
+    if (hasMounted && !loading && pathname) {
+      const activeGroups = navGroups
+        .filter(g => isGroupActive(g.items) && userHasAccess(g.roles))
+        .map(g => g.title);
+      setOpenGroups(activeGroups);
+    }
+  }, [loading, pathname, userHasAccess, isGroupActive, hasMounted]);
+
   
   return (
     <div className="flex min-h-screen w-full flex-col">
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
-        {/* --- Desktop Navigation --- */}
         <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
           <Link href={getHref('/')} className="flex items-center gap-2 text-lg font-semibold md:text-base">
             <Logo />
@@ -82,7 +113,6 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
           <TopNav />
         </nav>
 
-        {/* --- Mobile Navigation --- */}
         <Sheet>
           <SheetTrigger asChild>
             <Button
@@ -106,24 +136,32 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                   <Link href={getHref('/')} className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-base", isActive('/') ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}>
                       Dashboard
                   </Link>
-                  <Accordion type="multiple" className="w-full" defaultValue={navGroups.filter(g => isGroupActive(g.items)).map(g => g.title)}>
-                      {navGroups.map(group => userHasAccess(group.roles) && (
-                          <AccordionItem value={group.title} key={group.title} className="border-b-0">
-                            <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
-                              {loading ? <Skeleton className="h-5 w-32" /> : group.title}
-                            </AccordionTrigger>
-                            <AccordionContent className="pl-4 pb-0">
-                                <div className="flex flex-col gap-1">
-                                    {!loading && group.items.filter(item => userHasAccess(item.roles)).map(item => (
-                                    <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
-                                        {item.label}
-                                    </Link>
-                                    ))}
-                                </div>
-                            </AccordionContent>
-                          </AccordionItem>
+                   <Accordion type="multiple" className="w-full" value={openGroups} onValueChange={setOpenGroups}>
+                      {loading ? (
+                        Array.from({ length: 3 }).map((_, i) => (
+                          <div key={i} className="flex items-center justify-between py-4 font-medium">
+                              <Skeleton className="h-5 w-32" />
+                          </div>
+                        ))
+                      ) : navGroups.map(group => (
+                          userHasAccess(group.roles) ? (
+                              <AccordionItem value={group.title} key={group.title} className="border-b-0">
+                                  <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
+                                      {group.title}
+                                  </AccordionTrigger>
+                                  <AccordionContent className="pl-4 pb-0">
+                                      <div className="flex flex-col gap-1">
+                                          {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                                              <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
+                                                  {item.label}
+                                              </Link>
+                                          ))}
+                                      </div>
+                                  </AccordionContent>
+                              </AccordionItem>
+                          ) : null
                       ))}
-                    </Accordion>
+                  </Accordion>
                 </nav>
               </div>
             </div>

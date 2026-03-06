@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback, useRef } from 'react';
-import { startOfWeek, endOfWeek, format, isBefore, isSameDay } from 'date-fns';
+import { startOfWeek, endOfWeek, format, isBefore, isSameDay, isValid } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -77,7 +77,8 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const sorted = [...clients].sort((a, b) => {
+    const validClients = (clients || []).filter(c => c && c.DisplayName);
+    const sorted = [...validClients].sort((a, b) => {
       const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
       const bIsSpecial = specialClients.includes(b.DisplayName);
@@ -92,11 +93,11 @@ const ClientSelect = ({
       return (a.DisplayName || '').localeCompare(b.DisplayName || '');
     });
 
-    if (!searchTerm) {
-      return sorted;
-    }
+    if (!searchTerm) return sorted;
+    const lowerSearch = searchTerm.toLowerCase();
     return sorted.filter(cc =>
-      cc.DisplayName && cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
+      (cc.DisplayName && cc.DisplayName.toLowerCase().includes(lowerSearch)) ||
+      (cc.Code && cc.Code.toLowerCase().includes(lowerSearch))
     );
   }, [clients, searchTerm]);
 
@@ -104,9 +105,9 @@ const ClientSelect = ({
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger><SelectValue placeholder="Select Client..." /></SelectTrigger>
       <SelectContent>
-        <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
+        <SelectSearch placeholder="Search name or code..." onChange={setSearchTerm} />
         <ScrollArea className="h-64">
-          {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
+          {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.Code}>{cc.DisplayName}</SelectItem>)}
           {filteredClients.length === 0 && (
             <div className="p-4 text-sm text-center text-muted-foreground">
                 No clients found.
@@ -133,9 +134,7 @@ const EmployeeSelect = ({
   
   const filteredEmployees = useMemo(() => {
     const sortedEmployees = [...employees].sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
-    if (!searchTerm) {
-      return sortedEmployees;
-    }
+    if (!searchTerm) return sortedEmployees;
     return sortedEmployees.filter(e => e.full_name && e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
 
@@ -176,9 +175,7 @@ const ManagerSelect = ({
   
   const filteredManagers = useMemo(() => {
     const sortedManagers = [...managers].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
-    if (!searchTerm) {
-      return sortedManagers;
-    }
+    if (!searchTerm) return sortedManagers;
     return sortedManagers.filter(m => m.name && m.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
 
@@ -213,13 +210,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [clients, setClients] = useState<AiReportData[]>([]);
   const [internalLoading, setInternalLoading] = useState(true);
+  const [monthDataCache, setMonthDataCache] = useState<WeeklyAllocation[]>([]);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
   const [hasMounted, setHasMounted] = useState(false);
-  const isInitialRender = useRef(true);
-  const activeAllocationsRef = useRef(activeAllocations);
-  activeAllocationsRef.current = activeAllocations;
-
+  
   const { currentUser, isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
   
@@ -231,94 +226,87 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   }, []);
 
   const { weeks, fiscalMonthLabel } = useMemo(() => {
-    if (!currentDate) return { weeks: [], fiscalMonthLabel: 'Loading...' };
+    if (!currentDate || !isValid(currentDate)) return { weeks: [], fiscalMonthLabel: 'Loading...' };
     const fiscalData = getFiscalDataForDate(currentDate);
     const monthWeeks: FiscalWeek[] = getWeeksForFiscalMonth(currentDate);
     const label = fiscalData ? `${fiscalData.Reporting_Month} ${fiscalData.Reporting_Year}` : 'Loading...';
     return { weeks: monthWeeks, fiscalMonthLabel: label };
   }, [currentDate]);
 
-  const fetchAllocationsForEmployee = useCallback(async (employee: TeamMember): Promise<AllocationRow[]> => {
-    if (!currentDate || weeks.length === 0) return [];
-  
+  const fetchMonthData = useCallback(async () => {
+    if (!currentDate || !isValid(currentDate) || weeks.length === 0) return;
+    
+    setInternalLoading(true);
     try {
-        const sourceWeekKeys = weeks.map(w => formatDateKey(w.startDate));
-        
-        const weeklyDataPromises = sourceWeekKeys.map(weekKey => 
+        const currentMonthWeekKeys = weeks.map(w => formatDateKey(w.startDate));
+        const prevMonthDate = getPreviousFiscalMonth(currentDate);
+        const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
+        const prevMonthWeekKeys = prevMonthWeeks.map(w => formatDateKey(w.startDate));
+
+        const allRelevantWeeks = Array.from(new Set([...currentMonthWeekKeys, ...prevMonthWeekKeys]));
+
+        const weeklyDataPromises = allRelevantWeeks.map(weekKey => 
             fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`).then(res => res.ok ? res.json() : [])
         );
 
         const nestedAllocations = await Promise.all(weeklyDataPromises);
-        const allCurrentMonthAllocations: WeeklyAllocation[] = nestedAllocations.flat();
-      
-        const employeeIdString = `[${employee.person_id}]`;
-        const employeeAllocations = allCurrentMonthAllocations.filter(alloc => 
-            alloc.content.allocation_name?.startsWith(employeeIdString) &&
-            parseFloat(alloc.content.allocation_amount) > 0
-        );
-      
-        if (employeeAllocations.length === 0) {
-            return [];
-        }
-  
-        const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: { [weekKey: string]: number } }>();
-  
-        employeeAllocations.forEach(alloc => {
-            const clientKey = alloc.content.cost_center_number;
-            if (!clientAllocationsMap.has(clientKey)) {
-                clientAllocationsMap.set(clientKey, { 
-                    clientName: alloc.content.cost_center_name,
-                    weeklyFtes: {},
-                });
+        const allRelevantAllocations: WeeklyAllocation[] = nestedAllocations.flat().filter(a => a && a.content);
+        
+        setMonthDataCache(allRelevantAllocations);
+        
+        setActiveAllocations(prev => prev.map(empAlloc => {
+            const employeeIdString = `[${empAlloc.employee.person_id}]`;
+            
+            const empAllAllocs = allRelevantAllocations.filter(alloc => 
+                alloc?.content?.allocation_name?.startsWith(employeeIdString) &&
+                parseFloat(alloc.content.allocation_amount) > 0
+            );
+
+            const currentAllocations = empAllAllocs.filter(a => currentMonthWeekKeys.includes(a.content.allocation_date));
+            const prevAllocations = empAllAllocs.filter(a => prevMonthWeekKeys.includes(a.content.allocation_date));
+
+            const clientKeys = new Set<string>();
+            currentAllocations.forEach(a => clientKeys.add(a.content.cost_center_number.trim()));
+            prevAllocations.forEach(a => clientKeys.add(a.content.cost_center_number.trim()));
+
+            if (clientKeys.size === 0) {
+                return { ...empAlloc, allocations: [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }] };
             }
-            const fte = parseFloat(alloc.content.allocation_amount);
-            clientAllocationsMap.get(clientKey)!.weeklyFtes[alloc.content.allocation_date] = fte;
-        });
-      
-        const newAllocationRows: AllocationRow[] = Array.from(clientAllocationsMap.entries()).map(([clientId, data]) => ({
-            id: uuidv4(),
-            clientId: clientId,
-            clientName: data.clientName,
-            weeklyFtes: data.weeklyFtes,
+
+            const newAllocationRows: AllocationRow[] = Array.from(clientKeys).map(clientId => {
+                const clientSpecificAllocs = empAllAllocs.filter(a => a.content.cost_center_number.trim() === clientId);
+                const currentMonthClientAllocs = clientSpecificAllocs.filter(a => currentMonthWeekKeys.includes(a.content.allocation_date));
+                
+                const clientName = clientSpecificAllocs[0].content.cost_center_name;
+
+                const weeklyFtes: { [weekKey: string]: number } = {};
+                currentMonthClientAllocs.forEach(a => {
+                    weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount);
+                });
+
+                return {
+                    id: uuidv4(),
+                    clientId,
+                    clientName,
+                    weeklyFtes,
+                };
+            });
+
+            return { ...empAlloc, allocations: newAllocationRows };
         }));
-  
-        return newAllocationRows;
+
     } catch (error) {
-        writeLog('MultiWeekGrid', 'error', `Could not load allocations for ${employee.full_name}`, error);
-        toast({ variant: 'destructive', title: 'Error Loading Data', description: `Could not load allocations for ${employee.full_name}.`});
-        return [];
+        writeLog('MultiWeekGrid', 'error', 'Error pre-fetching relevant month data', error);
+    } finally {
+        setInternalLoading(false);
     }
-  }, [currentDate, toast, weeks]);
+  }, [currentDate, weeks]);
 
   useEffect(() => {
-    if (isInitialRender.current) {
-        isInitialRender.current = false;
-        return;
+    if (hasMounted && currentDate) {
+        fetchMonthData();
     }
-
-    const refreshAllocations = async () => {
-        const currentActiveAllocs = activeAllocationsRef.current;
-        if (currentActiveAllocs.length === 0) return;
-
-        setInternalLoading(true);
-        
-        setActiveAllocations(prev => prev.map(emp => ({
-            ...emp,
-            allocations: emp.allocations.map(a => ({ ...a, weeklyFtes: {} }))
-        })));
-
-        const refreshedAllocations = await Promise.all(
-            currentActiveAllocs.map(async empAlloc => {
-                const newRows = await fetchAllocationsForEmployee(empAlloc.employee);
-                return { ...empAlloc, allocations: newRows };
-            })
-        );
-        setActiveAllocations(refreshedAllocations);
-        setInternalLoading(false);
-    };
-
-    refreshAllocations();
-  }, [currentDate, fetchAllocationsForEmployee]);
+  }, [currentDate, fetchMonthData, hasMounted]);
 
 
   const fetchData = useCallback(async () => {
@@ -329,19 +317,15 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         fetch(`/data/v1/ai_report`),
       ]);
 
-      if (!empResponse.ok) {
-        const errorPayload = { status: empResponse.status, statusText: empResponse.statusText };
-        writeLog('MultiWeekGrid', 'warning', 'Could not fetch employee data', errorPayload);
-        console.warn("Could not fetch employee data. This may be expected in local dev.");
-      }
-      if (!clientResponse.ok) {
-        const errorPayload = { status: clientResponse.status, statusText: clientResponse.statusText };
-        writeLog('MultiWeekGrid', 'warning', 'Could not fetch client data', errorPayload);
-        console.warn("Could not fetch client data. This may be expected in local dev.");
-      }
-      
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')) : [];
-      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
+      const rawEmpData = empResponse.ok ? await empResponse.json() : [];
+      const rawClientData = clientResponse.ok ? await clientResponse.json() : [];
+
+      const empData: TeamMember[] = (Array.isArray(rawEmpData) ? rawEmpData : [])
+        .filter((e: TeamMember) => e && e.full_name && e.person_id)
+        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+
+      const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : [])
+        .filter((c: AiReportData) => c && c.Code && c.DisplayName);
       
       const tempWorker: TeamMember = {
         person_id: 'TEMP_WORKER',
@@ -369,7 +353,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       
       const managerMap = new Map<string, string>();
       empData.forEach(emp => {
-          if(emp.manager_id && emp.manager) {
+          if(emp && emp.manager_id && emp.manager) {
               managerMap.set(emp.manager_id, emp.manager);
           }
       });
@@ -380,8 +364,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       setActiveAllocations([]);
 
     } catch (error) {
-      writeLog('MultiWeekGrid', 'error', 'Failed to fetch initial data', error);
-      toast({ variant: 'destructive', title: 'Failed to fetch initial data' });
+      writeLog('MultiWeekGrid', 'error', 'Failed to fetch metadata', error);
+      toast({ variant: 'destructive', title: 'Failed to fetch metadata' });
     } finally {
       setInternalLoading(false);
     }
@@ -396,18 +380,18 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   const availableEmployees = useMemo(() => {
     const activeEmployeeIds = new Set(activeAllocations.map(a => a.employee.person_id));
-    return allEmployees.filter(e => !activeEmployeeIds.has(e.person_id));
+    return allEmployees.filter(e => e && e.person_id && !activeEmployeeIds.has(e.person_id));
   }, [allEmployees, activeAllocations]);
 
   const handlePrevMonth = () => {
-    if (currentDate) setCurrentDate(getPreviousFiscalMonth(currentDate));
+    if (currentDate && isValid(currentDate)) setCurrentDate(getPreviousFiscalMonth(currentDate));
   };
   const handleNextMonth = () => {
-    if (currentDate) setCurrentDate(getNextFiscalMonth(currentDate));
+    if (currentDate && isValid(currentDate)) setCurrentDate(getNextFiscalMonth(currentDate));
   };
 
   const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
-    if (!currentDate) return;
+    if (!currentDate || !isValid(currentDate)) return;
   
     const prevMonthDate = getPreviousFiscalMonth(currentDate);
     const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
@@ -424,11 +408,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         );
 
         const nestedAllocations = await Promise.all(weeklyDataPromises);
-        const allPrevMonthAllocations: WeeklyAllocation[] = nestedAllocations.flat();
+        const allPrevMonthAllocations: WeeklyAllocation[] = nestedAllocations.flat().filter(a => a && a.content);
       
         const employeeIdString = `[${employee.person_id}]`;
         const employeeAllocations = allPrevMonthAllocations.filter(alloc => 
-            alloc.content.allocation_name.startsWith(employeeIdString) &&
+            alloc?.content?.allocation_name?.startsWith(employeeIdString) &&
             parseFloat(alloc.content.allocation_amount) > 0
         );
       
@@ -440,7 +424,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         const clientAllocationsMap = new Map<string, { clientName: string, weeklyFtes: Map<string, number> }>();
   
         employeeAllocations.forEach(alloc => {
-            const clientKey = alloc.content.cost_center_number;
+            if (!alloc?.content) return;
+            const clientKey = alloc.content.cost_center_number.trim();
             if (!clientAllocationsMap.has(clientKey)) {
                 clientAllocationsMap.set(clientKey, { 
                     clientName: alloc.content.cost_center_name,
@@ -492,11 +477,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     }
   }, [currentDate, weeks, toast]);
   
-  const handleAddEmployee = async (employeeId: string) => {
-    if (!employeeId) return;
+  const handleAddEmployee = (employeeId: string) => {
+    if (!employeeId || !currentDate) return;
     setSelectedEmployeeToAdd(employeeId); 
 
-    const employeeToAdd = allEmployees.find(e => e.person_id === employeeId);
+    const employeeToAdd = allEmployees.find(e => e && e.person_id === employeeId);
     if (employeeToAdd) {
       const isAlreadyActive = activeAllocations.some(a => a.employee.person_id === employeeId);
       if (isAlreadyActive) {
@@ -504,25 +489,53 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           return;
       }
       
-      const allocationRows = await fetchAllocationsForEmployee(employeeToAdd);
-      const initialRows = allocationRows.length > 0 ? allocationRows : [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }];
+      const employeeIdString = `[${employeeToAdd.person_id}]`;
+      const currentMonthWeekKeys = weeks.map(w => formatDateKey(w.startDate));
+      const prevMonthDate = getPreviousFiscalMonth(currentDate);
+      const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
+      const prevMonthWeekKeys = prevMonthWeeks.map(w => formatDateKey(w.startDate));
+      const allRelevantWeeks = new Set([...currentMonthWeekKeys, ...prevMonthWeekKeys]);
+
+      const employeeAllocations = monthDataCache.filter(alloc => 
+          alloc?.content?.allocation_name?.startsWith(employeeIdString) &&
+          allRelevantWeeks.has(alloc.content.allocation_date) &&
+          parseFloat(alloc.content.allocation_amount) > 0
+      );
+
+      let initialRows: AllocationRow[] = [];
+      if (employeeAllocations.length === 0) {
+          initialRows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }];
+      } else {
+          const clientKeys = Array.from(new Set(employeeAllocations.map(a => a.content.cost_center_number.trim())));
+          initialRows = clientKeys.map(clientId => {
+              const clientAllocs = employeeAllocations.filter(a => a.content.cost_center_number.trim() === clientId);
+              const weeklyFtes: { [weekKey: string]: number } = {};
+              clientAllocs
+                .filter(a => currentMonthWeekKeys.includes(a.content.allocation_date))
+                .forEach(a => {
+                    weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount);
+                });
+
+              return {
+                  id: uuidv4(),
+                  clientId,
+                  clientName: clientAllocs[0].content.cost_center_name,
+                  weeklyFtes
+              };
+          });
+      }
       
-      const newEmployeeAllocation: EmployeeAllocation = {
-        employee: employeeToAdd,
-        allocations: initialRows
-      };
-      
-      setActiveAllocations(prev => [newEmployeeAllocation, ...prev]);
+      setActiveAllocations(prev => [{ employee: employeeToAdd, allocations: initialRows }, ...prev]);
     }
     setTimeout(() => setSelectedEmployeeToAdd(''), 0);
   };
 
-  const handleAddManagerTeam = async (managerId: string) => {
-    if (!managerId) return;
-    const teamMembers = allEmployees.filter(e => e.manager_id === managerId);
+  const handleAddManagerTeam = (managerId: string) => {
+    if (!managerId || !currentDate) return;
+    const teamMembers = allEmployees.filter(e => e && e.manager_id === managerId);
     
     const employeesToAdd = teamMembers.filter(
-        employee => !activeAllocations.some(a => a.employee.person_id === employee.person_id)
+        employee => employee && !activeAllocations.some(a => a.employee.person_id === employee.person_id)
     );
 
     if (employeesToAdd.length === 0) {
@@ -530,23 +543,48 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       return;
     }
     
-    toast({ title: 'Team Loading', description: `Checking allocation data for ${employeesToAdd.length} employees...` });
-    
-    const allocationPromises = employeesToAdd.map(employee => fetchAllocationsForEmployee(employee));
-    const resolvedAllocations = await Promise.all(allocationPromises);
+    const currentMonthWeekKeys = weeks.map(w => formatDateKey(w.startDate));
+    const prevMonthDate = getPreviousFiscalMonth(currentDate);
+    const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
+    const prevMonthWeekKeys = prevMonthWeeks.map(w => formatDateKey(w.startDate));
+    const allRelevantWeeks = new Set([...currentMonthWeekKeys, ...prevMonthWeekKeys]);
 
-    const newEmployeeAllocations = employeesToAdd.map((employee, index) => ({
-      employee,
-      allocations: resolvedAllocations[index],
-    })).filter(ea => ea.allocations.length > 0);
+    const newEmployeeAllocations = employeesToAdd.map(employee => {
+        const employeeIdString = `[${employee.person_id}]`;
+        const employeeAllocations = monthDataCache.filter(alloc => 
+            alloc?.content?.allocation_name?.startsWith(employeeIdString) &&
+            allRelevantWeeks.has(alloc.content.allocation_date) &&
+            parseFloat(alloc.content.allocation_amount) > 0
+        );
 
-    if (newEmployeeAllocations.length === 0) {
-        toast({ title: 'No active allocations', description: 'None of the employees in this team have allocations for the selected month.' });
-        return;
-    }
+        let rows: AllocationRow[] = [];
+        if (employeeAllocations.length === 0) {
+            rows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }];
+        } else {
+            const clientKeys = Array.from(new Set(employeeAllocations.map(a => a.content.cost_center_number.trim())));
+            rows = clientKeys.map(clientId => {
+                const clientAllocs = employeeAllocations.filter(a => a.content.cost_center_number.trim() === clientId);
+                const weeklyFtes: { [weekKey: string]: number } = {};
+                clientAllocs
+                    .filter(a => currentMonthWeekKeys.includes(a.content.allocation_date))
+                    .forEach(a => {
+                        weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount);
+                    });
+
+                return {
+                    id: uuidv4(),
+                    clientId,
+                    clientName: clientAllocs[0].content.cost_center_name,
+                    weeklyFtes
+                };
+            });
+        }
+
+        return { employee, allocations: rows };
+    });
 
     setActiveAllocations(prev => [...newEmployeeAllocations, ...prev]);
-    toast({ title: 'Team Loaded', description: `Loaded ${newEmployeeAllocations.length} team members with active allocations.` });
+    toast({ title: 'Team Loaded', description: `Loaded ${newEmployeeAllocations.length} team members.` });
   };
 
 
@@ -599,13 +637,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     });
   };
   
-  const handleClientChange = (employeeId: string, allocId: string, newClientName: string) => {
+  const handleClientChange = (employeeId: string, allocId: string, newClientId: string) => {
      setActiveAllocations(prev => prev.map(empAlloc => {
         if (empAlloc.employee.person_id === employeeId) {
             const newAllocations = empAlloc.allocations.map(alloc => {
                 if (alloc.id === allocId) {
-                    const selectedCc = clients.find(cc => cc.DisplayName === newClientName);
-                    return { ...alloc, clientName: newClientName, clientId: (selectedCc?.Code || '').trim() };
+                    const selectedCc = clients.find(cc => cc && cc.Code === newClientId);
+                    return { 
+                        ...alloc, 
+                        clientId: newClientId, 
+                        clientName: (selectedCc?.DisplayName || '').trim() 
+                    };
                 }
                 return alloc;
             });
@@ -852,8 +894,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                           <TableCell>
                             <ClientSelect
                                 clients={clients}
-                                value={alloc.clientName}
-                                onValueChange={(newCcName) => handleClientChange(employee.person_id, alloc.id, newCcName)}
+                                value={alloc.clientId}
+                                onValueChange={(newClientId) => handleClientChange(employee.person_id, alloc.id, newClientId)}
                                 disabled={!hasMounted || isRowLocked}
                             />
                           </TableCell>

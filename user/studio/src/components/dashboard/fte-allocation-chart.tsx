@@ -18,7 +18,7 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { Skeleton } from '../ui/skeleton';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 
 type FteAllocationChartProps = {
   data: any[];
@@ -39,10 +39,9 @@ const getBrandPalette = (count: number) => {
 };
 
 // SAFE KEY GENERATOR
-// Ensures '3M' becomes 'c_3m' (valid CSS var) and 'Client A' becomes 'c_client_a'
 const toSafeKey = (key: string) => {
   if (!key) return 'c_unknown';
-  return 'c_' + key.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return 'c_' + String(key).toLowerCase().replace(/[^a-z0-9]/g, '_');
 };
 
 
@@ -55,11 +54,13 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
     // 1. Extract all unique cost center names
     const ccKeys = new Set<string>();
     data.forEach(week => {
-      Object.keys(week).forEach(key => {
-        if (key !== 'name') {
-          ccKeys.add(key);
-        }
-      });
+      if (week) {
+        Object.keys(week).forEach(key => {
+          if (key !== 'name' && key !== 'undefined' && key !== 'null') {
+            ccKeys.add(key);
+          }
+        });
+      }
     });
     const uniqueCostCenters = Array.from(ccKeys).sort();
 
@@ -83,9 +84,15 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   const formattedData = useMemo(() => {
     if (!data || data.length === 0) return [];
     return data.map(item => {
+      if (!item) return { name: 'Unknown' };
+      
+      const dateStr = item.name ? String(item.name) : '';
+      const date = parseISO(dateStr);
+      
       const newItem: Record<string, any> = {
-        name: item.name ? format(new Date(item.name), 'MMM d') : 'Unknown',
+        name: isValid(date) ? format(date, 'MMM d') : (dateStr || 'Unknown'),
       };
+      
       costCenters.forEach(cc => {
         const safeKey = toSafeKey(cc);
         newItem[safeKey] = item[cc] || 0;
@@ -100,7 +107,7 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
   }
 
   return (
-    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+    <ChartContainer config={chartConfig} className="aspect-auto h-[300px] w-full">
       <ResponsiveContainer>
         <BarChart data={formattedData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
           <XAxis

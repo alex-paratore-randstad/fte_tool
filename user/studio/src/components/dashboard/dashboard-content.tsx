@@ -50,24 +50,23 @@ export function DashboardContent() {
 
         if (!empResponse.ok) {
           writeLog('DashboardContent', 'warning', 'Could not fetch employee data', { status: empResponse.status });
-          console.warn("Could not fetch employee data. This may be expected in local dev.");
         }
          if (!allocResponse.ok) {
           writeLog('DashboardContent', 'warning', 'Could not fetch allocation data', { status: allocResponse.status });
-          console.warn("Could not fetch allocation data. This may be expected in local dev.");
         }
 
         const employees: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
         const allocations: WeeklyAllocation[] = allocResponse.ok ? await allocResponse.json() : [];
 
         try {
-            const safeEmployees = employees.filter(e => e && e.person_id && e.full_name);
+            const safeEmployees = (Array.isArray(employees) ? employees : []).filter(e => e && (e.person_id || e.Person_Number) && (e.full_name || e.Full_Name));
             setAllEmployees(safeEmployees);
-            const totalEmployeeCount = new Set(safeEmployees.map(e => e.person_id)).size;
+            const totalEmployeeCount = new Set(safeEmployees.map(e => e.person_id || e.Person_Number)).size;
             setTotalFtes(totalEmployeeCount);
 
             const today = startOfWeek(new Date(), { weekStartsOn: 1 });
-            const currentWeekAllocations = allocations.filter(a => a.content.allocation_date === format(today, 'yyyy-MM-dd'));
+            const currentWeekKey = format(today, 'yyyy-MM-dd');
+            const currentWeekAllocations = (Array.isArray(allocations) ? allocations : []).filter(a => a?.content?.allocation_date === currentWeekKey);
 
             const allocatedEmployeeIds = new Set<string>();
 
@@ -77,7 +76,6 @@ export function DashboardContent() {
                 if (a.content.employee_id) {
                   allocatedEmployeeIds.add(a.content.employee_id);
                 } else if (a.content.allocation_name) {
-                  // Fallback for older data without employee_id
                   const match = a.content.allocation_name.match(/\[(.*?)\]/);
                   if (match && match[1]) {
                     allocatedEmployeeIds.add(match[1]);
@@ -86,26 +84,26 @@ export function DashboardContent() {
               });
 
 
-            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.person_id));
+            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.person_id || e.Person_Number));
             setAllocatedEmployees(allocatedEmps);
             setAllocatedFtes(allocatedEmps.length);
 
-            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.person_id));
+            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.person_id || e.Person_Number));
             setUnallocatedEmployees(unallocatedEmps);
             setUnallocatedFtes(unallocatedEmps.length);
             setMissingAllocations(unallocatedEmps.length);
 
-            const allClients = Array.from(new Set(allocations.map(a => a.content.cost_center_name)));
+            const allClients = Array.from(new Set(allocations.filter(a => a?.content?.cost_center_name).map(a => a.content.cost_center_name)));
             const last6Weeks = Array.from({ length: 6 }).map((_, i) => {
               return startOfWeek(subWeeks(new Date(), 5 - i), { weekStartsOn: 1 });
             });
 
             const weeklyData = last6Weeks.map(weekStart => {
               const weekStartDateString = format(weekStart, 'yyyy-MM-dd');
-              const allocationsForWeek = allocations.filter(a => a.content.allocation_date === weekStartDateString);
+              const allocationsForWeek = allocations.filter(a => a?.content?.allocation_date === weekStartDateString);
 
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
-                const client = curr.content.cost_center_name;
+                const client = curr.content.cost_center_name || 'Unknown';
                 const fte = Number(curr.content.allocation_amount) || 0;
                 if (!acc[client]) {
                   acc[client] = 0;
@@ -116,7 +114,7 @@ export function DashboardContent() {
 
               const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
               allClients.forEach(client => {
-                completeWeeklyData[client] = weeklyTotals[client] || 0;
+                if (client) completeWeeklyData[client] = weeklyTotals[client] || 0;
               });
 
               return completeWeeklyData;
@@ -125,25 +123,12 @@ export function DashboardContent() {
 
         } catch (processingError) {
              writeLog('DashboardContent', 'error', 'Failed to process dashboard data', processingError);
-             toast({
-                variant: 'destructive',
-                title: 'Failed to process data',
-                description: 'Could not calculate dashboard metrics.'
-            });
-            setTotalFtes(0);
-            setAllocatedFtes(0);
-            setUnallocatedFtes(0);
-            setMissingAllocations(0);
-            setAllocationChartData([]);
+             toast({ variant: 'destructive', title: 'Calculations failed' });
         }
 
       } catch (error) {
         writeLog('DashboardContent', 'error', 'Failed to load dashboard data', error);
-        toast({
-          variant: 'destructive',
-          title: 'Failed to load dashboard',
-          description: 'Could not fetch the necessary data.'
-        });
+        toast({ variant: 'destructive', title: 'Failed to load dashboard' });
       } finally {
         setLoading(false);
       }
@@ -157,19 +142,9 @@ export function DashboardContent() {
   };
   
   const { title: detailTitle, data: detailData, description: detailDescription } = (() => {
-    switch (activeView) {
-      case 'total':
-        return { title: 'All FTEs', data: allEmployees, description: `Displaying ${allEmployees.length} employee(s).` };
-      case 'allocated':
-        return { title: 'Allocated FTEs (Current Week)', data: allocatedEmployees, description: `Displaying ${allocatedEmployees.length} employee(s).` };
-      case 'unallocated':
-        return { title: 'Unallocated FTEs (Current Week)', data: unallocatedEmployees, description: `Displaying ${unallocatedEmployees.length} employee(s).` };
-      case 'missing':
-        return { title: 'FTEs with Missing Allocations (Current Week)', data: unallocatedEmployees, description: `Displaying ${unallocatedEmployees.length} employee(s).` };
-      default:
-        // Provide a default empty state for the initial null `activeView` state
-        return { title: 'All FTEs', data: allEmployees, description: `Displaying ${allEmployees.length} employee(s).` };
-    }
+    const baseData = activeView === 'allocated' ? allocatedEmployees : activeView === 'unallocated' || activeView === 'missing' ? unallocatedEmployees : allEmployees;
+    const baseTitle = activeView === 'allocated' ? 'Allocated FTEs (Current Week)' : activeView === 'unallocated' ? 'Unallocated FTEs (Current Week)' : activeView === 'missing' ? 'FTEs with Missing Allocations (Current Week)' : 'All FTEs';
+    return { title: baseTitle, data: baseData, description: `Displaying ${baseData.length} employee(s).` };
   })();
 
   return (
@@ -247,11 +222,11 @@ export function DashboardContent() {
                           <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                         </TableRow>
                       ))
-                    ) : detailData.length > 0 ? detailData.map(employee => (
-                      <TableRow key={employee.person_id}>
-                        <TableCell>{employee.full_name}</TableCell>
-                        <TableCell>{employee.title}</TableCell>
-                        <TableCell>{employee.manager}</TableCell>
+                    ) : detailData.length > 0 ? detailData.map((employee, idx) => (
+                      <TableRow key={employee.person_id || employee.Person_Number || idx}>
+                        <TableCell>{employee.full_name || employee.Full_Name}</TableCell>
+                        <TableCell>{employee.title || employee.Market_Facing_Title}</TableCell>
+                        <TableCell>{employee.manager || employee.First_Reviewer_Name}</TableCell>
                       </TableRow>
                     )) : (
                       <TableRow>
@@ -269,5 +244,3 @@ export function DashboardContent() {
     </div>
   );
 }
-
-    
