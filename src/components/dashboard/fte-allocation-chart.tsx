@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -130,7 +131,10 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
             cursor={{ fill: 'hsl(var(--secondary))' }}
             content={<ChartTooltipContent />}
           />
-          <Legend content={<ChartLegendContent />} />
+          <Legend 
+            content={<ChartLegendContent />} 
+            wrapperStyle={{ paddingTop: '20px' }}
+          />
           {costCenters.map((cc) => {
             const safeKey = toSafeKey(cc);
             const color = chartConfig[safeKey]?.color;

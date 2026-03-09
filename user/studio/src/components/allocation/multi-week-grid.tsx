@@ -69,7 +69,7 @@ const ClientSelect = ({
   clients, 
   value, 
   onValueChange,
-  disabled
+  disabled 
 }: { 
   clients: AiReportData[], 
   value: string, 
@@ -203,7 +203,7 @@ const ManagerSelect = ({
   onValueChange,
   disabled
 }: { 
-  managers: {id: string, name: string}[], 
+  managers: {id: string, name: string}[]|null, 
   onValueChange: (value: string) => void,
   disabled?: boolean
 }) => {
@@ -592,7 +592,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         const employeeAllocations = monthDataCache.filter(alloc => 
             alloc?.content?.allocation_name?.startsWith(employeeIdString) &&
             allRelevantWeeks.has(alloc.content.allocation_date) &&
-            parseFloat(alloc.content.allocation_amount || '0') > 0
+            parseFloat(alloc.content?.allocation_amount || '0') > 0
         );
 
         let rows: AllocationRow[] = [];
@@ -997,7 +997,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
               </TableBody>
             </Table>
           </div>
-        </CardHeader>
+        </CardContent>
       </Card>
     </TooltipProvider>
   );

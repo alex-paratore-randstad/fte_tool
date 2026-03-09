@@ -67,7 +67,7 @@ export function DashboardContent() {
 
             const todayStart = startOfWeek(new Date(), { weekStartsOn: 1 });
             const currentWeekKey = format(todayStart, 'yyyy-MM-dd');
-            const currentWeekAllocations = allocations.filter(a => a?.content?.allocation_date === currentWeekKey);
+            const currentWeekAllocations = allocations.filter(a => a?.content && a.content.allocation_date === currentWeekKey);
 
             const allocatedEmployeeIds = new Set<string>();
 
@@ -105,7 +105,7 @@ export function DashboardContent() {
 
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
                 const client = curr?.content?.cost_center_name || 'Unknown';
-                const fte = Number(curr?.content?.allocation_amount) || 0;
+                const fte = Number(curr?.content?.allocation_amount || '0') || 0;
                 if (!acc[client]) {
                   acc[client] = 0;
                 }

@@ -171,7 +171,7 @@ export function DashboardContent() {
     
     const allocatedEmployeeIds = new Set<string>();
     currentWeekAllocations
-      .filter(a => a?.content && parseFloat(a.content.allocation_amount) > 0)
+      .filter(a => a?.content && parseFloat(a.content.allocation_amount || '0') > 0)
       .forEach(a => {
         if (a?.content?.employee_id) {
           allocatedEmployeeIds.add(a.content.employee_id);
@@ -282,7 +282,7 @@ export function DashboardContent() {
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
                 if (!acc[allocation_monthyear]) acc[allocation_monthyear] = {};
                 summariesForFte.forEach(summary => {
-                    const percentage = parseFloat(summary?.content?.allocation_percentage) || 0;
+                    const percentage = parseFloat(summary?.content?.allocation_percentage || '0') || 0;
                     const clientName = summary?.content?.cost_center_name || 'Unknown';
                     acc[allocation_monthyear][clientName] = (acc[allocation_monthyear][clientName] || 0) + percentage;
                 });
@@ -365,7 +365,7 @@ export function DashboardContent() {
               
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
                 const clientName = curr?.content?.cost_center_name || 'Unknown';
-                const amount = Number(curr?.content?.allocation_amount) || 0;
+                const amount = Number(curr?.content?.allocation_amount || '0') || 0;
                 acc[clientName] = (acc[clientName] || 0) + amount;
                 return acc;
               }, {} as Record<string, number>);
@@ -606,8 +606,8 @@ export function DashboardContent() {
                           <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                         </TableRow>
                       ))
-                    ) : (detailData || []).length > 0 ? detailData.map(employee => (
-                      <TableRow key={employee.person_id}>
+                    ) : (detailData || []).length > 0 ? detailData.map((employee, idx) => (
+                      <TableRow key={employee.person_id || idx}>
                         <TableCell>{employee.full_name}</TableCell>
                         <TableCell>{employee.title}</TableCell>
                         <TableCell>{employee.manager}</TableCell>

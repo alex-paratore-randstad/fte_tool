@@ -67,10 +67,8 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isActive = useCallback((href: string) => {
-    // If pathname is null (build time), return false
     if (!pathname) return false;
     
-    // Normalize paths by removing trailing slashes and index.html
     const normalize = (p: any) => {
         if (!p || typeof p !== 'string') return '';
         let clean = p.replace(/\/index\.html$/, '');
@@ -90,7 +88,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
 
   const isGroupActive = useCallback((items: { href: string }[]) => {
     if (!items || !Array.isArray(items)) return false;
-    return items.some(item => isActive(item.href));
+    return items.some(item => item && isActive(item.href));
   }, [isActive]);
 
   const userHasAccess = useCallback((roles?: string[]) => {
