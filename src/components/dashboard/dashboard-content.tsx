@@ -176,7 +176,8 @@ export function DashboardContent() {
         if (a?.content?.employee_id) {
           allocatedEmployeeIds.add(a.content.employee_id);
         } else if (a?.content?.allocation_name) {
-          const match = String(a.content.allocation_name).match(/\[(.*?)\]/);
+          const nameStr = String(a.content.allocation_name);
+          const match = nameStr.match(/\[(.*?)\]/);
           if (match && match[1]) allocatedEmployeeIds.add(match[1]);
         }
       });

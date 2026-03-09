@@ -39,7 +39,6 @@ const getBrandPalette = (count: number) => {
 };
 
 // SAFE KEY GENERATOR
-// Ensures '3M' becomes 'c_3m' (valid CSS var) and 'Client A' becomes 'c_client_a'
 const toSafeKey = (key: string) => {
   if (!key) return 'c_unknown';
   return 'c_' + String(key).toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -87,12 +86,10 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
     return data.map(item => {
       if (!item) return { name: 'Unknown' };
       
-      // Attempt to parse the name as an ISO date string
       const dateStr = item.name ? String(item.name) : '';
       const date = parseISO(dateStr);
       
       const newItem: Record<string, any> = {
-        // If it's a valid date, format it. Otherwise, use the original name.
         name: isValid(date) ? format(date, 'MMM d') : (dateStr || 'Unknown'),
       };
       
