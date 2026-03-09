@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Users, Briefcase, AlertTriangle, UserMinus } from 'lucide-react';
 import SummaryCard from '@/components/dashboard/summary-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -64,18 +65,18 @@ export function DashboardContent() {
             const totalEmployeeCount = new Set(safeEmployees.map(e => e.person_id || e.Person_Number)).size;
             setTotalFtes(totalEmployeeCount);
 
-            const today = startOfWeek(new Date(), { weekStartsOn: 1 });
-            const currentWeekKey = format(today, 'yyyy-MM-dd');
+            const todayStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+            const currentWeekKey = format(todayStart, 'yyyy-MM-dd');
             const currentWeekAllocations = allocations.filter(a => a?.content?.allocation_date === currentWeekKey);
 
             const allocatedEmployeeIds = new Set<string>();
 
             currentWeekAllocations
-              .filter(a => a?.content && parseFloat(a.content.allocation_amount) > 0)
+              .filter(a => a?.content && parseFloat(a.content.allocation_amount || '0') > 0)
               .forEach(a => {
-                if (a.content.employee_id) {
+                if (a?.content?.employee_id) {
                   allocatedEmployeeIds.add(a.content.employee_id);
-                } else if (a.content.allocation_name) {
+                } else if (a?.content?.allocation_name) {
                   const match = String(a.content.allocation_name).match(/\[(.*?)\]/);
                   if (match && match[1]) {
                     allocatedEmployeeIds.add(match[1]);
@@ -84,11 +85,11 @@ export function DashboardContent() {
               });
 
 
-            const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.person_id || e.Person_Number));
+            const allocatedEmps = safeEmployees.filter(e => e && allocatedEmployeeIds.has(e.person_id || e.Person_Number));
             setAllocatedEmployees(allocatedEmps);
             setAllocatedFtes(allocatedEmps.length);
 
-            const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.person_id || e.Person_Number));
+            const unallocatedEmps = safeEmployees.filter(e => e && !allocatedEmployeeIds.has(e.person_id || e.Person_Number));
             setUnallocatedEmployees(unallocatedEmps);
             setUnallocatedFtes(unallocatedEmps.length);
             setMissingAllocations(unallocatedEmps.length);
@@ -100,11 +101,11 @@ export function DashboardContent() {
 
             const weeklyData = last6Weeks.map(weekStart => {
               const weekStartDateString = format(weekStart, 'yyyy-MM-dd');
-              const allocationsForWeek = allocations.filter(a => a?.content?.allocation_date === weekStartDateString);
+              const allocationsForWeek = allocations.filter(a => a?.content && a.content.allocation_date === weekStartDateString);
 
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
-                const client = curr.content.cost_center_name || 'Unknown';
-                const fte = Number(curr.content.allocation_amount) || 0;
+                const client = curr?.content?.cost_center_name || 'Unknown';
+                const fte = Number(curr?.content?.allocation_amount) || 0;
                 if (!acc[client]) {
                   acc[client] = 0;
                 }
@@ -114,7 +115,7 @@ export function DashboardContent() {
 
               const completeWeeklyData: Record<string, any> = { name: weekStartDateString };
               allClients.forEach(client => {
-                if (client) completeWeeklyData[client] = weeklyTotals[client] || 0;
+                if (client) completeWeeklyData[client as string] = weeklyTotals[client as string] || 0;
               });
 
               return completeWeeklyData;
@@ -141,11 +142,11 @@ export function DashboardContent() {
     setActiveView(current => (current === view ? null : view));
   };
   
-  const { title: detailTitle, data: detailData, description: detailDescription } = (() => {
-    const baseData = activeView === 'allocated' ? allocatedEmployees : activeView === 'unallocated' || activeView === 'missing' ? unallocatedEmployees : allEmployees;
+  const { title: detailTitle, data: detailData, description: detailDescription } = useMemo(() => {
+    const baseData = activeView === 'allocated' ? allocatedEmployees : (activeView === 'unallocated' || activeView === 'missing') ? unallocatedEmployees : allEmployees;
     const baseTitle = activeView === 'allocated' ? 'Allocated FTEs (Current Week)' : activeView === 'unallocated' ? 'Unallocated FTEs (Current Week)' : activeView === 'missing' ? 'FTEs with Missing Allocations (Current Week)' : 'All FTEs';
-    return { title: baseTitle, data: baseData, description: `Displaying ${baseData.length} employee(s).` };
-  })();
+    return { title: baseTitle, data: baseData || [], description: `Displaying ${(baseData || []).length} employee(s).` };
+  }, [activeView, allocatedEmployees, unallocatedEmployees, allEmployees]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -192,7 +193,7 @@ export function DashboardContent() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <Skeleton className="h-[300px] w-full" />
+                <Skeleton className="h-[400px] w-full" />
               ) : (
                 <FteAllocationChart data={allocationChartData} />
               )}
@@ -222,7 +223,7 @@ export function DashboardContent() {
                           <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                         </TableRow>
                       ))
-                    ) : detailData.length > 0 ? detailData.map((employee, idx) => (
+                    ) : (detailData || []).length > 0 ? detailData.map((employee, idx) => (
                       <TableRow key={employee.person_id || employee.Person_Number || idx}>
                         <TableCell>{employee.full_name || employee.Full_Name}</TableCell>
                         <TableCell>{employee.title || employee.Market_Facing_Title}</TableCell>

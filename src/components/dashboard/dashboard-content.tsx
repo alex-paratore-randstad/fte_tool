@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -358,7 +359,7 @@ export function DashboardContent() {
             initialChartData = lastPeriod.map(weekStart => {
               const weekKey = format(weekStart, 'yyyy-MM-dd');
               const allocationsForWeek = (weeklyAllocations || []).filter(a => {
-                  if (a?.content?.allocation_date !== weekKey) return false;
+                  if (!a?.content || a.content.allocation_date !== weekKey) return false;
                   return isDeptMatch(a.content.employee_id, a.content.allocation_name);
               });
               

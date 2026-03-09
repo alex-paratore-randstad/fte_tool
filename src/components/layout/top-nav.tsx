@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -57,8 +58,8 @@ export function TopNav() {
   const isActive = (href: string) => {
     if (!pathname) return false;
     
-    const normalize = (p: string) => {
-        if (!p) return '';
+    const normalize = (p: any) => {
+        if (!p || typeof p !== 'string') return '';
         let clean = p.replace(/\/index\.html$/, '');
         clean = clean.replace(/\/+$/, '');
         return clean || '/';
@@ -75,13 +76,14 @@ export function TopNav() {
   };
   
   const userHasAccess = (roles?: string[]) => {
-    if (loading || !currentUser.role) return false;
+    if (loading || !currentUser || !currentUser.role) return false;
     if (!roles) return true; // No roles defined means public
     return roles.includes(currentUser.role);
   };
   
   const isGroupActive = (items: NavItem[]) => {
-      return items.some(item => isActive(item.href));
+      if (!items || !Array.isArray(items)) return false;
+      return items.some(item => item && isActive(item.href));
   }
 
   return (
@@ -103,7 +105,7 @@ export function TopNav() {
           <Skeleton className="h-5 w-24" />
         </>
       ) : navGroups.map((group, index) => (
-          userHasAccess(group.roles) ? (
+          group && userHasAccess(group.roles) ? (
             <DropdownMenu key={index}>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -118,7 +120,7 @@ export function TopNav() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                {(group.items || []).filter(item => item && userHasAccess(item.roles)).map(item => (
                   <DropdownMenuItem key={item.href} asChild>
                     <Link href={getHref(item.href)} className={cn(isActive(item.href) && 'font-semibold')}>
                       {item.label}

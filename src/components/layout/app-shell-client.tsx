@@ -1,3 +1,4 @@
+
 'use client';
 
 import { UserNav } from './user-nav';
@@ -66,12 +67,13 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isActive = useCallback((href: string) => {
+    // If pathname is null (build time), return false
     if (!pathname) return false;
     
     // Normalize paths by removing trailing slashes and index.html
-    const normalize = (p: string | null) => {
-        if (!p) return '';
-        let clean = String(p).replace(/\/index\.html$/, '');
+    const normalize = (p: any) => {
+        if (!p || typeof p !== 'string') return '';
+        let clean = p.replace(/\/index\.html$/, '');
         clean = clean.replace(/\/+$/, '');
         return clean || '/';
     };
@@ -87,19 +89,20 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const isGroupActive = useCallback((items: { href: string }[]) => {
+    if (!items || !Array.isArray(items)) return false;
     return items.some(item => isActive(item.href));
   }, [isActive]);
 
   const userHasAccess = useCallback((roles?: string[]) => {
-    if (loading || !currentUser.role) return false;
+    if (loading || !currentUser || !currentUser.role) return false;
     if (!roles) return true;
     return roles.includes(currentUser.role);
-  }, [loading, currentUser.role]);
+  }, [loading, currentUser]);
 
   useEffect(() => {
     if (hasMounted && !loading && pathname) {
       const activeGroups = navGroups
-        .filter(g => isGroupActive(g.items) && userHasAccess(g.roles))
+        .filter(g => g && isGroupActive(g.items) && userHasAccess(g.roles))
         .map(g => g.title);
       setOpenGroups(activeGroups);
     }
@@ -147,14 +150,14 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                           </div>
                         ))
                       ) : navGroups.map(group => (
-                          userHasAccess(group.roles) ? (
+                          group && userHasAccess(group.roles) ? (
                               <AccordionItem value={group.title} key={group.title} className="border-b-0">
                                   <AccordionTrigger className="py-2 text-base hover:no-underline text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground">
                                       {group.title}
                                   </AccordionTrigger>
                                   <AccordionContent className="pl-4 pb-0">
                                       <div className="flex flex-col gap-1">
-                                          {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                                          {(group.items || []).filter(item => item && userHasAccess(item.roles)).map(item => (
                                               <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
                                                   {item.label}
                                               </Link>

@@ -54,8 +54,8 @@ export function TopNav() {
   const isActive = (href: string) => {
     if (!pathname) return false;
     
-    const normalize = (p: string) => {
-        if (!p) return '';
+    const normalize = (p: any) => {
+        if (!p || typeof p !== 'string') return '';
         let clean = p.replace(/\/index\.html$/, '');
         clean = clean.replace(/\/+$/, '');
         return clean || '/';
@@ -72,13 +72,14 @@ export function TopNav() {
   };
   
   const userHasAccess = (roles?: string[]) => {
-    if (loading || !currentUser.role) return false;
+    if (loading || !currentUser || !currentUser.role) return false;
     if (!roles) return true; // No roles defined means public
     return roles.includes(currentUser.role);
   };
   
   const isGroupActive = (items: NavItem[]) => {
-      return items.some(item => isActive(item.href));
+      if (!items || !Array.isArray(items)) return false;
+      return items.some(item => item && isActive(item.href));
   }
 
   if (loading) {
@@ -105,8 +106,8 @@ export function TopNav() {
         </Link>
       
       {navGroups.map(group => (
-        <div key={group.title} className={cn(!userHasAccess(group.roles) && "hidden")}>
-            <DropdownMenu>
+        group && userHasAccess(group.roles) ? (
+            <DropdownMenu key={group.title}>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className={cn(
                         "text-sm font-medium h-auto p-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
@@ -117,7 +118,7 @@ export function TopNav() {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
-                    {group.items.filter(item => userHasAccess(item.roles)).map(item => (
+                    {(group.items || []).filter(item => item && userHasAccess(item.roles)).map(item => (
                         <DropdownMenuItem key={item.href} asChild>
                             <Link href={getHref(item.href)} className={cn(isActive(item.href) && "font-semibold")}>
                               {item.label}
@@ -126,7 +127,7 @@ export function TopNav() {
                     ))}
                 </DropdownMenuContent>
             </DropdownMenu>
-        </div>
+        ) : null
       ))}
     </>
   );
