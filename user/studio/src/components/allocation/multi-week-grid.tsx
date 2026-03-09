@@ -21,7 +21,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, Copy } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, Copy, Check, ChevronsUpDown } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember, WeeklyAllocation } from '@/types';
 import { cn } from '@/lib/utils';
@@ -73,11 +75,17 @@ const ClientSelect = ({
   onValueChange: (value: string) => void,
   disabled?: boolean 
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredClients = useMemo(() => {
+  const [open, setOpen] = useState(false);
+
+  const selectedClient = useMemo(() => {
+    if (!value) return null;
+    const trimmed = String(value).trim();
+    return (clients || []).find(c => c && String(c.Code).trim() === trimmed);
+  }, [clients, value]);
+
+  const sortedClients = useMemo(() => {
     const validClients = (clients || []).filter(c => c && c.DisplayName && c.Code);
-    const sorted = [...validClients].sort((a, b) => {
+    return [...validClients].sort((a, b) => {
       const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
       const bIsSpecial = specialClients.includes(b.DisplayName);
@@ -91,45 +99,58 @@ const ClientSelect = ({
       
       return (a.DisplayName || '').localeCompare(b.DisplayName || '');
     });
-
-    const lowerSearch = searchTerm.toLowerCase();
-    let results = sorted;
-    
-    if (searchTerm) {
-      results = sorted.filter(cc =>
-        (cc.DisplayName && cc.DisplayName.toLowerCase().includes(lowerSearch)) ||
-        (cc.Code && cc.Code.toLowerCase().includes(lowerSearch))
-      );
-    }
-
-    // CRITICAL: Ensure current selected value is always in the rendered list
-    // so Radix SelectValue can always resolve the display text
-    if (value) {
-      const trimmedValue = String(value).trim();
-      const selected = validClients.find(c => String(c.Code).trim() === trimmedValue);
-      if (selected && !results.some(r => String(r.Code).trim() === trimmedValue)) {
-        results.push(selected);
-      }
-    }
-
-    return results;
-  }, [clients, searchTerm, value]);
+  }, [clients]);
 
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger><SelectValue placeholder="Select Client..." /></SelectTrigger>
-      <SelectContent>
-        <SelectSearch placeholder="Search name or code..." onChange={setSearchTerm} />
-        <ScrollArea className="h-64">
-          {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.Code}>{cc.DisplayName}</SelectItem>)}
-          {filteredClients.length === 0 && (
-            <div className="p-4 text-sm text-center text-muted-foreground">
-                No clients found.
-            </div>
-          )}
-        </ScrollArea>
-      </SelectContent>
-    </Select>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+          disabled={disabled}
+        >
+          <span className="truncate">
+            {selectedClient ? selectedClient.DisplayName : "Select Client..."}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search name or code..." />
+          <CommandList>
+            <CommandEmpty>No clients found.</CommandEmpty>
+            <CommandGroup>
+              <ScrollArea className="h-64">
+                {sortedClients.map(cc => (
+                  <CommandItem
+                    key={cc.Code}
+                    value={`${cc.DisplayName} ${cc.Code}`}
+                    onSelect={() => {
+                      onValueChange(cc.Code);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selectedClient?.Code === cc.Code ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <div className="flex flex-col">
+                        <span>{cc.DisplayName}</span>
+                        <span className="text-xs text-muted-foreground">{cc.Code}</span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </ScrollArea>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };
 
