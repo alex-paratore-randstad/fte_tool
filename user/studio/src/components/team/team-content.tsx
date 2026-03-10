@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -20,7 +19,7 @@ import {
 import type { TeamMember } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '../ui/button';
 import { SelectSearch } from '../ui/select-search';
@@ -76,16 +75,16 @@ export function TeamContent() {
   const { toast } = useToast();
 
   const columnConfig: { label: string; key: keyof TeamMember }[] = [
-    { label: 'Employee Name', key: 'full_name' },
-    { label: 'Region', key: 'region' },
-    { label: 'Country', key: 'country' },
-    { label: 'Employee ID', key: 'person_id' },
-    { label: 'Status', key: 'status' },
-    { label: 'Job Title', key: 'title' },
-    { label: 'Manager Name', key: 'manager' },
-    { label: 'Department', key: 'department' },
-    { label: 'Department Detail', key: 'department_detail' },
-    { label: 'FTE Value', key: 'fte' },
+    { label: 'Employee Name', key: 'Full_Name' },
+    { label: 'Region', key: 'Region' },
+    { label: 'Country', key: 'Location' },
+    { label: 'Employee ID', key: 'Person_Number' },
+    { label: 'Status', key: 'Employment_Status' },
+    { label: 'Job Title', key: 'Market_Facing_Title' },
+    { label: 'Manager Name', key: 'First_Reviewer_Name' },
+    { label: 'Department', key: 'Team_Name' },
+    { label: 'Department Detail', key: 'Sub_Vertical_Name' },
+    { label: 'FTE Value', key: 'LOB' },
   ];
 
   useEffect(() => {
@@ -103,23 +102,17 @@ export function TeamContent() {
         }
         const rawData: any[] = await response.json();
         
-        const tempWorker: TeamMember = {
-            person_id: 'TEMP_WORKER',
-            full_name: 'Temp Worker',
-            title: 'Temporary Staff',
-            employment_type: 'Temporary',
-            status: 'Active',
-            department: 'Temporary',
-            department_detail: 'Manual Entry',
-            manager_id: 'N/A',
-            manager: 'N/A',
-            manager_email: 'N/A',
-            person_email: 'N/A',
-            start_date: '',
-            end_date: '',
-            country: 'N/A',
-            region: 'N/A',
-            fte: '1.0'
+        const tempWorker: any = {
+            Person_Number: 'TEMP_WORKER',
+            Full_Name: 'Temp Worker',
+            Market_Facing_Title: 'Temporary Staff',
+            Employment_Status: 'Active',
+            Team_Name: 'Temporary',
+            Sub_Vertical_Name: 'Manual Entry',
+            First_Reviewer_Name: 'N/A',
+            Location: 'N/A',
+            Region: 'N/A',
+            LOB: '1.0'
         };
 
         const allData = [tempWorker, ...rawData];
@@ -130,11 +123,11 @@ export function TeamContent() {
             Array.from(new Set(allData.map(item => item && item[key]).filter(val => typeof val === 'string' && val) as string[])).sort((a,b) => a.localeCompare(b));
         
         setFilterOptions({
-            employees: getUniqueSorted('full_name'),
-            departments: getUniqueSorted('department'),
-            titles: getUniqueSorted('title'),
-            managers: getUniqueSorted('manager'),
-            countries: getUniqueSorted('country'),
+            employees: getUniqueSorted('Full_Name'),
+            departments: getUniqueSorted('Team_Name'),
+            titles: getUniqueSorted('Market_Facing_Title'),
+            managers: getUniqueSorted('First_Reviewer_Name'),
+            countries: getUniqueSorted('Location'),
         });
         
       } catch (error) {
@@ -156,11 +149,11 @@ export function TeamContent() {
     return teamMembers.filter(member => {
       if (!member) return false;
       return (
-        (filters.employee === '' || member.full_name === filters.employee) &&
-        (filters.department === '' || member.department === filters.department) &&
-        (filters.title === '' || member.title === filters.title) &&
-        (filters.manager === '' || member.manager === filters.manager) &&
-        (filters.country === '' || member.country === filters.country)
+        (filters.employee === '' || member.Full_Name === filters.employee) &&
+        (filters.department === '' || member.Team_Name === filters.department) &&
+        (filters.title === '' || member.Market_Facing_Title === filters.title) &&
+        (filters.manager === '' || member.First_Reviewer_Name === filters.manager) &&
+        (filters.country === '' || member.Location === filters.country)
       );
     });
   }, [teamMembers, filters]);
@@ -190,12 +183,12 @@ export function TeamContent() {
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="w-full h-[60vh] whitespace-nowrap border rounded-md">
-          <Table>
+        <ScrollArea className="w-full border rounded-md h-[65vh]">
+          <Table className="min-w-[1500px]">
             <TableHeader>
               <TableRow>
                 {columnConfig.map((col) => (
-                  <TableHead key={col.key}>{col.label}</TableHead>
+                  <TableHead key={col.key} className="whitespace-nowrap">{col.label}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
@@ -208,9 +201,9 @@ export function TeamContent() {
                 ))
               ) : filteredMembers.length > 0 ? (
                 filteredMembers.map((member, rowIndex) => (
-                  <TableRow key={member.person_id || rowIndex}>
+                  <TableRow key={member.Person_Number || rowIndex}>
                     {columnConfig.map((col) => (
-                      <TableCell key={col.key}>{member[col.key] as string || '-'}</TableCell>
+                      <TableCell key={col.key} className="whitespace-nowrap">{member[col.key] as string || '-'}</TableCell>
                     ))}
                   </TableRow>
                 ))
@@ -223,6 +216,7 @@ export function TeamContent() {
                )}
             </TableBody>
           </Table>
+          <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </CardContent>
     </Card>

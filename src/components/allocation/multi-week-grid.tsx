@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
@@ -272,7 +271,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const currentFiscal = getFiscalDataForDate(startOfCurrentWeek);
     if (!weekFiscal || !currentFiscal) return false;
     
-    // Logic: allow edits if week is in current fiscal month OR immediately preceding fiscal month
     const isCurrentMonth = weekFiscal.Reporting_Month === currentFiscal.Reporting_Month && weekFiscal.Reporting_Year === currentFiscal.Reporting_Year;
     const prevMonthDate = getPreviousFiscalMonth(startOfCurrentWeek);
     const prevFiscal = getFiscalDataForDate(prevMonthDate);

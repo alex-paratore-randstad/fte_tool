@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -173,10 +172,10 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
             View and manage regional client data from the `ai_report` dataset.
         </CardDescription>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 pt-4">
-            <MultiSelectFilter placeholder="Filter by Region..." options={filterOptions.regions} selected={filters.region} onValueChange={value => handleFilterChange('region', value)} disabled={loading} />
-            <MultiSelectFilter placeholder="Filter by Country..." options={filterOptions.countries} selected={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Region Name..." options={filterOptions.regions} selected={filters.region} onValueChange={value => handleFilterChange('region', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Country Name..." options={filterOptions.countries} selected={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
             <MultiSelectFilter placeholder="Filter by Client..." options={filterOptions.displayNames} selected={filters.displayName} onValueChange={value => handleFilterChange('displayName', value)} disabled={loading} />
-            <MultiSelectFilter placeholder="Filter by Code..." options={filterOptions.codes} selected={filters.code} onValueChange={value => handleFilterChange('code', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Cost Center Code..." options={filterOptions.codes} selected={filters.code} onValueChange={value => handleFilterChange('code', value)} disabled={loading} />
             <Button variant="outline" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
         </div>
       </CardHeader>

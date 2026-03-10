@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -34,7 +33,7 @@ import {
 import type { TeamMember } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { writeLog } from '@/lib/logger';
@@ -267,12 +266,12 @@ export function TeamContent() {
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="w-full h-[60vh] whitespace-nowrap border rounded-md">
-          <Table>
+        <ScrollArea className="w-full border rounded-md h-[65vh]">
+          <Table className="min-w-[1500px]">
             <TableHeader>
               <TableRow>
                 {columnConfig.map((col) => (
-                  <TableHead key={col.key}>{col.label}</TableHead>
+                  <TableHead key={col.key} className="whitespace-nowrap">{col.label}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
@@ -287,7 +286,7 @@ export function TeamContent() {
                 filteredMembers.map((member, rowIndex) => (
                   <TableRow key={member.person_id || rowIndex}>
                     {columnConfig.map((col) => (
-                      <TableCell key={col.key}>{member[col.key] as string || '-'}</TableCell>
+                      <TableCell key={col.key} className="whitespace-nowrap">{member[col.key] as string || '-'}</TableCell>
                     ))}
                   </TableRow>
                 ))
@@ -300,6 +299,7 @@ export function TeamContent() {
                )}
             </TableBody>
           </Table>
+          <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </CardContent>
     </Card>
