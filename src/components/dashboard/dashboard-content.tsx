@@ -149,13 +149,12 @@ export function DashboardContent() {
 
       } catch (error) {
         writeLog('DashboardContent', 'error', 'Failed to load dashboard data', error);
-        toast({ variant: 'destructive', title: 'Failed to load dashboard data'});
       } finally {
         setLoading(false);
       }
     }
     fetchData();
-  }, [toast]);
+  }, []);
 
   const { totalFtes, allocatedFtes, unallocatedFtes, missingAllocations, allocatedEmployees, unallocatedEmployees } = useMemo(() => {
     if (!today || loading) {
@@ -277,7 +276,6 @@ export function DashboardContent() {
             const bulkDataByMonth = (bulkFtes || []).reduce((acc, fte) => {
                 const { allocation_monthyear, bulk_allocation_id, employee_id, employee_name } = fte?.content || {};
                 if (!allocation_monthyear || !bulk_allocation_id) return acc;
-                
                 if (!isDeptMatch(employee_id, employee_name)) return acc;
 
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
@@ -330,7 +328,6 @@ export function DashboardContent() {
             const targetsByQuarter = (targets || []).reduce((acc, target) => {
                 const dateStr = target?.content?.targets_allocation_date;
                 if (!dateStr) return acc;
-                
                 if (!isDeptMatch(undefined, target.content.targets_allocation_name)) return acc;
 
                 const date = parseISO(dateStr);
