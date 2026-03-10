@@ -23,11 +23,9 @@ export type AiReportData = {
 
 type FilterOptions = {
   codes: string[];
-  names: string[];
   displayNames: string[];
   regions: string[];
   countries: string[];
-  rollsUpTos: string[];
 };
 
 const MultiSelectFilter = ({
@@ -102,42 +100,37 @@ type AiReportTableProps = {
 export function AiReportTable({ reportData, loading }: AiReportTableProps) {
   const [filters, setFilters] = useState({
     code: [] as string[],
-    name: [] as string[],
     displayName: [] as string[],
     region: [] as string[],
     country: [] as string[],
-    rollsUpTo: [] as string[],
   });
   
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-    codes: [], names: [], displayNames: [], regions: [], countries: [], rollsUpTos: []
+    codes: [], displayNames: [], regions: [], countries: []
   });
 
   useEffect(() => {
-    if (reportData && reportData.length > 0) {
+    if (Array.isArray(reportData) && reportData.length > 0) {
         const getUniqueSorted = (key: keyof AiReportData) =>
             Array.from(
                 new Set(
                     reportData
                         .map(item => item && item[key])
-                        // Ensure value is a non-empty string before including it
                         .filter(val => typeof val === 'string' && val) as string[]
                 )
             ).sort((a, b) => a.localeCompare(b));
         
         setFilterOptions({
             codes: getUniqueSorted('Code'),
-            names: getUniqueSorted('Name'),
             displayNames: getUniqueSorted('DisplayName'),
             regions: getUniqueSorted('Region'),
             countries: getUniqueSorted('Country'),
-            rollsUpTos: getUniqueSorted('RollsUpTo'),
         });
     }
   }, [reportData]);
 
   const filteredData = useMemo(() => {
-    if (!reportData) return [];
+    if (!Array.isArray(reportData)) return [];
     return reportData.filter(row => {
         if (!row) return false;
         const filterBy = (key: keyof typeof filters, rowField: keyof AiReportData) => {
@@ -149,11 +142,9 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
 
         return (
             filterBy('code', 'Code') &&
-            filterBy('name', 'Name') &&
             filterBy('displayName', 'DisplayName') &&
             filterBy('region', 'Region') &&
-            filterBy('country', 'Country') &&
-            filterBy('rollsUpTo', 'RollsUpTo')
+            filterBy('country', 'Country')
         );
     });
   }, [reportData, filters]);
@@ -170,46 +161,40 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
 
   const clearFilters = () => {
     setFilters({
-        code: [], name: [], displayName: [], region: [], country: [], rollsUpTo: []
+        code: [], displayName: [], region: [], country: []
     });
   };
   
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Client Data</CardTitle>
+        <CardTitle>Client Management</CardTitle>
         <CardDescription>
-            Data from the `ai_report` dataset used to populate client dropdowns.
+            View and manage regional client data from the `ai_report` dataset.
         </CardDescription>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 pt-4">
-            <MultiSelectFilter placeholder="Filter by Code..." options={filterOptions.codes} selected={filters.code} onValueChange={value => handleFilterChange('code', value)} disabled={loading} />
-            <MultiSelectFilter placeholder="Filter by Name..." options={filterOptions.names} selected={filters.name} onValueChange={value => handleFilterChange('name', value)} disabled={loading} />
-            <MultiSelectFilter placeholder="Filter by Display Name..." options={filterOptions.displayNames} selected={filters.displayName} onValueChange={value => handleFilterChange('displayName', value)} disabled={loading} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 pt-4">
             <MultiSelectFilter placeholder="Filter by Region..." options={filterOptions.regions} selected={filters.region} onValueChange={value => handleFilterChange('region', value)} disabled={loading} />
             <MultiSelectFilter placeholder="Filter by Country..." options={filterOptions.countries} selected={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
-            <MultiSelectFilter placeholder="Filter by Rolls Up To..." options={filterOptions.rollsUpTos} selected={filters.rollsUpTo} onValueChange={value => handleFilterChange('rollsUpTo', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Client..." options={filterOptions.displayNames} selected={filters.displayName} onValueChange={value => handleFilterChange('displayName', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Code..." options={filterOptions.codes} selected={filters.code} onValueChange={value => handleFilterChange('code', value)} disabled={loading} />
             <Button variant="outline" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
         </div>
       </CardHeader>
       <CardContent>
-          <ScrollArea className="h-96">
+          <ScrollArea className="h-[60vh]">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Display Name</TableHead>
-                  <TableHead>Region</TableHead>
-                  <TableHead>Country</TableHead>
-                  <TableHead>Rolls Up To</TableHead>
+                  <TableHead>Region Name</TableHead>
+                  <TableHead>Country Name</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Cost Center Code</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
+                    Array.from({ length: 8 }).map((_, i) => (
                         <TableRow key={i}>
-                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-full" /></TableCell>
@@ -219,17 +204,15 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
                 ) : filteredData && filteredData.length > 0 ? (
                     filteredData.map((row, rowIndex) => (
                     <TableRow key={row.Code || rowIndex}>
-                        <TableCell>{row.Code}</TableCell>
-                        <TableCell>{row.Name}</TableCell>
-                        <TableCell>{row.DisplayName}</TableCell>
                         <TableCell>{row.Region}</TableCell>
                         <TableCell>{row.Country}</TableCell>
-                        <TableCell>{row.RollsUpTo}</TableCell>
+                        <TableCell className="font-medium">{row.DisplayName}</TableCell>
+                        <TableCell>{row.Code}</TableCell>
                     </TableRow>
                     ))
                 ) : (
                     <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
+                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                             No client data available or matching filters.
                         </TableCell>
                     </TableRow>

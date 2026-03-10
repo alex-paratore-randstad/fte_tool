@@ -55,29 +55,24 @@ export function TopNav() {
     return `${cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`}index.html`;
   };
 
+  const normalize = (p: any) => {
+      if (!p || typeof p !== 'string') return '';
+      let clean = p.replace(/\/index\.html$/, '');
+      clean = clean.replace(/\/+$/, '');
+      return clean || '/';
+  };
+
   const isActive = (href: string) => {
     if (!pathname) return false;
-    
-    const normalize = (p: any) => {
-        if (!p || typeof p !== 'string') return '';
-        let clean = p.replace(/\/index\.html$/, '');
-        clean = clean.replace(/\/+$/, '');
-        return clean || '/';
-    };
-
     const currentPath = normalize(pathname);
     const targetPath = normalize(href);
-
-    if (targetPath === '/') {
-        return currentPath === '/' || currentPath === '';
-    }
-
+    if (targetPath === '/') return currentPath === '/' || currentPath === '';
     return currentPath === targetPath;
   };
   
   const userHasAccess = (roles?: string[]) => {
     if (loading || !currentUser || !currentUser.role) return false;
-    if (!roles) return true; // No roles defined means public
+    if (!roles) return true;
     return roles.includes(currentUser.role);
   };
   

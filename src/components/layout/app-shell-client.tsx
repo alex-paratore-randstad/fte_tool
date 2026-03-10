@@ -66,23 +66,18 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     setHasMounted(true);
   }, []);
 
+  const normalize = (p: any) => {
+      if (!p || typeof p !== 'string') return '';
+      let clean = p.replace(/\/index\.html$/, '');
+      clean = clean.replace(/\/+$/, '');
+      return clean || '/';
+  };
+
   const isActive = useCallback((href: string) => {
     if (!pathname) return false;
-    
-    const normalize = (p: any) => {
-        if (!p || typeof p !== 'string') return '';
-        let clean = p.replace(/\/index\.html$/, '');
-        clean = clean.replace(/\/+$/, '');
-        return clean || '/';
-    };
-
     const currentPath = normalize(pathname);
     const targetPath = normalize(href);
-
-    if (targetPath === '/') {
-        return currentPath === '/' || currentPath === '';
-    }
-
+    if (targetPath === '/') return currentPath === '/' || currentPath === '';
     return currentPath === targetPath;
   }, [pathname]);
 
@@ -106,7 +101,6 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     }
   }, [loading, pathname, userHasAccess, isGroupActive, hasMounted]);
 
-  
   return (
     <div className="flex min-h-screen w-full flex-col">
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
@@ -119,11 +113,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
 
         <Sheet>
           <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="shrink-0 md:hidden"
-            >
+            <Button variant="outline" size="icon" className="shrink-0 md:hidden">
               <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle navigation menu</span>
             </Button>
@@ -172,7 +162,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
           </SheetContent>
         </Sheet>
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-            <div className="ml-auto flex-1 sm:flex-initial" />
+            <div className="ml-auto flex-1 sm:initial" />
           <UserNav />
         </div>
       </header>

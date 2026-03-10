@@ -25,6 +25,7 @@ type ChartData = {
 export function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<ActiveView>('total');
+  const [hasMounted, setHasMounted] = useState(false);
   
   const [totalFtes, setTotalFtes] = useState(0);
   const [allocatedFtes, setAllocatedFtes] = useState(0);
@@ -40,6 +41,7 @@ export function DashboardContent() {
   const { toast } = useToast();
 
   useEffect(() => {
+    setHasMounted(true);
     async function fetchData() {
       setLoading(true);
       try {
@@ -143,10 +145,11 @@ export function DashboardContent() {
   };
   
   const { title: detailTitle, data: detailData, description: detailDescription } = useMemo(() => {
+    if (!hasMounted) return { title: 'FTE List', data: [], description: 'Loading...' };
     const baseData = activeView === 'allocated' ? allocatedEmployees : (activeView === 'unallocated' || activeView === 'missing') ? unallocatedEmployees : allEmployees;
     const baseTitle = activeView === 'allocated' ? 'Allocated FTEs (Current Week)' : activeView === 'unallocated' ? 'Unallocated FTEs (Current Week)' : activeView === 'missing' ? 'FTEs with Missing Allocations (Current Week)' : 'All FTEs';
     return { title: baseTitle, data: baseData || [], description: `Displaying ${(baseData || []).length} employee(s).` };
-  }, [activeView, allocatedEmployees, unallocatedEmployees, allEmployees]);
+  }, [activeView, allocatedEmployees, unallocatedEmployees, allEmployees, hasMounted]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -155,21 +158,21 @@ export function DashboardContent() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           title="Total FTEs"
-          value={loading ? <Skeleton className="h-8 w-1/2" /> : totalFtes.toString()}
+          value={loading || !hasMounted ? <Skeleton className="h-8 w-1/2" /> : totalFtes.toString()}
           icon={Users}
           onClick={() => handleCardClick('total')}
           isActive={activeView === 'total'}
         />
         <SummaryCard
           title="Allocated FTEs"
-          value={loading ? <Skeleton className="h-8 w-1/2" /> : allocatedFtes.toString()}
+          value={loading || !hasMounted ? <Skeleton className="h-8 w-1/2" /> : allocatedFtes.toString()}
           icon={Briefcase}
           onClick={() => handleCardClick('allocated')}
           isActive={activeView === 'allocated'}
         />
         <SummaryCard
           title="Unallocated FTEs"
-          value={loading ? <Skeleton className="h-8 w-1/2" /> : unallocatedFtes.toString()}
+          value={loading || !hasMounted ? <Skeleton className="h-8 w-1/2" /> : unallocatedFtes.toString()}
           icon={UserMinus}
           variant={unallocatedFtes > 0 ? 'default' : 'default'}
           onClick={() => handleCardClick('unallocated')}
@@ -177,7 +180,7 @@ export function DashboardContent() {
         />
         <SummaryCard
           title="Missing Allocations"
-          value={loading ? <Skeleton className="h-8 w-1/2" /> : missingAllocations.toString()}
+          value={loading || !hasMounted ? <Skeleton className="h-8 w-1/2" /> : missingAllocations.toString()}
           icon={AlertTriangle}
           variant={missingAllocations > 0 ? 'destructive' : 'default'}
           onClick={() => handleCardClick('missing')}
@@ -192,7 +195,7 @@ export function DashboardContent() {
               <CardDescription>Total FTEs allocated per client over the last 6 weeks.</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {loading || !hasMounted ? (
                 <Skeleton className="h-[400px] w-full" />
               ) : (
                 <FteAllocationChart data={allocationChartData} />
@@ -201,8 +204,8 @@ export function DashboardContent() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{loading ? <Skeleton className="h-6 w-1/3" /> : detailTitle}</CardTitle>
-              <CardDescription>{loading ? <Skeleton className="h-4 w-2/3" /> : detailDescription}</CardDescription>
+              <CardTitle>{loading || !hasMounted ? <Skeleton className="h-6 w-1/3" /> : detailTitle}</CardTitle>
+              <CardDescription>{loading || !hasMounted ? <Skeleton className="h-4 w-2/3" /> : detailDescription}</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[400px]">
@@ -215,7 +218,7 @@ export function DashboardContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {loading ? (
+                    {loading || !hasMounted ? (
                        Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
                           <TableCell><Skeleton className="h-5 w-full" /></TableCell>

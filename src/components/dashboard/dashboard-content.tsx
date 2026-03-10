@@ -100,6 +100,7 @@ const MultiSelectFilter = ({
 export function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState<Date | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
 
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [weeklyAllocations, setWeeklyAllocations] = useState<WeeklyAllocation[]>([]);
@@ -116,6 +117,7 @@ export function DashboardContent() {
   const { toast } = useToast();
   
   useEffect(() => {
+    setHasMounted(true);
     setToday(new Date());
 
     async function fetchData() {
@@ -157,12 +159,12 @@ export function DashboardContent() {
   }, []);
 
   const { totalFtes, allocatedFtes, unallocatedFtes, missingAllocations, allocatedEmployees, unallocatedEmployees } = useMemo(() => {
-    if (!today || loading) {
+    if (!today || !hasMounted || loading) {
       return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, missingAllocations: 0, allocatedEmployees: [], unallocatedEmployees: [] };
     }
 
-    const safeEmployees = (allEmployees || []).filter(e => e && e.person_id && e.full_name);
-    const total = new Set(safeEmployees.map(e => e.person_id)).size;
+    const safeEmployees = (allEmployees || []).filter(e => e && e.person_id);
+    const total = safeEmployees.length;
     
     const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 });
     const currentWeekKey = format(startOfThisWeek, 'yyyy-MM-dd');
@@ -175,8 +177,7 @@ export function DashboardContent() {
         if (a?.content?.employee_id) {
           allocatedEmployeeIds.add(a.content.employee_id);
         } else if (a?.content?.allocation_name) {
-          const nameStr = String(a.content.allocation_name);
-          const match = nameStr.match(/\[(.*?)\]/);
+          const match = String(a.content.allocation_name).match(/\[(.*?)\]/);
           if (match && match[1]) allocatedEmployeeIds.add(match[1]);
         }
       });
@@ -192,10 +193,10 @@ export function DashboardContent() {
       allocatedEmployees: allocatedEmps,
       unallocatedEmployees: unallocatedEmps,
     };
-  }, [today, loading, allEmployees, weeklyAllocations]);
+  }, [today, hasMounted, loading, allEmployees, weeklyAllocations]);
 
   const employeeFilterOptions = useMemo<FilterOptions>(() => {
-    const safeEmployees = (allEmployees || []).filter(e => e && e.person_id && e.full_name);
+    const safeEmployees = (allEmployees || []).filter(e => e && e.person_id);
     const getUniqueSorted = (key: keyof TeamMember) =>
         Array.from(
             new Set(
@@ -213,7 +214,7 @@ export function DashboardContent() {
   }, [allEmployees]);
   
   const allChartClients = useMemo<string[]>(() => {
-    if (loading) return [];
+    if (loading || !hasMounted) return [];
     const clients = new Set<string>();
     (weeklyAllocations || []).forEach(a => { if (a?.content?.cost_center_name) clients.add(a.content.cost_center_name); });
     (bulkSummaries || []).forEach(s => { if (s?.content?.cost_center_name) clients.add(s.content.cost_center_name); });
@@ -222,17 +223,17 @@ export function DashboardContent() {
     return Array.from(clients)
       .filter(c => typeof c === 'string' && c)
       .sort((a,b) => a.localeCompare(b));
-  }, [loading, weeklyAllocations, bulkSummaries, targets]);
+  }, [loading, hasMounted, weeklyAllocations, bulkSummaries, targets]);
 
   const allChartDepartments = useMemo<string[]>(() => {
-    if (loading) return [];
+    if (loading || !hasMounted) return [];
     const depts = new Set<string>();
     (allEmployees || []).forEach(e => { if (e && e.department) depts.add(e.department); });
     return Array.from(depts).sort((a, b) => a.localeCompare(b));
-  }, [loading, allEmployees]);
+  }, [loading, hasMounted, allEmployees]);
 
   const { chartData, chartTitle, chartDescription } = useMemo(() => {
-    if (!today || loading) {
+    if (!today || !hasMounted || loading) {
         return { chartData: [], chartTitle: 'Loading Chart...', chartDescription: '...'};
     }
     
@@ -261,7 +262,6 @@ export function DashboardContent() {
     let initialChartData: ChartData[] = [];
     let title: string = '';
     let description: string = '';
-
     const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
     switch(chartView) {
@@ -277,7 +277,6 @@ export function DashboardContent() {
                 const { allocation_monthyear, bulk_allocation_id, employee_id, employee_name } = fte?.content || {};
                 if (!allocation_monthyear || !bulk_allocation_id) return acc;
                 if (!isDeptMatch(employee_id, employee_name)) return acc;
-
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
                 if (!acc[allocation_monthyear]) acc[allocation_monthyear] = {};
                 summariesForFte.forEach(summary => {
@@ -302,19 +301,14 @@ export function DashboardContent() {
             const freshserviceDataByMonth = freshserviceAllocations.reduce((acc, alloc) => {
                 const dateStr = alloc?.content?.allocation_date;
                 if (!dateStr) return acc;
-                
                 const dateParts = String(dateStr).split('-');
                 if (dateParts.length !== 3) return acc;
-                
                 const year = dateParts[0];
                 const monthIndex = parseInt(dateParts[1], 10) - 1;
-                
                 if (isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) return acc;
-
                 const monthLabel = `${monthsShort[monthIndex]} ${year}`;
                 const clientName = alloc?.content?.cost_center_name || 'Unknown';
                 const amount = parseFloat(alloc?.content?.allocation_amount || '0') || 0;
-                
                 acc[monthLabel] = acc[monthLabel] || {};
                 acc[monthLabel][clientName] = (acc[monthLabel][clientName] || 0) + amount;
                 return acc;
@@ -329,14 +323,11 @@ export function DashboardContent() {
                 const dateStr = target?.content?.targets_allocation_date;
                 if (!dateStr) return acc;
                 if (!isDeptMatch(undefined, target.content.targets_allocation_name)) return acc;
-
                 const date = parseISO(dateStr);
                 if (!isValid(date)) return acc;
-                
                 const quarter = `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`;
                 const clientName = target?.content?.targets_cost_center_name || 'Unknown';
                 const amount = parseInt(target?.content?.targets_allocation_amount || '0', 10) || 0;
-                
                 acc[quarter] = acc[quarter] || {};
                 acc[quarter][clientName] = (acc[quarter][clientName] || 0) + amount;
                 return acc;
@@ -353,77 +344,47 @@ export function DashboardContent() {
             const weeksCount = isTotal ? 8 : 6;
             const allWeeklyClients = Array.from(new Set((weeklyAllocations || []).map(a => a?.content?.cost_center_name).filter(Boolean)));
             const lastPeriod = Array.from({ length: weeksCount }, (_, i) => startOfWeek(subWeeks(today, (weeksCount - 1) - i), { weekStartsOn: 1 }));
-            
             initialChartData = lastPeriod.map(weekStart => {
               const weekKey = format(weekStart, 'yyyy-MM-dd');
               const allocationsForWeek = (weeklyAllocations || []).filter(a => {
                   if (!a?.content || a.content.allocation_date !== weekKey) return false;
                   return isDeptMatch(a.content.employee_id, a.content.allocation_name);
               });
-              
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
                 const clientName = curr?.content?.cost_center_name || 'Unknown';
                 const amount = Number(curr?.content?.allocation_amount || '0') || 0;
                 acc[clientName] = (acc[clientName] || 0) + amount;
                 return acc;
               }, {} as Record<string, number>);
-              
               const completeWeeklyData: Record<string, any> = { name: weekKey };
               allWeeklyClients.forEach(client => { if (client) completeWeeklyData[client as string] = weeklyTotals[client as string] || 0; });
               return completeWeeklyData;
             });
-            
             title = isTotal ? "Total FTE Allocation Trend" : "Weekly Client Allocation";
-            description = isTotal 
-                ? "FTEs allocated per client (Weekly) over the last 8 weeks." 
-                : "Total FTEs allocated per client over the last 6 weeks.";
+            description = isTotal ? "FTEs allocated per client (Weekly) over the last 8 weeks." : "Total FTEs allocated per client over the last 6 weeks.";
             break;
         }
     }
 
-    const finalChartData =
-      chartClientFilter.length > 0
-        ? initialChartData.map(item => {
+    const finalChartData = chartClientFilter.length > 0 ? initialChartData.map(item => {
             const newItem: { [key: string]: any } = { name: item?.name || 'Unknown' };
-            chartClientFilter.forEach(client => {
-              if (item && item[client] !== undefined) {
-                newItem[client] = item[client];
-              }
-            });
+            chartClientFilter.forEach(client => { if (item && item[client] !== undefined) newItem[client] = item[client]; });
             return newItem;
-          })
-        : initialChartData;
+          }) : initialChartData;
 
-    return { 
-        chartData: finalChartData, 
-        chartTitle: title, 
-        chartDescription: description
-    };
-  }, [today, loading, chartView, weeklyAllocations, bulkFtes, bulkSummaries, targets, chartClientFilter, chartDepartmentFilter, allEmployees]);
+    return { chartData: finalChartData, chartTitle: title, chartDescription: description };
+  }, [today, hasMounted, loading, chartView, weeklyAllocations, bulkFtes, bulkSummaries, targets, chartClientFilter, chartDepartmentFilter, allEmployees]);
 
   const { title: detailTitle, data: detailData, description: detailDescription } = useMemo(() => {
+    if (!hasMounted) return { title: 'FTE List', data: [], description: 'Loading...' };
     let baseData: TeamMember[] = [];
     let baseTitle: string = 'FTE List';
-
     switch (activeView) {
-      case 'total':
-        baseData = allEmployees || [];
-        baseTitle = 'All FTEs';
-        break;
-      case 'allocated':
-        baseData = allocatedEmployees || [];
-        baseTitle = 'Allocated FTEs (Current Week)';
-        break;
-      case 'unallocated':
-      case 'missing':
-        baseData = unallocatedEmployees || [];
-        baseTitle = activeView === 'unallocated' ? 'Unallocated FTEs (Current Week)' : 'FTEs with Missing Allocations (Current Week)';
-        break;
-      default:
-        baseData = allEmployees || [];
-        baseTitle = 'All FTEs';
+      case 'total': baseData = allEmployees || []; baseTitle = 'All FTEs'; break;
+      case 'allocated': baseData = allocatedEmployees || []; baseTitle = 'Allocated FTEs (Current Week)'; break;
+      case 'unallocated': case 'missing': baseData = unallocatedEmployees || []; baseTitle = activeView === 'unallocated' ? 'Unallocated FTEs (Current Week)' : 'FTEs with Missing Allocations (Current Week)'; break;
+      default: baseData = allEmployees || []; baseTitle = 'All FTEs';
     }
-
     const filteredData = (baseData || []).filter(member => {
         if (!member) return false;
         const nameMatch = employeeFilters.fullName.length === 0 || (member.full_name && employeeFilters.fullName.includes(member.full_name));
@@ -431,99 +392,29 @@ export function DashboardContent() {
         const managerMatch = employeeFilters.manager.length === 0 || (member.manager && employeeFilters.manager.includes(member.manager));
         return nameMatch && titleMatch && managerMatch;
     });
-
     const isFiltered = employeeFilters.fullName.length > 0 || employeeFilters.title.length > 0 || employeeFilters.manager.length > 0;
-    
     let description = `Displaying ${filteredData.length} employee(s).`;
-    if (isFiltered && baseData.length !== filteredData.length) {
-      description = `Displaying ${filteredData.length} of ${baseData.length} employee(s) matching filters.`;
-    }
+    if (isFiltered && baseData.length !== filteredData.length) description = `Displaying ${filteredData.length} of ${baseData.length} employee(s) matching filters.`;
+    return { title: baseTitle, data: filteredData, description };
+  }, [activeView, allEmployees, allocatedEmployees, unallocatedEmployees, employeeFilters, hasMounted]);
 
-    return { title: baseTitle, data: filteredData, description: description };
-  }, [activeView, allEmployees, allocatedEmployees, unallocatedEmployees, employeeFilters]);
-
-  const handleCardClick = (view: ActiveView) => {
-    setActiveView(current => (current === view ? null : view));
-  };
-
-  const handleEmployeeFilterChange = (filterName: keyof typeof employeeFilters, value: string) => {
-    setEmployeeFilters(prev => {
-        const currentValues = prev[filterName] || [];
-        const newValues = currentValues.includes(value)
-          ? currentValues.filter(v => v !== value)
-          : [...currentValues, value];
-        return { ...prev, [filterName]: newValues };
-    });
-  };
-  
-  const handleChartClientFilterChange = (value: string) => {
-    setChartClientFilter(prev => {
-      const currentValues = prev || [];
-      const newValues = currentValues.includes(value)
-        ? currentValues.filter(v => v !== value)
-        : [...currentValues, value];
-      return newValues;
-    });
-  };
-
-  const handleChartDepartmentFilterChange = (value: string) => {
-    setChartDepartmentFilter(prev => {
-      const currentValues = prev || [];
-      const newValues = currentValues.includes(value)
-        ? currentValues.filter(v => v !== value)
-        : [...currentValues, value];
-      return newValues;
-    });
-  };
-
-  const clearEmployeeFilters = () => {
-    setEmployeeFilters({ fullName: [], title: [], manager: [] });
-  };
-  
-  const clearChartFilters = () => {
-    setChartClientFilter([]);
-    setChartDepartmentFilter([]);
-  };
-  
-  const isPageLoading = loading || !today;
+  const handleCardClick = (view: ActiveView) => setActiveView(current => (current === view ? null : view));
+  const handleEmployeeFilterChange = (filterName: keyof typeof employeeFilters, value: string) => setEmployeeFilters(prev => { const current = prev[filterName] || []; const next = current.includes(value) ? current.filter(v => v !== value) : [...current, value]; return { ...prev, [filterName]: next }; });
+  const handleChartClientFilterChange = (value: string) => setChartClientFilter(prev => { const current = prev || []; return current.includes(value) ? current.filter(v => v !== value) : [...current, value]; });
+  const handleChartDepartmentFilterChange = (value: string) => setChartDepartmentFilter(prev => { const current = prev || []; return current.includes(value) ? current.filter(v => v !== value) : [...current, value]; });
+  const clearEmployeeFilters = () => setEmployeeFilters({ fullName: [], title: [], manager: [] });
+  const clearChartFilters = () => { setChartClientFilter([]); setChartDepartmentFilter([]); };
+  const isPageLoading = loading || !today || !hasMounted;
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Dashboard" />
-
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard
-          title="Total FTEs"
-          value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : totalFtes.toString()}
-          icon={Users}
-          onClick={() => handleCardClick('total')}
-          isActive={activeView === 'total'}
-        />
-        <SummaryCard
-          title="Allocated FTEs"
-          value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : allocatedFtes.toString()}
-          icon={Briefcase}
-          onClick={() => handleCardClick('allocated')}
-          isActive={activeView === 'allocated'}
-        />
-        <SummaryCard
-          title="Unallocated FTEs"
-          value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : unallocatedFtes.toString()}
-          icon={UserMinus}
-          variant={unallocatedFtes > 0 ? 'default' : 'default'}
-          onClick={() => handleCardClick('unallocated')}
-          isActive={activeView === 'unallocated'}
-        />
-        <SummaryCard
-          title="Missing Allocations"
-          value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : missingAllocations.toString()}
-          icon={AlertTriangle}
-          variant={missingAllocations > 0 ? 'destructive' : 'default'}
-          onClick={() => handleCardClick('missing')}
-          isActive={activeView === 'missing'}
-        />
+        <SummaryCard title="Total FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : totalFtes.toString()} icon={Users} onClick={() => handleCardClick('total')} isActive={activeView === 'total'} />
+        <SummaryCard title="Allocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : allocatedFtes.toString()} icon={Briefcase} onClick={() => handleCardClick('allocated')} isActive={activeView === 'allocated'} />
+        <SummaryCard title="Unallocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : unallocatedFtes.toString()} icon={UserMinus} onClick={() => handleCardClick('unallocated')} isActive={activeView === 'unallocated'} />
+        <SummaryCard title="Missing Allocations" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : missingAllocations.toString()} icon={AlertTriangle} variant={missingAllocations > 0 ? 'destructive' : 'default'} onClick={() => handleCardClick('missing')} isActive={activeView === 'missing'} />
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card>
             <CardHeader>
@@ -543,32 +434,12 @@ export function DashboardContent() {
                 </Tabs>
               </div>
                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-4">
-                  <MultiSelectFilter
-                      placeholder="Filter by Client..."
-                      options={allChartClients}
-                      selected={chartClientFilter}
-                      onValueChange={handleChartClientFilterChange}
-                      disabled={isPageLoading}
-                  />
-                  <MultiSelectFilter
-                      placeholder="Filter by Dept..."
-                      options={allChartDepartments}
-                      selected={chartDepartmentFilter}
-                      onValueChange={handleChartDepartmentFilterChange}
-                      disabled={isPageLoading}
-                  />
-                  <Button variant="outline" onClick={clearChartFilters} disabled={isPageLoading || (chartClientFilter.length === 0 && chartDepartmentFilter.length === 0)}>
-                    Clear Chart Filters
-                  </Button>
+                  <MultiSelectFilter placeholder="Filter by Client..." options={allChartClients} selected={chartClientFilter} onValueChange={handleChartClientFilterChange} disabled={isPageLoading} />
+                  <MultiSelectFilter placeholder="Filter by Dept..." options={allChartDepartments} selected={chartDepartmentFilter} onValueChange={handleChartDepartmentFilterChange} disabled={isPageLoading} />
+                  <Button variant="outline" onClick={clearChartFilters} disabled={isPageLoading || (chartClientFilter.length === 0 && chartDepartmentFilter.length === 0)}>Clear Chart Filters</Button>
               </div>
             </CardHeader>
-            <CardContent>
-              {isPageLoading ? (
-                <Skeleton className="h-[400px] w-full" />
-              ) : (
-                <FteAllocationChart data={chartData} />
-              )}
-            </CardContent>
+            <CardContent>{isPageLoading ? <Skeleton className="h-[400px] w-full" /> : <FteAllocationChart data={chartData} />}</CardContent>
           </Card>
           <Card>
             <CardHeader>
@@ -588,35 +459,13 @@ export function DashboardContent() {
             <CardContent>
               <ScrollArea className="h-[330px]">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Full Name</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Manager</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                  <TableHeader><TableRow><TableHead>Full Name</TableHead><TableHead>Title</TableHead><TableHead>Manager</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {isPageLoading ? (
-                       Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={i}>
-                          <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                          <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                          <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                        </TableRow>
-                      ))
+                       Array.from({ length: 5 }).map((_, i) => (<TableRow key={i}><TableCell><Skeleton className="h-5 w-full" /></TableCell><TableCell><Skeleton className="h-5 w-full" /></TableCell><TableCell><Skeleton className="h-5 w-full" /></TableCell></TableRow>))
                     ) : (detailData || []).length > 0 ? detailData.map((employee, idx) => (
-                      <TableRow key={employee.person_id || idx}>
-                        <TableCell>{employee.full_name}</TableCell>
-                        <TableCell>{employee.title}</TableCell>
-                        <TableCell>{employee.manager}</TableCell>
-                      </TableRow>
-                    )) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                          No data to display.
-                        </TableCell>
-                      </TableRow>
-                    )}
+                      <TableRow key={employee.person_id || idx}><TableCell>{employee.full_name}</TableCell><TableCell>{employee.title}</TableCell><TableCell>{employee.manager}</TableCell></TableRow>
+                    )) : (<TableRow><TableCell colSpan={3} className="h-24 text-center text-muted-foreground">No data to display.</TableCell></TableRow>)}
                   </TableBody>
                 </Table>
               </ScrollArea>
