@@ -73,11 +73,11 @@ const MultiSelectFilter = ({
           disabled={disabled}
         >
           <span className="truncate">
-            {selected.length === 0
+            {(selected || []).length === 0
               ? placeholder
-              : selected.length <= 2
-              ? selected.join(', ')
-              : `${selected.length} selected`}
+              : (selected || []).length <= 2
+              ? (selected || []).join(', ')
+              : `${(selected || []).length} selected`}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -89,14 +89,14 @@ const MultiSelectFilter = ({
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
               <ScrollArea className="h-64">
-                {options.map(option => (
+                {(options || []).map(option => (
                   <CommandItem
                     key={option}
                     onSelect={() => onValueChange(option)}
                   >
                     <Checkbox
                       className="mr-2"
-                      checked={selected.includes(option)}
+                      checked={(selected || []).includes(option)}
                     />
                     <span>{option}</span>
                   </CommandItem>
@@ -127,16 +127,17 @@ export function TeamContent() {
   });
   const { toast } = useToast();
 
-  const displayColumns: (keyof TeamMember)[] = [
-    'person_id',
-    'full_name',
-    'status',
-    'employment_type',
-    'department',
-    'title',
-    'manager',
-    'person_email',
-    'country',
+  const columnConfig: { label: string; key: keyof TeamMember }[] = [
+    { label: 'Employee Name', key: 'full_name' },
+    { label: 'Region', key: 'region' },
+    { label: 'Country', key: 'country' },
+    { label: 'Employee ID', key: 'person_id' },
+    { label: 'Status', key: 'status' },
+    { label: 'Job Title', key: 'title' },
+    { label: 'Manager Name', key: 'manager' },
+    { label: 'Department', key: 'department' },
+    { label: 'Department Detail', key: 'department_detail' },
+    { label: 'FTE Value', key: 'fte' },
   ];
 
   useEffect(() => {
@@ -152,7 +153,7 @@ export function TeamContent() {
           writeLog('TeamContent', 'error', 'Failed to fetch team data', { status: response.status });
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data: TeamMember[] = await response.json();
+        const rawData: any[] = await response.json();
         
         const tempWorker: TeamMember = {
             person_id: 'TEMP_WORKER',
@@ -161,6 +162,7 @@ export function TeamContent() {
             employment_type: 'Temporary',
             status: 'Active',
             department: 'Temporary',
+            department_detail: 'Manual Entry',
             manager_id: 'N/A',
             manager: 'N/A',
             manager_email: 'N/A',
@@ -168,10 +170,11 @@ export function TeamContent() {
             start_date: '',
             end_date: '',
             country: 'N/A',
+            region: 'N/A',
             fte: '1.0'
         };
 
-        const allData = [tempWorker, ...data];
+        const allData = [tempWorker, ...(Array.isArray(rawData) ? rawData : [])];
         setTeamMembers(allData);
 
         // Derive filter options from the data
@@ -179,8 +182,7 @@ export function TeamContent() {
             Array.from(
                 new Set(
                     allData
-                        .map(item => item[key])
-                        // Ensure value is a non-empty string before including it
+                        .map(item => item && item[key])
                         .filter(val => typeof val === 'string' && val) as string[]
                 )
             ).sort((a, b) => a.localeCompare(b));
@@ -210,9 +212,10 @@ export function TeamContent() {
   
   const filteredMembers = useMemo(() => {
     return teamMembers.filter(member => {
+        if (!member) return false;
         const filterBy = (key: keyof typeof filters, memberField: keyof TeamMember) => {
             const values = filters[key];
-            if (values.length === 0) return true;
+            if (!values || values.length === 0) return true;
             const memberValue = member[memberField];
             return memberValue ? values.includes(memberValue as string) : false;
         };
@@ -229,7 +232,7 @@ export function TeamContent() {
 
   const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
     setFilters(prev => {
-        const currentValues = prev[filterName];
+        const currentValues = prev[filterName] || [];
         const newValues = currentValues.includes(value)
           ? currentValues.filter(v => v !== value)
           : [...currentValues, value];
@@ -252,7 +255,7 @@ export function TeamContent() {
       <CardHeader>
         <CardTitle>Team Roster</CardTitle>
         <CardDescription>
-          This page displays the current team roster from the live dataset. Use the filters below to refine the results.
+          Current team roster from the consolidated HR report. Use filters to refine results.
         </CardDescription>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
             <MultiSelectFilter placeholder="Filter by Name..." options={filterOptions.employees} selected={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
@@ -264,12 +267,12 @@ export function TeamContent() {
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="w-full h-[60vh] whitespace-nowrap">
+        <ScrollArea className="w-full h-[60vh] whitespace-nowrap border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
-                {displayColumns.map((column) => (
-                  <TableHead key={column}>{column.replace(/_/g, ' ')}</TableHead>
+                {columnConfig.map((col) => (
+                  <TableHead key={col.key}>{col.label}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
@@ -277,20 +280,20 @@ export function TeamContent() {
               {!hasMounted || loading ? (
                 Array.from({ length: 10 }).map((_, i) => (
                   <TableRow key={i}>
-                    {displayColumns.map(col => <TableCell key={col}><Skeleton className="h-5 w-full" /></TableCell>)}
+                    {columnConfig.map(col => <TableCell key={col.key}><Skeleton className="h-5 w-full" /></TableCell>)}
                   </TableRow>
                 ))
               ) : filteredMembers.length > 0 ? (
                 filteredMembers.map((member, rowIndex) => (
                   <TableRow key={member.person_id || rowIndex}>
-                    {displayColumns.map((column) => (
-                      <TableCell key={column}>{member[column] as string}</TableCell>
+                    {columnConfig.map((col) => (
+                      <TableCell key={col.key}>{member[col.key] as string || '-'}</TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                    <TableCell colSpan={displayColumns.length} className="h-24 text-center">
+                    <TableCell colSpan={columnConfig.length} className="h-24 text-center">
                         No team members match the current filters.
                     </TableCell>
                 </TableRow>

@@ -36,6 +36,7 @@ export type TeamMember = {
   status: string;
   employment_type: string;
   department: string;
+  department_detail?: string;
   title: string;
   manager_id: string;
   manager: string;
@@ -44,6 +45,7 @@ export type TeamMember = {
   start_date: string;
   end_date: string;
   country: string;
+  region?: string;
   fte: string;
 };
 

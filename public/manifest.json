@@ -212,6 +212,14 @@
                 {
                     "alias": "fte",
                     "columnName": "fte"
+                },
+                {
+                    "alias": "region",
+                    "columnName": "region"
+                },
+                {
+                    "alias": "department_detail",
+                    "columnName": "department_detail"
                 }
             ]
         },

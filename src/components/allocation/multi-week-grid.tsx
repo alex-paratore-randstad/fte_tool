@@ -257,14 +257,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   }, []);
 
-  const { weeks, fiscalMonthLabel, prevMonthFiscalData } = useMemo(() => {
-    if (!currentDate || !isValid(currentDate)) return { weeks: [], fiscalMonthLabel: 'Loading...', prevMonthFiscalData: undefined };
+  const { weeks, fiscalMonthLabel } = useMemo(() => {
+    if (!currentDate || !isValid(currentDate)) return { weeks: [], fiscalMonthLabel: 'Loading...' };
     const fiscalData = getFiscalDataForDate(currentDate);
     const monthWeeks: FiscalWeek[] = getWeeksForFiscalMonth(currentDate);
     const label = fiscalData ? `${fiscalData.Reporting_Month} ${fiscalData.Reporting_Year}` : 'Loading...';
-    const prevDate = getPreviousFiscalMonth(currentDate);
-    const prevData = getFiscalDataForDate(prevDate);
-    return { weeks: monthWeeks, fiscalMonthLabel: label, prevMonthFiscalData: prevData };
+    return { weeks: monthWeeks, fiscalMonthLabel: label };
   }, [currentDate]);
 
   const isWeekEditable = useCallback((weekStartDate: Date) => {
@@ -273,10 +271,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const weekFiscal = getFiscalDataForDate(weekStartDate);
     const currentFiscal = getFiscalDataForDate(startOfCurrentWeek);
     if (!weekFiscal || !currentFiscal) return false;
+    
+    // Logic: allow edits if week is in current fiscal month OR immediately preceding fiscal month
     const isCurrentMonth = weekFiscal.Reporting_Month === currentFiscal.Reporting_Month && weekFiscal.Reporting_Year === currentFiscal.Reporting_Year;
     const prevMonthDate = getPreviousFiscalMonth(startOfCurrentWeek);
     const prevFiscal = getFiscalDataForDate(prevMonthDate);
     const isPrevMonth = prevFiscal && weekFiscal.Reporting_Month === prevFiscal.Reporting_Month && weekFiscal.Reporting_Year === prevFiscal.Reporting_Year;
+    
     return isCurrentMonth || isPrevMonth;
   }, [isAdmin, currentDate, startOfCurrentWeek]);
 
@@ -289,12 +290,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
         const prevMonthWeekKeys = prevMonthWeeks.map(w => formatDateKey(w.startDate));
         const allRelevantWeeks = Array.from(new Set([...currentMonthWeekKeys, ...prevMonthWeekKeys]));
+        
         const weeklyDataPromises = allRelevantWeeks.map(weekKey => 
             fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`).then(res => res.ok ? res.json() : [])
         );
         const nestedAllocations = await Promise.all(weeklyDataPromises);
         const allRelevantAllocations: WeeklyAllocation[] = nestedAllocations.flat().filter(a => a && a.content);
         setMonthDataCache(allRelevantAllocations);
+        
         setActiveAllocations(prev => prev.map(empAlloc => {
             if (!empAlloc?.employee) return empAlloc;
             const employeeIdString = `[${empAlloc.employee.person_id}]`;
