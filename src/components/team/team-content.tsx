@@ -176,7 +176,6 @@ export function TeamContent() {
         const allData = [tempWorker, ...(Array.isArray(rawData) ? rawData : [])];
         setTeamMembers(allData);
 
-        // Derive filter options from the data
         const getUniqueSorted = (key: keyof TeamMember) =>
             Array.from(
                 new Set(
@@ -261,7 +260,7 @@ export function TeamContent() {
             <MultiSelectFilter placeholder="Filter by Department..." options={filterOptions.departments} selected={filters.department} onValueChange={value => handleFilterChange('department', value)} disabled={loading} />
             <MultiSelectFilter placeholder="Filter by Title..." options={filterOptions.titles} selected={filters.title} onValueChange={value => handleFilterChange('title', value)} disabled={loading} />
             <MultiSelectFilter placeholder="Filter by Manager..." options={filterOptions.managers} selected={filters.manager} onValueChange={value => handleFilterChange('manager', value)} disabled={loading} />
-            <MultiSelectFilter placeholder="Filter by Country..." options={filterOptions.countries} selected={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Filter by Country..." options={filterOptions.country} selected={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
             <Button variant="outline" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
         </div>
       </CardHeader>

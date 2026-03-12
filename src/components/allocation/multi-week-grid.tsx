@@ -197,10 +197,12 @@ const EmployeeSelect = ({
 const ManagerSelect = ({ 
   managers, 
   onValueChange,
+  value,
   disabled
 }: { 
   managers: {id: string, name: string}[]|null, 
   onValueChange: (value: string) => void,
+  value?: string,
   disabled?: boolean
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -211,7 +213,7 @@ const ManagerSelect = ({
   }, [managers, searchTerm]);
 
   return (
-    <Select onValueChange={onValueChange} disabled={disabled}>
+    <Select onValueChange={onValueChange} value={value} disabled={disabled}>
         <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Load Team..." />
         </SelectTrigger>
@@ -244,6 +246,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const [monthDataCache, setMonthDataCache] = useState<WeeklyAllocation[]>([]);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
+  const [selectedManager, setSelectedManager] = useState<string>('');
   const [hasMounted, setHasMounted] = useState(false);
   
   const { currentUser, isAdmin, loading: userLoading } = useCurrentUser();
@@ -426,6 +429,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId || !currentDate) return;
     setSelectedEmployeeToAdd(employeeId); 
+    setSelectedManager(''); // Clear manager filter when adding specific employee
     const employeeToAdd = allEmployees.find(e => e && e.person_id === employeeId);
     if (employeeToAdd) {
       if (activeAllocations.some(a => a.employee?.person_id === employeeId)) { toast({ variant: 'destructive', title: 'Employee already in grid' }); return; }
@@ -456,15 +460,23 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   const handleAddManagerTeam = (managerName: string) => {
     if (!managerName || !currentDate) return;
+    setSelectedManager(managerName);
+    setSelectedEmployeeToAdd(''); // Clear individual selection
+    
     const team = allEmployees.filter(e => e && e.manager === managerName);
-    const toAdd = team.filter(e => e && !activeAllocations.some(a => a.employee?.person_id === e.person_id));
-    if (toAdd.length === 0) { toast({ title: 'No new employees to add', description: 'All reports for this manager are already in the grid.' }); return; }
+    if (team.length === 0) { 
+        toast({ title: 'No employees found for this manager.' }); 
+        setActiveAllocations([]);
+        return; 
+    }
+    
     const currentKeys = weeks.map(w => formatDateKey(w.startDate));
     const prevDate = getPreviousFiscalMonth(currentDate);
     const prevWeeks = getWeeksForFiscalMonth(prevDate);
     const prevKeys = prevWeeks.map(w => formatDateKey(w.startDate));
     const allKeys = new Set([...currentKeys, ...prevKeys]);
-    const newAllocations = toAdd.map(employee => {
+    
+    const newAllocations = team.map(employee => {
         const empIdStr = `[${employee.person_id}]`;
         const empAllocs = monthDataCache.filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && allKeys.has(a.content.allocation_date) && parseFloat(a.content?.allocation_amount || '0') > 0);
         let rows: AllocationRow[] = [];
@@ -482,11 +494,15 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         }
         return { employee, allocations: rows };
     });
-    setActiveAllocations(prev => [...newAllocations, ...prev]);
-    toast({ title: 'Team Loaded', description: `Loaded ${newAllocations.length} members.` });
+    
+    setActiveAllocations(newAllocations); // Ensure only the filtered manager's team is shown
+    toast({ title: 'Team Loaded', description: `Loaded ${newAllocations.length} members for ${managerName}.` });
   };
 
-  const handleRemoveEmployee = (employeeId: string) => setActiveAllocations(prev => prev.filter(a => a.employee?.person_id !== employeeId));
+  const handleRemoveEmployee = (employeeId: string) => {
+      setActiveAllocations(prev => prev.filter(a => a.employee?.person_id !== employeeId));
+      setSelectedManager(''); 
+  };
   
   const handleFteChange = (employeeId: string, allocId: string, weekKey: string, val: string) => {
     const fte = parseFloat(val) || 0;
@@ -573,7 +589,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <EmployeeSelect employees={availableEmployees} onValueChange={handleAddEmployee} value={selectedEmployeeToAdd} disabled={isLoading} />
-              <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} disabled={isLoading} />
+              <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} value={selectedManager} disabled={isLoading} />
               <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isLoading}><ChevronLeft className="h-4 w-4" /></Button>
               <span className="text-sm font-medium w-32 text-center">{isLoading ? <Skeleton className="h-5 w-24 mx-auto" /> : fiscalMonthLabel}</span>
               <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isLoading}><ChevronRight className="h-4 w-4" /></Button>
@@ -610,7 +626,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 {!hasMounted || isLoading ? (
                   <TableRow><TableCell colSpan={weeks.length + 5}><div className="space-y-4 py-8"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div></TableCell></TableRow>
                 ) : activeAllocations.length === 0 ? (
-                  <TableRow><TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">Select an employee from the dropdown above to begin.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={weeks.length + 5} className="text-center h-24 text-muted-foreground">Select an employee or manager to begin.</TableCell></TableRow>
                 ) : activeAllocations.map(({ employee, allocations }) => {
                   if (!employee) return null;
                   const weeklyTotals = weeks.map(week => {

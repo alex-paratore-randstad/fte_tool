@@ -181,7 +181,7 @@ export function DashboardContent() {
       .forEach(a => {
         if (a?.content?.employee_id) {
           allocatedEmployeeIds.add(a.content.employee_id);
-        } else if (a?.content?.allocation_name) {
+        } else if (a?.content?.allocation_name && typeof a.content.allocation_name === 'string') {
           const match = String(a.content.allocation_name).match(/\[(.*?)\]/);
           if (match && match[1]) allocatedEmployeeIds.add(match[1]);
         }
