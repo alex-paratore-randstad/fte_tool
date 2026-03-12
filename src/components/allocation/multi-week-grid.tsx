@@ -107,7 +107,7 @@ const ClientSelect = ({
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command filter={(val, search) => {
-            if (val.toLowerCase().includes(search.toLowerCase())) return 1;
+            if ((val || '').toLowerCase().includes((search || '').toLowerCase())) return 1;
             return 0;
         }}>
           <CommandInput placeholder="Search name or code..." />
@@ -180,7 +180,7 @@ const EmployeeSelect = ({
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0" align="start">
         <Command filter={(val, search) => {
-            if (val.toLowerCase().includes(search.toLowerCase())) return 1;
+            if ((val || '').toLowerCase().includes((search || '').toLowerCase())) return 1;
             return 0;
         }}>
           <CommandInput placeholder="Search employee..." />
@@ -245,7 +245,10 @@ const ManagerSelect = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0" align="start">
-        <Command>
+        <Command filter={(val, search) => {
+            if ((val || '').toLowerCase().includes((search || '').toLowerCase())) return 1;
+            return 0;
+        }}>
           <CommandInput placeholder="Search manager..." />
           <CommandList>
             <CommandEmpty>No managers found.</CommandEmpty>
@@ -472,7 +475,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId || !currentDate) return;
     setSelectedEmployeeToAdd(employeeId); 
-    setSelectedManager(''); // Clear manager filter when adding specific employee
+    setSelectedManager(''); 
     const employeeToAdd = (allEmployees || []).find(e => e && e.person_id === employeeId);
     if (employeeToAdd) {
       if ((activeAllocations || []).some(a => a?.employee?.person_id === employeeId)) { toast({ variant: 'destructive', title: 'Employee already in grid' }); return; }
@@ -503,29 +506,24 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   const handleAddManagerTeam = (managerName: string) => {
     if (!currentDate) return;
-    
     if (!managerName) {
         setSelectedManager('');
         setActiveAllocations([]);
         return;
     }
-
     setSelectedManager(managerName);
-    setSelectedEmployeeToAdd(''); // Clear individual selection
-    
+    setSelectedEmployeeToAdd(''); 
     const team = (allEmployees || []).filter(e => e && e.manager === managerName);
     if (team.length === 0) { 
         toast({ title: 'No employees found for this manager.' }); 
         setActiveAllocations([]);
         return; 
     }
-    
     const currentKeys = (weeks || []).map(w => formatDateKey(w.startDate));
     const prevDate = getPreviousFiscalMonth(currentDate);
     const prevWeeks = getWeeksForFiscalMonth(prevDate);
     const prevKeys = (prevWeeks || []).map(w => formatDateKey(w.startDate));
     const allKeys = new Set([...currentKeys, ...prevKeys]);
-    
     const newAllocations = team.map(employee => {
         const empIdStr = `[${employee.person_id}]`;
         const empAllocs = (monthDataCache || []).filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && allKeys.has(a.content.allocation_date) && parseFloat(a.content?.allocation_amount || '0') > 0);
@@ -544,7 +542,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         }
         return { employee, allocations: rows };
     });
-    
     setActiveAllocations(newAllocations); 
     toast({ title: 'Team Loaded', description: `Loaded ${newAllocations.length} members for ${managerName}.` });
   };
@@ -722,7 +719,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                         <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.person_id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                       </TableRow>
                       {(allocations || []).map((alloc) => {
-                        const bulkFte = ((weeks?.length || 0) > 0 && alloc.weeklyFtes[formatDateKey(weeks[0].startDate)]) || '';
+                        const weekKey0 = (weeks?.length || 0) > 0 ? formatDateKey(weeks[0].startDate) : '';
+                        const bulkFte = (weekKey0 && alloc.weeklyFtes[weekKey0]) || '';
                         const allLocked = (weeks || []).every(w => !isWeekEditable(w.startDate));
                         return (
                         <TableRow key={alloc.id}>

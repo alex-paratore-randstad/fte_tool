@@ -384,6 +384,10 @@ export function DashboardContent() {
 
   const { title: detailTitle, data: detailData, description: detailDescription } = useMemo(() => {
     if (!hasMounted) return { title: 'FTE List', data: [], description: 'Loading...' };
+    
+    // Resolve Uncaught ReferenceError by explicitly referencing props
+    const currentFilters = employeeFilters;
+    
     let baseData: TeamMember[] = [];
     let baseTitle: string = 'FTE List';
     switch (activeView) {
@@ -394,22 +398,17 @@ export function DashboardContent() {
     }
     const filteredData = (baseData || []).filter(member => {
         if (!member) return false;
-        const filterBy = (key: keyof typeof filters, memberField: keyof TeamMember) => {
-            const values = filters[key];
-            if (!values || values.length === 0) return true;
-            const memberValue = member[memberField];
-            return memberValue ? values.includes(memberValue as string) : false;
-        };
+        
+        // Inline filter logic to prevent closure scope issues in minified builds
+        const fullNameMatch = currentFilters.fullName.length === 0 || currentFilters.fullName.includes(member.full_name || '');
+        const titleMatch = currentFilters.title.length === 0 || currentFilters.title.includes(member.title || '');
+        const managerMatch = currentFilters.manager.length === 0 || currentFilters.manager.includes(member.manager || '');
+        const deptMatch = currentFilters.department.length === 0 || currentFilters.department.includes(member.department || '');
 
-        return (
-            filterBy('fullName', 'full_name') &&
-            filterBy('title', 'title') &&
-            filterBy('manager', 'manager') &&
-            filterBy('department', 'department')
-        );
+        return fullNameMatch && titleMatch && managerMatch && deptMatch;
     });
-    const filters = employeeFilters;
-    const isFiltered = filters.fullName.length > 0 || filters.title.length > 0 || filters.manager.length > 0 || filters.department.length > 0;
+    
+    const isFiltered = currentFilters.fullName.length > 0 || currentFilters.title.length > 0 || currentFilters.manager.length > 0 || currentFilters.department.length > 0;
     let description = `Displaying ${filteredData.length} employee(s).`;
     if (isFiltered && baseData.length !== filteredData.length) description = `Displaying ${filteredData.length} of ${baseData.length} employee(s) matching filters.`;
     return { title: baseTitle, data: filteredData, description };
