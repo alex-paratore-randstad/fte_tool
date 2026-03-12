@@ -34,10 +34,11 @@ import {
 import type { TeamMember } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { writeLog } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 
 type FilterOptions = {
   employees: string[];
@@ -69,20 +70,20 @@ const MultiSelectFilter = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between text-xs"
           disabled={disabled}
         >
           <span className="truncate">
             {(selected || []).length === 0
               ? placeholder
-              : (selected || []).length <= 2
+              : (selected || []).length <= 1
               ? (selected || []).join(', ')
               : `${(selected || []).length} selected`}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search..." />
           <CommandList>
@@ -98,7 +99,7 @@ const MultiSelectFilter = ({
                       className="mr-2"
                       checked={(selected || []).includes(option)}
                     />
-                    <span>{option}</span>
+                    <span className="text-xs">{option}</span>
                   </CommandItem>
                 ))}
               </ScrollArea>
@@ -127,17 +128,17 @@ export function TeamContent() {
   });
   const { toast } = useToast();
 
-  const columnConfig: { label: string; key: keyof TeamMember }[] = [
-    { label: 'Employee Name', key: 'full_name' },
-    { label: 'Region', key: 'region' },
-    { label: 'Country', key: 'country' },
-    { label: 'Employee ID', key: 'person_id' },
-    { label: 'Status', key: 'status' },
-    { label: 'Job Title', key: 'title' },
-    { label: 'Manager Name', key: 'manager' },
-    { label: 'Department', key: 'department' },
-    { label: 'Department Detail', key: 'department_detail' },
-    { label: 'FTE Value', key: 'fte' },
+  const columnConfig: { label: string; key: keyof TeamMember; width: string }[] = [
+    { label: 'Employee Name', key: 'full_name', width: 'w-[140px]' },
+    { label: 'Region', key: 'region', width: 'w-[80px]' },
+    { label: 'Country', key: 'country', width: 'w-[100px]' },
+    { label: 'Employee ID', key: 'person_id', width: 'w-[100px]' },
+    { label: 'Status', key: 'status', width: 'w-[80px]' },
+    { label: 'Job Title', key: 'title', width: 'w-[140px]' },
+    { label: 'Manager Name', key: 'manager', width: 'w-[140px]' },
+    { label: 'Department', key: 'department', width: 'w-[140px]' },
+    { label: 'Department Detail', key: 'department_detail', width: 'w-[140px]' },
+    { label: 'FTE Value', key: 'fte', width: 'w-[70px]' },
   ];
 
   useEffect(() => {
@@ -254,24 +255,24 @@ export function TeamContent() {
       <CardHeader>
         <CardTitle>Team Roster</CardTitle>
         <CardDescription>
-          Current team roster from the consolidated HR report. Use filters to refine results.
+          View and manage the full team roster with compact columns.
         </CardDescription>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
             <MultiSelectFilter placeholder="Filter by Name..." options={filterOptions.employees} selected={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
             <MultiSelectFilter placeholder="Filter by Department..." options={filterOptions.departments} selected={filters.department} onValueChange={value => handleFilterChange('department', value)} disabled={loading} />
             <MultiSelectFilter placeholder="Filter by Title..." options={filterOptions.titles} selected={filters.title} onValueChange={value => handleFilterChange('title', value)} disabled={loading} />
             <MultiSelectFilter placeholder="Filter by Manager..." options={filterOptions.managers} selected={filters.manager} onValueChange={value => handleFilterChange('manager', value)} disabled={loading} />
-            <MultiSelectFilter placeholder="Filter by Country..." options={filterOptions.country} selected={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
-            <Button variant="outline" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
+            <MultiSelectFilter placeholder="Filter by Country..." options={filterOptions.countries} selected={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
+            <Button variant="outline" size="sm" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="w-full border rounded-md h-[65vh]">
-          <Table className="min-w-[1500px]">
+        <div className="border rounded-md">
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow>
                 {columnConfig.map((col) => (
-                  <TableHead key={col.key} className="whitespace-nowrap">{col.label}</TableHead>
+                  <TableHead key={col.key} className={cn("text-[11px] font-bold uppercase tracking-wider", col.width)}>{col.label}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
@@ -279,28 +280,29 @@ export function TeamContent() {
               {!hasMounted || loading ? (
                 Array.from({ length: 10 }).map((_, i) => (
                   <TableRow key={i}>
-                    {columnConfig.map(col => <TableCell key={col.key}><Skeleton className="h-5 w-full" /></TableCell>)}
+                    {columnConfig.map(col => <TableCell key={col.key} className={col.width}><Skeleton className="h-4 w-full" /></TableCell>)}
                   </TableRow>
                 ))
               ) : filteredMembers.length > 0 ? (
                 filteredMembers.map((member, rowIndex) => (
                   <TableRow key={member.person_id || rowIndex}>
                     {columnConfig.map((col) => (
-                      <TableCell key={col.key} className="whitespace-nowrap">{member[col.key] as string || '-'}</TableCell>
+                      <TableCell key={col.key} className={cn("text-[11px] truncate py-2", col.width)} title={member[col.key] as string || '-'}>
+                        {member[col.key] as string || '-'}
+                      </TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                    <TableCell colSpan={columnConfig.length} className="h-24 text-center">
+                    <TableCell colSpan={columnConfig.length} className="h-24 text-center text-muted-foreground">
                         No team members match the current filters.
                     </TableCell>
                 </TableRow>
                )}
             </TableBody>
           </Table>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );

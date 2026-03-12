@@ -69,7 +69,7 @@ const MultiSelectFilter = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search..." />
           <CommandList>
@@ -203,14 +203,15 @@ export function DashboardContent() {
 
   const employeeFilterOptions = useMemo<FilterOptions>(() => {
     const safeEmployees = (allEmployees || []).filter(e => e && e.person_id);
-    const getUniqueSorted = (key: keyof TeamMember) =>
-        Array.from(
+    function getUniqueSorted(key: keyof TeamMember) {
+        return Array.from(
             new Set(
                 safeEmployees
                     .map(item => item && item[key])
                     .filter(val => typeof val === 'string' && val) as string[]
             )
         ).sort((a, b) => a.localeCompare(b));
+    }
 
     return {
       fullNames: getUniqueSorted('full_name'),
@@ -254,7 +255,7 @@ export function DashboardContent() {
         if (e && e.full_name && e.department) employeeNameToDeptMap.set(e.full_name, e.department);
     });
 
-    const isDeptMatch = (id?: string, name?: string) => {
+    function checkDeptMatch(id?: string, name?: string) {
         if (currentChartDepartmentFilter.length === 0) return true;
         let dept = '';
         if (id) dept = employeeIdToDeptMap.get(id) || '';
@@ -267,7 +268,7 @@ export function DashboardContent() {
             }
         }
         return dept && currentChartDepartmentFilter.includes(dept);
-    };
+    }
 
     let initialChartData: ChartData[] = [];
     let title: string = '';
@@ -286,7 +287,7 @@ export function DashboardContent() {
             const bulkDataByMonth = (bulkFtes || []).reduce((acc, fte) => {
                 const { allocation_monthyear, bulk_allocation_id, employee_id, employee_name } = fte?.content || {};
                 if (!allocation_monthyear || !bulk_allocation_id) return acc;
-                if (!isDeptMatch(employee_id, employee_name)) return acc;
+                if (!checkDeptMatch(employee_id, employee_name)) return acc;
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
                 if (!acc[allocation_monthyear]) acc[allocation_monthyear] = {};
                 summariesForFte.forEach(summary => {
@@ -305,7 +306,7 @@ export function DashboardContent() {
             const freshserviceAllocations = (weeklyAllocations || []).filter(a => {
                 if (!a?.content) return false;
                 const matchesClient = a.content.cost_center_name === a.content.cost_center_number;
-                const matchesDept = isDeptMatch(a.content.employee_id, a.content.allocation_name);
+                const matchesDept = checkDeptMatch(a.content.employee_id, a.content.allocation_name);
                 return matchesClient && matchesDept;
             });
             const freshserviceDataByMonth = freshserviceAllocations.reduce((acc, alloc) => {
@@ -332,14 +333,14 @@ export function DashboardContent() {
             const targetsByQuarter = (targets || []).reduce((acc, target) => {
                 const dateStr = target?.content?.targets_allocation_date;
                 if (!dateStr) return acc;
-                if (!isDeptMatch(undefined, target.content.targets_allocation_name)) return acc;
+                if (!checkDeptMatch(undefined, target.content.targets_allocation_name)) return acc;
                 const date = parseISO(dateStr);
                 if (!isValid(date)) return acc;
                 const quarter = `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`;
                 const clientName = target?.content?.targets_cost_center_name || 'Unknown';
                 const amount = parseInt(target?.content?.targets_allocation_amount || '0', 10) || 0;
                 acc[quarter] = acc[quarter] || {};
-                acc[quarter][clientName] = (acc[quarter][quarter] || 0) + amount;
+                acc[quarter][clientName] = (acc[quarter][clientName] || 0) + amount;
                 return acc;
             }, {} as Record<string, Record<string, number>>);
             initialChartData = Object.entries(targetsByQuarter).map(([quarter, totals]) => ({ name: quarter, ...totals }));
@@ -358,7 +359,7 @@ export function DashboardContent() {
               const weekKey = format(weekStart, 'yyyy-MM-dd');
               const allocationsForWeek = (weeklyAllocations || []).filter(a => {
                   if (!a?.content || a.content.allocation_date !== weekKey) return false;
-                  return isDeptMatch(a.content.employee_id, a.content.allocation_name);
+                  return checkDeptMatch(a.content.employee_id, a.content.allocation_name);
               });
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
                 const clientName = curr?.content?.cost_center_name || 'Unknown';
