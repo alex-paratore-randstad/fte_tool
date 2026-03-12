@@ -30,6 +30,7 @@ type FilterOptions = {
   fullNames: string[];
   titles: string[];
   managers: string[];
+  departments: string[];
 };
 
 const MultiSelectFilter = ({
@@ -108,7 +109,12 @@ export function DashboardContent() {
   const [targets, setTargets] = useState<WeeklyTarget[]>([]);
 
   const [activeView, setActiveView] = useState<ActiveView>('total');
-  const [employeeFilters, setEmployeeFilters] = useState({ fullName: [] as string[], title: [] as string[], manager: [] as string[] });
+  const [employeeFilters, setEmployeeFilters] = useState({ 
+    fullName: [] as string[], 
+    title: [] as string[], 
+    manager: [] as string[],
+    department: [] as string[]
+  });
   const [chartClientFilter, setChartClientFilter] = useState<string[]>([]);
   const [chartDepartmentFilter, setChartDepartmentFilter] = useState<string[]>([]);
   const [chartView, setChartView] = useState<'weekly' | 'bulk' | 'freshservice' | 'targets' | 'total'>('weekly');
@@ -209,6 +215,7 @@ export function DashboardContent() {
       fullNames: getUniqueSorted('full_name'),
       titles: getUniqueSorted('title'),
       managers: getUniqueSorted('manager'),
+      departments: getUniqueSorted('department'),
     };
   }, [allEmployees]);
   
@@ -389,9 +396,10 @@ export function DashboardContent() {
         const nameMatch = employeeFilters.fullName.length === 0 || (member.full_name && employeeFilters.fullName.includes(member.full_name));
         const titleMatch = employeeFilters.title.length === 0 || (member.title && employeeFilters.title.includes(member.title));
         const managerMatch = employeeFilters.manager.length === 0 || (member.manager && employeeFilters.manager.includes(member.manager));
-        return nameMatch && titleMatch && managerMatch;
+        const departmentMatch = employeeFilters.department.length === 0 || (member.department && employeeFilters.department.includes(member.department));
+        return nameMatch && titleMatch && managerMatch && departmentMatch;
     });
-    const isFiltered = employeeFilters.fullName.length > 0 || employeeFilters.title.length > 0 || employeeFilters.manager.length > 0;
+    const isFiltered = employeeFilters.fullName.length > 0 || employeeFilters.title.length > 0 || employeeFilters.manager.length > 0 || employeeFilters.department.length > 0;
     let description = `Displaying ${filteredData.length} employee(s).`;
     if (isFiltered && baseData.length !== filteredData.length) description = `Displaying ${filteredData.length} of ${baseData.length} employee(s) matching filters.`;
     return { title: baseTitle, data: filteredData, description };
@@ -401,7 +409,7 @@ export function DashboardContent() {
   const handleEmployeeFilterChange = (filterName: keyof typeof employeeFilters, value: string) => setEmployeeFilters(prev => { const current = prev[filterName] || []; const next = current.includes(value) ? current.filter(v => v !== value) : [...current, value]; return { ...prev, [filterName]: next }; });
   const handleChartClientFilterChange = (value: string) => setChartClientFilter(prev => { const current = prev || []; return current.includes(value) ? current.filter(v => v !== value) : [...current, value]; });
   const handleChartDepartmentFilterChange = (value: string) => setChartDepartmentFilter(prev => { const current = prev || []; return current.includes(value) ? current.filter(v => v !== value) : [...current, value]; });
-  const clearEmployeeFilters = () => setEmployeeFilters({ fullName: [], title: [], manager: [] });
+  const clearEmployeeFilters = () => setEmployeeFilters({ fullName: [], title: [], manager: [], department: [] });
   const clearChartFilters = () => { setChartClientFilter([]); setChartDepartmentFilter([]); };
   const isPageLoading = loading || !today || !hasMounted;
 
@@ -449,10 +457,11 @@ export function DashboardContent() {
                     </div>
                     <Button variant="outline" size="sm" onClick={clearEmployeeFilters} disabled={isPageLoading}>Clear Filters</Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-4">
-                    <MultiSelectFilter placeholder="Filter by Name..." options={employeeFilterOptions.fullNames} selected={employeeFilters.fullName} onValueChange={value => handleEmployeeFilterChange('fullName', value)} disabled={isPageLoading} />
-                    <MultiSelectFilter placeholder="Filter by Title..." options={employeeFilterOptions.titles} selected={employeeFilters.title} onValueChange={value => handleEmployeeFilterChange('title', value)} disabled={isPageLoading} />
-                    <MultiSelectFilter placeholder="Filter by Manager..." options={employeeFilterOptions.managers} selected={employeeFilters.manager} onValueChange={value => handleEmployeeFilterChange('manager', value)} disabled={isPageLoading} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-4">
+                    <MultiSelectFilter placeholder="Name..." options={employeeFilterOptions.fullNames} selected={employeeFilters.fullName} onValueChange={value => handleEmployeeFilterChange('fullName', value)} disabled={isPageLoading} />
+                    <MultiSelectFilter placeholder="Title..." options={employeeFilterOptions.titles} selected={employeeFilters.title} onValueChange={value => handleEmployeeFilterChange('title', value)} disabled={isPageLoading} />
+                    <MultiSelectFilter placeholder="Manager..." options={employeeFilterOptions.managers} selected={employeeFilters.manager} onValueChange={value => handleEmployeeFilterChange('manager', value)} disabled={isPageLoading} />
+                    <MultiSelectFilter placeholder="Department..." options={employeeFilterOptions.departments} selected={employeeFilters.department} onValueChange={value => handleEmployeeFilterChange('department', value)} disabled={isPageLoading} />
                 </div>
             </CardHeader>
             <CardContent>
