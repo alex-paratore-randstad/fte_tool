@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -209,7 +210,7 @@ export function TeamContent() {
   }, [toast]);
   
   const filteredMembers = useMemo(() => {
-    return teamMembers.filter(member => {
+    return (teamMembers || []).filter(member => {
         if (!member) return false;
         const filterBy = (key: keyof typeof filters, memberField: keyof TeamMember) => {
             const values = filters[key];

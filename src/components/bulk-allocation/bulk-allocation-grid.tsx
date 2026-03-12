@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -244,7 +245,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   
   const selectedEmployeeDetails = useMemo(() => {
     return Array.from(selectedEmployees)
-      .map(id => allEmployees.find(e => e.person_id === id))
+      .map(id => (allEmployees || []).find(e => e && e.person_id === id))
       .filter((e): e is TeamMember => !!e)
       .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
   }, [selectedEmployees, allEmployees]);
@@ -292,7 +293,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     const getUniqueSorted = (key: keyof TeamMember) =>
         Array.from(
             new Set(
-                allEmployees
+                (allEmployees || [])
                     .map(item => item && item[key])
                     .filter(val => typeof val === 'string' && val) as string[]
             )
@@ -306,7 +307,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   }, [allEmployees]);
 
   const filteredEmployees = useMemo(() => {
-    return allEmployees.filter(emp => {
+    return (allEmployees || []).filter(emp => {
       if (!emp) return false;
       const nameMatch = employeeFilters.fullName.length === 0 || employeeFilters.fullName.includes(emp.full_name || '');
       const managerMatch = employeeFilters.manager.length === 0 || employeeFilters.manager.includes(emp.manager || '');
@@ -316,7 +317,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   }, [allEmployees, employeeFilters]);
   
   const totalAllocatedFte = useMemo(() => {
-    return allocationRows.reduce((sum, row) => sum + (Number(row.fte) || 0), 0);
+    return (allocationRows || []).reduce((sum, row) => sum + (Number(row.fte) || 0), 0);
   }, [allocationRows]);
 
   const handleEmployeeToggle = (employeeId: string, isSelected: boolean) => {
@@ -478,21 +479,21 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-4">
             <MultiSelectFilter
-              placeholder="Filter by Name..."
+              placeholder="Name..."
               options={filterOptions.fullNames}
               selected={employeeFilters.fullName}
               onValueChange={value => handleFilterChange('fullName', value)}
               disabled={isPageLoading}
             />
             <MultiSelectFilter
-              placeholder="Filter by Manager..."
+              placeholder="Manager..."
               options={filterOptions.managers}
               selected={employeeFilters.manager}
               onValueChange={value => handleFilterChange('manager', value)}
               disabled={isPageLoading}
             />
             <MultiSelectFilter
-              placeholder="Filter by Dept..."
+              placeholder="Department..."
               options={filterOptions.departments}
               selected={employeeFilters.department}
               onValueChange={value => handleFilterChange('department', value)}

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -245,7 +246,7 @@ export function DashboardContent() {
     
     const employeeIdToDeptMap = new Map<string, string>();
     const employeeNameToDeptMap = new Map<string, string>();
-    allEmployees.forEach(e => {
+    (allEmployees || []).forEach(e => {
         if (e && e.person_id && e.department) employeeIdToDeptMap.set(e.person_id, e.department);
         if (e && e.full_name && e.department) employeeNameToDeptMap.set(e.full_name, e.department);
     });
@@ -393,13 +394,22 @@ export function DashboardContent() {
     }
     const filteredData = (baseData || []).filter(member => {
         if (!member) return false;
-        const nameMatch = employeeFilters.fullName.length === 0 || (member.full_name && employeeFilters.fullName.includes(member.full_name));
-        const titleMatch = employeeFilters.title.length === 0 || (member.title && employeeFilters.title.includes(member.title));
-        const managerMatch = employeeFilters.manager.length === 0 || (member.manager && employeeFilters.manager.includes(member.manager));
-        const departmentMatch = employeeFilters.department.length === 0 || (member.department && employeeFilters.department.includes(member.department));
-        return nameMatch && titleMatch && managerMatch && departmentMatch;
+        const filterBy = (key: keyof typeof filters, memberField: keyof TeamMember) => {
+            const values = filters[key];
+            if (!values || values.length === 0) return true;
+            const memberValue = member[memberField];
+            return memberValue ? values.includes(memberValue as string) : false;
+        };
+
+        return (
+            filterBy('fullName', 'full_name') &&
+            filterBy('title', 'title') &&
+            filterBy('manager', 'manager') &&
+            filterBy('department', 'department')
+        );
     });
-    const isFiltered = employeeFilters.fullName.length > 0 || employeeFilters.title.length > 0 || employeeFilters.manager.length > 0 || employeeFilters.department.length > 0;
+    const filters = employeeFilters;
+    const isFiltered = filters.fullName.length > 0 || filters.title.length > 0 || filters.manager.length > 0 || filters.department.length > 0;
     let description = `Displaying ${filteredData.length} employee(s).`;
     if (isFiltered && baseData.length !== filteredData.length) description = `Displaying ${filteredData.length} of ${baseData.length} employee(s) matching filters.`;
     return { title: baseTitle, data: filteredData, description };
@@ -442,7 +452,7 @@ export function DashboardContent() {
               </div>
                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-4">
                   <MultiSelectFilter placeholder="Filter by Client..." options={allChartClients} selected={chartClientFilter} onValueChange={handleChartClientFilterChange} disabled={isPageLoading} />
-                  <MultiSelectFilter placeholder="Filter by Dept..." options={allChartDepartments} selected={chartDepartmentFilter} onValueChange={handleChartDepartmentFilterChange} disabled={isPageLoading} />
+                  <MultiSelectFilter placeholder="Filter by Department..." options={allChartDepartments} selected={chartDepartmentFilter} onValueChange={handleChartDepartmentFilterChange} disabled={isPageLoading} />
                   <Button variant="outline" onClick={clearChartFilters} disabled={isPageLoading || (chartClientFilter.length === 0 && chartDepartmentFilter.length === 0)}>Clear Chart Filters</Button>
               </div>
             </CardHeader>

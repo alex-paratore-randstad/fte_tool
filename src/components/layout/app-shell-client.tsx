@@ -1,3 +1,4 @@
+
 'use client';
 
 import { UserNav } from './user-nav';
@@ -67,7 +68,8 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
 
   const normalize = (p: any) => {
       if (!p || typeof p !== 'string') return '';
-      let clean = p.replace(/\/index\.html$/, '');
+      let clean = p.split('?')[0].split('#')[0];
+      clean = clean.replace(/\/index\.html$/, '');
       clean = clean.replace(/\/+$/, '');
       return clean || '/';
   };

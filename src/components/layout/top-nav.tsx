@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -56,7 +57,8 @@ export function TopNav() {
 
   const normalize = (p: any) => {
       if (!p || typeof p !== 'string') return '';
-      let clean = p.replace(/\/index\.html$/, '');
+      let clean = p.split('?')[0].split('#')[0];
+      clean = clean.replace(/\/index\.html$/, '');
       clean = clean.replace(/\/+$/, '');
       return clean || '/';
   };
