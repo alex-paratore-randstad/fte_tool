@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronsUpDown } from 'lucide-react';
+import { ChevronsUpDown, Check } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -11,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '../ui/skeleton';
+import { cn } from '@/lib/utils';
 
 export type AiReportData = {
     Code: string;
@@ -50,7 +50,7 @@ const MultiSelectFilter = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between font-normal"
           disabled={disabled}
         >
           <span className="truncate">
@@ -63,26 +63,25 @@ const MultiSelectFilter = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
-          <CommandInput placeholder="Search..." />
-          <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
+          <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} />
+          <CommandList className="max-h-64 overflow-y-auto">
+            <CommandEmpty>No matches found.</CommandEmpty>
             <CommandGroup>
-              <ScrollArea className="h-64">
                 {(options || []).map(option => (
                   <CommandItem
                     key={option}
+                    value={option}
                     onSelect={() => onValueChange(option)}
                   >
                     <Checkbox
                       className="mr-2"
                       checked={(selected || []).includes(option)}
                     />
-                    <span>{option}</span>
+                    <span className="truncate">{option}</span>
                   </CommandItem>
                 ))}
-              </ScrollArea>
             </CommandGroup>
           </CommandList>
         </Command>
@@ -170,13 +169,13 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
       <CardHeader>
         <CardTitle>Client Management</CardTitle>
         <CardDescription>
-            View and manage regional client data from the `ai_report` dataset.
+            View and manage regional client data. All filters are searchable searchable dropdowns for precise selection.
         </CardDescription>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 pt-4">
-            <MultiSelectFilter placeholder="Region Name..." options={filterOptions.regions} selected={filters.region} onValueChange={value => handleFilterChange('region', value)} disabled={loading} />
-            <MultiSelectFilter placeholder="Country Name..." options={filterOptions.countries} selected={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Region..." options={filterOptions.regions} selected={filters.region} onValueChange={value => handleFilterChange('region', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Country..." options={filterOptions.countries} selected={filters.country} onValueChange={value => handleFilterChange('country', value)} disabled={loading} />
             <MultiSelectFilter placeholder="Client..." options={filterOptions.displayNames} selected={filters.displayName} onValueChange={value => handleFilterChange('displayName', value)} disabled={loading} />
-            <MultiSelectFilter placeholder="Cost Center Code..." options={filterOptions.codes} selected={filters.code} onValueChange={value => handleFilterChange('code', value)} disabled={loading} />
+            <MultiSelectFilter placeholder="Code..." options={filterOptions.codes} selected={filters.code} onValueChange={value => handleFilterChange('code', value)} disabled={loading} />
             <Button variant="outline" onClick={clearFilters} disabled={loading}>Clear Filters</Button>
         </div>
       </CardHeader>
@@ -204,10 +203,10 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
                 ) : (filteredData || []).length > 0 ? (
                     filteredData.map((row, rowIndex) => (
                     <TableRow key={row.Code || rowIndex}>
-                        <TableCell>{row.Region}</TableCell>
-                        <TableCell>{row.Country}</TableCell>
-                        <TableCell className="font-medium">{row.DisplayName}</TableCell>
-                        <TableCell>{row.Code}</TableCell>
+                        <TableCell>{row.Region || '-'}</TableCell>
+                        <TableCell>{row.Country || '-'}</TableCell>
+                        <TableCell className="font-medium">{row.DisplayName || '-'}</TableCell>
+                        <TableCell>{row.Code || '-'}</TableCell>
                     </TableRow>
                     ))
                 ) : (

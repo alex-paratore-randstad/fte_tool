@@ -1,8 +1,8 @@
-
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { cn } from '@/lib/utils';
 import {
@@ -12,9 +12,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from '../ui/button';
-import { ChevronDown } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/types/navigation';
 import { Skeleton } from '../ui/skeleton';
+import { useCallback } from 'react';
 
 const navGroups: NavGroup[] = [
   {
@@ -48,6 +48,14 @@ export function TopNav() {
   const pathname = usePathname();
   const { currentUser, loading } = useCurrentUser();
 
+  const normalize = useCallback((p: any) => {
+      if (!p || typeof p !== 'string') return '/';
+      let clean = p.split('?')[0].split('#')[0];
+      clean = clean.replace(/\/index\.html$/, '');
+      clean = clean.replace(/\/+$/, '');
+      return clean || '/';
+  }, []);
+
   const getHref = (href: string) => {
     if (!href) return '/index.html';
     const cleanHref = typeof href === 'string' ? href : '/index.html';
@@ -55,21 +63,13 @@ export function TopNav() {
     return `${cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`}index.html`;
   };
 
-  const normalize = (p: any) => {
-      if (!p || typeof p !== 'string') return '';
-      let clean = p.split('?')[0].split('#')[0];
-      clean = clean.replace(/\/index\.html$/, '');
-      clean = clean.replace(/\/+$/, '');
-      return clean || '/';
-  };
-
-  const isActive = (href: string) => {
+  const isActive = useCallback((href: string) => {
     if (!pathname) return false;
     const currentPath = normalize(pathname);
     const targetPath = normalize(href);
     if (targetPath === '/') return currentPath === '/' || currentPath === '';
     return currentPath === targetPath;
-  };
+  }, [pathname, normalize]);
   
   const userHasAccess = (roles?: string[]) => {
     if (loading || !currentUser || !currentUser.role) return false;

@@ -1,13 +1,14 @@
-
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Menu } from 'lucide-react';
 import { UserNav } from './user-nav';
 import { TopNav } from './top-nav';
 import { Logo } from '../logo';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '../ui/button';
-import { Menu } from 'lucide-react';
-import Link from 'next/link';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import {
   Accordion,
@@ -15,11 +16,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { NavGroup } from '@/types/navigation';
 import { Skeleton } from '../ui/skeleton';
-import { useState, useEffect, useCallback } from 'react';
 
 const navGroups: NavGroup[] = [
   {
@@ -66,13 +65,13 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     setHasMounted(true);
   }, []);
 
-  const normalize = (p: any) => {
-      if (!p || typeof p !== 'string') return '';
+  const normalize = useCallback((p: any) => {
+      if (!p || typeof p !== 'string') return '/';
       let clean = p.split('?')[0].split('#')[0];
       clean = clean.replace(/\/index\.html$/, '');
       clean = clean.replace(/\/+$/, '');
       return clean || '/';
-  };
+  }, []);
 
   const isActive = useCallback((href: string) => {
     if (!pathname) return false;
@@ -80,7 +79,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     const targetPath = normalize(href);
     if (targetPath === '/') return currentPath === '/' || currentPath === '';
     return currentPath === targetPath;
-  }, [pathname]);
+  }, [pathname, normalize]);
 
   const isGroupActive = useCallback((items: { href: string }[]) => {
     if (!items || !Array.isArray(items)) return false;

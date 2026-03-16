@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
@@ -106,10 +105,7 @@ const ClientSelect = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command filter={(val, search) => {
-            if ((val || '').toLowerCase().includes((search || '').toLowerCase())) return 1;
-            return 0;
-        }}>
+        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
           <CommandInput placeholder="Search name or code..." />
           <CommandList>
             <CommandEmpty>No clients found.</CommandEmpty>
@@ -179,10 +175,7 @@ const EmployeeSelect = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0" align="start">
-        <Command filter={(val, search) => {
-            if ((val || '').toLowerCase().includes((search || '').toLowerCase())) return 1;
-            return 0;
-        }}>
+        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
           <CommandInput placeholder="Search employee..." />
           <CommandList>
             <CommandEmpty>No employees found.</CommandEmpty>
@@ -245,10 +238,7 @@ const ManagerSelect = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0" align="start">
-        <Command filter={(val, search) => {
-            if ((val || '').toLowerCase().includes((search || '').toLowerCase())) return 1;
-            return 0;
-        }}>
+        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
           <CommandInput placeholder="Search manager..." />
           <CommandList>
             <CommandEmpty>No managers found.</CommandEmpty>
@@ -327,9 +317,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const isPrevMonth = prevFiscal && weekFiscal.Reporting_Month === prevFiscal.Reporting_Month && weekFiscal.Reporting_Year === prevFiscal.Reporting_Year;
     
     return isCurrentMonth || isPrevMonth;
-  }, [isAdmin, startOfCurrentWeek]);
+  }, [isAdmin, startOfCurrentWeek, currentDate]);
 
-  // CORE PRELOADING LOGIC: Fetch data for viewing month (M) and previous month (M-1)
   const fetchMonthData = useCallback(async () => {
     if (!currentDate || !isValid(currentDate) || (weeks?.length || 0) === 0) return;
     setInternalLoading(true);
@@ -338,8 +327,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         const prevMonthDate = getPreviousFiscalMonth(currentDate);
         const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
         const prevMonthWeekKeys = (prevMonthWeeks || []).map(w => formatDateKey(w.startDate));
-        
-        // We only care about data in the current month or previous month for preloading (Rollover)
         const allRelevantWeeks = Array.from(new Set([...currentMonthWeekKeys, ...prevMonthWeekKeys]));
         
         const weeklyDataPromises = allRelevantWeeks.map(weekKey => 
@@ -349,12 +336,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         const allRelevantAllocations: WeeklyAllocation[] = nestedAllocations.flat().filter(a => a && a.content);
         setMonthDataCache(allRelevantAllocations);
         
-        // Update employees already in grid: re-calculate their rows based on the rollover data
         setActiveAllocations(prev => (prev || []).map(empAlloc => {
             if (!empAlloc?.employee) return empAlloc;
             const employeeIdString = `[${empAlloc.employee.person_id}]`;
             
-            // Find all allocations for this employee in M and M-1
             const empAllAllocs = allRelevantAllocations.filter(alloc => 
                 alloc?.content?.allocation_name && 
                 String(alloc.content.allocation_name).startsWith(employeeIdString) &&
@@ -364,7 +349,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             const clientNames = new Set<string>();
             empAllAllocs.forEach(a => { if (a?.content?.cost_center_name) clientNames.add(String(a.content.cost_center_name).trim()); });
             
-            // If no clients were active in M or M-1, clear the list and show one empty row
             if (clientNames.size === 0) {
                 return { ...empAlloc, allocations: [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }] };
             }
@@ -374,7 +358,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 const masterClient = (clients || []).find(c => c && String(c.DisplayName || '').trim() === clientName);
                 const weeklyFtes: { [weekKey: string]: number } = {};
                 
-                // Populate weekly FTEs for the current month only
                 clientSpecificAllocs.filter(a => a?.content && currentMonthWeekKeys.includes(a.content.allocation_date)).forEach(a => {
                     if (a?.content) weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0');
                 });
@@ -499,7 +482,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       const prevWeeks = getWeeksForFiscalMonth(prevDate);
       const prevKeys = (prevWeeks || []).map(w => formatDateKey(w.startDate));
       
-      // Use rollover logic for individual addition
       const allKeys = new Set([...currentKeys, ...prevKeys]);
       const empAllocs = (monthDataCache || []).filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && allKeys.has(a.content.allocation_date) && parseFloat(a.content?.allocation_amount || '0') > 0);
       let initialRows: AllocationRow[] = [];
@@ -541,7 +523,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const prevKeys = (prevWeeks || []).map(w => formatDateKey(w.startDate));
     const allKeys = new Set([...currentKeys, ...prevKeys]);
     
-    // Replace grid with filtered team using rollover logic
     const newAllocations = team.map(employee => {
         const empIdStr = `[${employee.person_id}]`;
         const empAllocs = (monthDataCache || []).filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && allKeys.has(a.content.allocation_date) && parseFloat(a.content?.allocation_amount || '0') > 0);
@@ -652,7 +633,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle>Monthly Allocation Grid</CardTitle>
-              <CardDescription>Rows are preloaded if data exists in the current month or previous month (Rollover).</CardDescription>
+              <CardDescription>Rows pre-populate if an allocation exists in the viewed month (M) or previous month (M-1).</CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <EmployeeSelect employees={availableEmployees} onValueChange={handleAddEmployee} value={selectedEmployeeToAdd} disabled={isLoading || isSaving} />

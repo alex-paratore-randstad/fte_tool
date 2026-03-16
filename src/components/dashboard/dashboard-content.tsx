@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -56,7 +55,7 @@ const MultiSelectFilter = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between font-normal"
           disabled={disabled}
         >
           <span className="truncate">
@@ -70,7 +69,7 @@ const MultiSelectFilter = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
           <CommandInput placeholder="Search..." />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
@@ -79,6 +78,7 @@ const MultiSelectFilter = ({
                 {(options || []).map(option => (
                   <CommandItem
                     key={option}
+                    value={option}
                     onSelect={() => onValueChange(option)}
                   >
                     <Checkbox
@@ -241,40 +241,47 @@ export function DashboardContent() {
   }, [loading, hasMounted, allEmployees]);
 
   const chartState = useMemo(() => {
+    // 1. Initialize everything first to avoid ReferenceError (TDZ)
+    const currentChartClientFilter = chartClientFilter || [];
+    const currentChartDepartmentFilter = chartDepartmentFilter || [];
+    let initialChartData: ChartData[] = [];
+    let title: string = 'FTE Allocation';
+    let description: string = 'FTE distribution over time.';
+    const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
     if (!today || !hasMounted || loading) {
         return { chartData: [], chartTitle: 'Loading Chart...', chartDescription: '...'};
     }
-    
-    const currentChartClientFilter = chartClientFilter || [];
-    const currentChartDepartmentFilter = chartDepartmentFilter || [];
 
-    const employeeIdToDeptMap = new Map<string, string>();
-    const employeeNameToDeptMap = new Map<string, string>();
-    (allEmployees || []).forEach(e => {
-        if (e && e.person_id && e.department) employeeIdToDeptMap.set(e.person_id, e.department);
-        if (e && e.full_name && e.department) employeeNameToDeptMap.set(e.full_name, e.department);
-    });
-
-    function checkDeptMatch(id?: string, name?: string) {
-        if (currentChartDepartmentFilter.length === 0) return true;
+    // 2. Define helpers within the scope after initialization
+    const getEmployeeDept = (id?: string, name?: string) => {
+        if (!allEmployees || allEmployees.length === 0) return '';
         let dept = '';
-        if (id) dept = employeeIdToDeptMap.get(id) || '';
-        if (!dept && name && typeof name === 'string') {
-            const match = name.match(/\[(.*?)\]/);
-            if (match && match[1]) {
-                dept = employeeIdToDeptMap.get(match[1]) || '';
+        if (id) {
+            const emp = allEmployees.find(e => e.person_id === id);
+            dept = emp?.department || '';
+        }
+        if (!dept && name) {
+            const match = String(name).match(/\[(.*?)\]/);
+            const targetId = match ? match[1] : null;
+            if (targetId) {
+                const emp = allEmployees.find(e => e.person_id === targetId);
+                dept = emp?.department || '';
             } else {
-                dept = employeeNameToDeptMap.get(name) || '';
+                const emp = allEmployees.find(e => e.full_name === name);
+                dept = emp?.department || '';
             }
         }
+        return dept;
+    };
+
+    const checkDeptMatch = (id?: string, name?: string) => {
+        if (currentChartDepartmentFilter.length === 0) return true;
+        const dept = getEmployeeDept(id, name);
         return dept && currentChartDepartmentFilter.includes(dept);
-    }
+    };
 
-    let initialChartData: ChartData[] = [];
-    let title: string = '';
-    let description: string = '';
-    const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
+    // 3. Main switch logic
     switch(chartView) {
         case 'bulk': {
             const bulkSummariesByProfileId = (bulkSummaries || []).reduce((acc, summary) => {

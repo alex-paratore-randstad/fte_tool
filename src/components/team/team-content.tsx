@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -84,7 +83,7 @@ const MultiSelectFilter = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
           <CommandInput placeholder="Search..." />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
@@ -93,6 +92,7 @@ const MultiSelectFilter = ({
                 {(options || []).map(option => (
                   <CommandItem
                     key={option}
+                    value={option}
                     onSelect={() => onValueChange(option)}
                   >
                     <Checkbox
@@ -255,7 +255,7 @@ export function TeamContent() {
       <CardHeader>
         <CardTitle>Team Roster</CardTitle>
         <CardDescription>
-          View and manage the full team roster with compact columns.
+          View and manage the full team roster with compact fixed-width columns.
         </CardDescription>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
             <MultiSelectFilter placeholder="Filter by Name..." options={filterOptions.employees} selected={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
@@ -267,7 +267,7 @@ export function TeamContent() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="border rounded-md">
+        <div className="border rounded-md overflow-hidden">
           <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow>
@@ -295,7 +295,7 @@ export function TeamContent() {
                 ))
               ) : (
                 <TableRow>
-                    <TableCell colSpan={columnConfig.length} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={columnConfig.length} className="h-24 text-center text-muted-foreground text-xs">
                         No team members match the current filters.
                     </TableCell>
                 </TableRow>
