@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -255,7 +256,7 @@ export function TeamContent() {
       <CardHeader>
         <CardTitle>Team Roster</CardTitle>
         <CardDescription>
-          Current roster with all requested fields. Columns are fixed-width for single-page viewing.
+          Current roster with all requested fields. Optimized for single-page viewing.
         </CardDescription>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
             <MultiSelectFilter placeholder="Filter by Name..." options={filterOptions.employees} selected={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
@@ -267,8 +268,8 @@ export function TeamContent() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="border rounded-md overflow-x-auto">
-          <Table className="w-full table-fixed min-w-[1200px]">
+        <div className="border rounded-md">
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow>
                 {columnConfig.map((col) => (

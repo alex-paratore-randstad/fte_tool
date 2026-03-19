@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -241,34 +242,31 @@ export function DashboardContent() {
   }, [loading, hasMounted, allEmployees]);
 
   const chartState = useMemo(() => {
-    // 1. Initialize everything first to avoid ReferenceError (TDZ)
-    const currentChartClientFilter = chartClientFilter || [];
-    const currentChartDepartmentFilter = chartDepartmentFilter || [];
-    let initialChartData: ChartData[] = [];
-    let title: string = 'FTE Allocation';
-    let description: string = 'FTE distribution over time.';
-    const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
     if (!today || !hasMounted || loading) {
         return { chartData: [], chartTitle: 'Loading Chart...', chartDescription: '...'};
     }
 
-    // 2. Define helpers within the scope after initialization
+    const currentChartClientFilter = chartClientFilter || [];
+    const currentChartDepartmentFilter = chartDepartmentFilter || [];
+    const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    // MOVE HELPERS TO BE FULLY ACCESSIBLE WITHIN SCOPE
+    const localAllEmployees = allEmployees || [];
     const getEmployeeDept = (id?: string, name?: string) => {
-        if (!allEmployees || allEmployees.length === 0) return '';
+        if (!localAllEmployees || localAllEmployees.length === 0) return '';
         let dept = '';
         if (id) {
-            const emp = allEmployees.find(e => e.person_id === id);
+            const emp = localAllEmployees.find(e => e.person_id === id);
             dept = emp?.department || '';
         }
         if (!dept && name) {
             const match = String(name).match(/\[(.*?)\]/);
             const targetId = match ? match[1] : null;
             if (targetId) {
-                const emp = allEmployees.find(e => e.person_id === targetId);
+                const emp = localAllEmployees.find(e => e.person_id === targetId);
                 dept = emp?.department || '';
             } else {
-                const emp = allEmployees.find(e => e.full_name === name);
+                const emp = localAllEmployees.find(e => e.full_name === name);
                 dept = emp?.department || '';
             }
         }
@@ -281,7 +279,10 @@ export function DashboardContent() {
         return dept && currentChartDepartmentFilter.includes(dept);
     };
 
-    // 3. Main switch logic
+    let initialChartData: ChartData[] = [];
+    let title: string = 'FTE Allocation';
+    let description: string = 'FTE distribution over time.';
+
     switch(chartView) {
         case 'bulk': {
             const bulkSummariesByProfileId = (bulkSummaries || []).reduce((acc, summary) => {

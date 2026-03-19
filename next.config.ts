@@ -23,6 +23,13 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Force alphanumeric chunk names to avoid issues with special characters in build artifacts
+      config.output.chunkFilename = 'static/chunks/[name].[contenthash].js';
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

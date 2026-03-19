@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -169,7 +170,7 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
       <CardHeader>
         <CardTitle>Client Management</CardTitle>
         <CardDescription>
-            View and manage regional client data. All filters are searchable searchable dropdowns for precise selection.
+            View and manage regional client data. All filters are high-performance searchable dropdowns for precise selection.
         </CardDescription>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 pt-4">
             <MultiSelectFilter placeholder="Region..." options={filterOptions.regions} selected={filters.region} onValueChange={value => handleFilterChange('region', value)} disabled={loading} />

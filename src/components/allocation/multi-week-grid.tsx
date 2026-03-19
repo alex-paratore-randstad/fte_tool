@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
@@ -340,6 +341,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             if (!empAlloc?.employee) return empAlloc;
             const employeeIdString = `[${empAlloc.employee.person_id}]`;
             
+            // ROLLOVER LOGIC: Only preload if work existed in viewing month or previous month
             const empAllAllocs = allRelevantAllocations.filter(alloc => 
                 alloc?.content?.allocation_name && 
                 String(alloc.content.allocation_name).startsWith(employeeIdString) &&
