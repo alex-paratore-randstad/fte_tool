@@ -255,7 +255,7 @@ export function TeamContent() {
       <CardHeader>
         <CardTitle>Team Roster</CardTitle>
         <CardDescription>
-          View and manage the full team roster with compact fixed-width columns.
+          Current roster with all requested fields. Columns are fixed-width for single-page viewing.
         </CardDescription>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
             <MultiSelectFilter placeholder="Filter by Name..." options={filterOptions.employees} selected={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />
@@ -267,8 +267,8 @@ export function TeamContent() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="border rounded-md overflow-hidden">
-          <Table className="w-full table-fixed">
+        <div className="border rounded-md overflow-x-auto">
+          <Table className="w-full table-fixed min-w-[1200px]">
             <TableHeader>
               <TableRow>
                 {columnConfig.map((col) => (

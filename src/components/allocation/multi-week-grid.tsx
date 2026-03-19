@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { startOfWeek, endOfWeek, format, isBefore, isSameDay, isValid } from 'date-fns';
+import { startOfWeek, format, isSameDay, isValid } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -720,7 +720,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                               </TableCell>
                             )
                         })}
-                        <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.person_id)} disabled={isSaving}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                        <TableCell className='text-right'></TableCell>
                       </TableRow>
                       {(allocations || []).map((alloc) => {
                         const weekKey0 = (weeks?.length || 0) > 0 ? formatDateKey(weeks[0].startDate) : '';

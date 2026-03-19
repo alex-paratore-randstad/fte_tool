@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
@@ -14,7 +15,6 @@ import {
 import { Button } from '../ui/button';
 import type { NavGroup, NavItem } from '@/types/navigation';
 import { Skeleton } from '../ui/skeleton';
-import { useCallback } from 'react';
 
 const navGroups: NavGroup[] = [
   {
@@ -51,8 +51,8 @@ export function TopNav() {
   const normalize = useCallback((p: any) => {
       if (!p || typeof p !== 'string') return '/';
       let clean = p.split('?')[0].split('#')[0];
-      clean = clean.replace(/\/index\.html$/, '');
       clean = clean.replace(/\/+$/, '');
+      clean = clean.replace(/\/index\.html$/, '');
       return clean || '/';
   }, []);
 
