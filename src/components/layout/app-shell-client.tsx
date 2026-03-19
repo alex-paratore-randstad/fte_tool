@@ -75,8 +75,8 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isActive = useCallback((href: string) => {
-    if (!pathname) return false;
-    const currentPath = normalize(pathname);
+    const currentPathname = pathname || '/';
+    const currentPath = normalize(currentPathname);
     const targetPath = normalize(href);
     if (targetPath === '/') return currentPath === '/' || currentPath === '';
     return currentPath === targetPath;

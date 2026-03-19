@@ -150,7 +150,7 @@ export function DashboardContent() {
         const rawBSums = bulkSummaryResponse.ok ? await bulkSummaryResponse.json() : [];
         const rawTargs = targetsResponse.ok ? await targetsResponse.json() : [];
 
-        setAllEmployees(Array.isArray(rawEmps) ? rawEmps.filter(e => e && e.person_id) : []);
+        setAllEmployees(Array.isArray(rawEmps) ? rawEmps.filter(e => e && (e.person_id || e.Person_Number)) : []);
         setWeeklyAllocations(Array.isArray(rawWeekly) ? rawWeekly.filter(a => a?.content) : []);
         setBulkFtes(Array.isArray(rawBFtes) ? rawBFtes.filter(f => f?.content) : []);
         setBulkSummaries(Array.isArray(rawBSums) ? rawBSums.filter(s => s?.content) : []);
@@ -170,7 +170,7 @@ export function DashboardContent() {
       return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, missingAllocations: 0, allocatedEmployees: [], unallocatedEmployees: [] };
     }
 
-    const safeEmployees = (allEmployees || []).filter(e => e && e.person_id);
+    const safeEmployees = (allEmployees || []).filter(e => e && (e.person_id || e.Person_Number));
     const total = safeEmployees.length;
     
     const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 });
@@ -189,8 +189,8 @@ export function DashboardContent() {
         }
       });
 
-    const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.person_id));
-    const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.person_id));
+    const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.person_id || e.Person_Number));
+    const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.person_id || e.Person_Number));
     
     return {
       totalFtes: total,
@@ -203,22 +203,22 @@ export function DashboardContent() {
   }, [today, hasMounted, loading, allEmployees, weeklyAllocations]);
 
   const employeeFilterOptions = useMemo<FilterOptions>(() => {
-    const safeEmployees = (allEmployees || []).filter(e => e && e.person_id);
-    function getUniqueSorted(key: keyof TeamMember) {
+    const safeEmployees = (allEmployees || []).filter(e => e && (e.person_id || e.Person_Number));
+    function getUniqueSorted(field1: keyof TeamMember, field2?: keyof TeamMember) {
         return Array.from(
             new Set(
                 safeEmployees
-                    .map(item => item && item[key])
+                    .map(item => item && (item[field1] || (field2 ? item[field2] : '')))
                     .filter(val => typeof val === 'string' && val) as string[]
             )
         ).sort((a, b) => a.localeCompare(b));
     }
 
     return {
-      fullNames: getUniqueSorted('full_name'),
-      titles: getUniqueSorted('title'),
-      managers: getUniqueSorted('manager'),
-      departments: getUniqueSorted('department'),
+      fullNames: getUniqueSorted('full_name', 'Full_Name'),
+      titles: getUniqueSorted('title', 'Market_Facing_Title'),
+      managers: getUniqueSorted('manager', 'First_Reviewer_Name'),
+      departments: getUniqueSorted('department', 'Team_Name'),
     };
   }, [allEmployees]);
   
@@ -237,7 +237,7 @@ export function DashboardContent() {
   const allChartDepartments = useMemo<string[]>(() => {
     if (loading || !hasMounted) return [];
     const depts = new Set<string>();
-    (allEmployees || []).forEach(e => { if (e && e.department) depts.add(e.department); });
+    (allEmployees || []).forEach(e => { if (e && (e.department || e.Team_Name)) depts.add((e.department || e.Team_Name)!); });
     return Array.from(depts).sort((a, b) => a.localeCompare(b));
   }, [loading, hasMounted, allEmployees]);
 
@@ -250,24 +250,23 @@ export function DashboardContent() {
     const currentChartDepartmentFilter = chartDepartmentFilter || [];
     const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    // MOVE HELPERS TO BE FULLY ACCESSIBLE WITHIN SCOPE
     const localAllEmployees = allEmployees || [];
     const getEmployeeDept = (id?: string, name?: string) => {
         if (!localAllEmployees || localAllEmployees.length === 0) return '';
         let dept = '';
         if (id) {
-            const emp = localAllEmployees.find(e => e.person_id === id);
-            dept = emp?.department || '';
+            const emp = localAllEmployees.find(e => (e.person_id === id || e.Person_Number === id));
+            dept = emp?.department || emp?.Team_Name || '';
         }
         if (!dept && name) {
             const match = String(name).match(/\[(.*?)\]/);
             const targetId = match ? match[1] : null;
             if (targetId) {
-                const emp = localAllEmployees.find(e => e.person_id === targetId);
-                dept = emp?.department || '';
+                const emp = localAllEmployees.find(e => (e.person_id === targetId || e.Person_Number === targetId));
+                dept = emp?.department || emp?.Team_Name || '';
             } else {
-                const emp = localAllEmployees.find(e => e.full_name === name);
-                dept = emp?.department || '';
+                const emp = localAllEmployees.find(e => (e.full_name === name || e.Full_Name === name));
+                dept = emp?.department || emp?.Team_Name || '';
             }
         }
         return dept;
@@ -410,10 +409,15 @@ export function DashboardContent() {
     const filteredData = (baseData || []).filter(member => {
         if (!member) return false;
         
-        const fullNameMatch = currentFilters.fullName.length === 0 || currentFilters.fullName.includes(member.full_name || '');
-        const titleMatch = currentFilters.title.length === 0 || currentFilters.title.includes(member.title || '');
-        const managerMatch = currentFilters.manager.length === 0 || currentFilters.manager.includes(member.manager || '');
-        const deptMatch = currentFilters.department.length === 0 || currentFilters.department.includes(member.department || '');
+        const fullName = member.full_name || member.Full_Name || '';
+        const title = member.title || member.Market_Facing_Title || '';
+        const manager = member.manager || member.First_Reviewer_Name || '';
+        const department = member.department || member.Team_Name || '';
+
+        const fullNameMatch = currentFilters.fullName.length === 0 || currentFilters.fullName.includes(fullName);
+        const titleMatch = currentFilters.title.length === 0 || currentFilters.title.includes(title);
+        const managerMatch = currentFilters.manager.length === 0 || currentFilters.manager.includes(manager);
+        const deptMatch = currentFilters.department.length === 0 || currentFilters.department.includes(department);
 
         return fullNameMatch && titleMatch && managerMatch && deptMatch;
     });
@@ -486,13 +490,36 @@ export function DashboardContent() {
             <CardContent>
               <ScrollArea className="h-[330px]">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Full Name</TableHead><TableHead>Title</TableHead><TableHead>Manager</TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Full Name</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Manager</TableHead>
+                      <TableHead className="text-right">FTE</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {isPageLoading ? (
-                       Array.from({ length: 5 }).map((_, i) => (<TableRow key={i}><TableCell><Skeleton className="h-5 w-full" /></TableCell><TableCell><Skeleton className="h-5 w-full" /></TableCell><TableCell><Skeleton className="h-5 w-full" /></TableCell></TableRow>))
+                       Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                        </TableRow>
+                      ))
                     ) : (detailState.data || []).length > 0 ? detailState.data.map((employee, idx) => (
-                      <TableRow key={employee.person_id || idx}><TableCell>{employee.full_name}</TableCell><TableCell>{employee.title}</TableCell><TableCell>{employee.manager}</TableCell></TableRow>
-                    )) : (<TableRow><TableCell colSpan={3} className="h-24 text-center text-muted-foreground">No data to display.</TableCell></TableRow>)}
+                      <TableRow key={(employee.person_id || employee.Person_Number) || idx}>
+                        <TableCell>{employee.full_name || employee.Full_Name}</TableCell>
+                        <TableCell>{employee.title || employee.Market_Facing_Title}</TableCell>
+                        <TableCell>{employee.manager || employee.First_Reviewer_Name}</TableCell>
+                        <TableCell className="text-right font-mono">{employee.fte || employee.LOB || '0.00'}</TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No data to display.</TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </ScrollArea>
