@@ -21,13 +21,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, X, ChevronsUpDown } from 'lucide-react';
+import { PlusCircle, X, ChevronsUpDown, Check } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { ScrollArea } from '../ui/scroll-area';
-import { SelectSearch } from '../ui/select-search';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Label } from '../ui/label';
@@ -36,6 +35,7 @@ import { writeLog } from '@/lib/logger';
 import { Badge } from '../ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 type AiReportData = {
     Code: string;
@@ -92,8 +92,8 @@ const MultiSelectFilter = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
           <CommandInput placeholder="Search..." />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
@@ -102,6 +102,7 @@ const MultiSelectFilter = ({
                 {(options || []).map(option => (
                   <CommandItem
                     key={option}
+                    value={option}
                     onSelect={() => onValueChange(option)}
                   >
                     <Checkbox
@@ -120,48 +121,88 @@ const MultiSelectFilter = ({
   );
 };
 
-const ClientSelect = ({
-  clients,
-  value,
+const ClientSelect = ({ 
+  clients, 
+  value, 
   onValueChange,
-  disabled,
-}: {
-  clients: AiReportData[],
-  value: string,
-  onValueChange: (value: string) => void,
-  disabled?: boolean;
+  disabled 
+}: { 
+  clients: AiReportData[], 
+  value: string, 
+  onValueChange: (displayName: string) => void,
+  disabled?: boolean 
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredClients = useMemo(() => {
-    const validClients = (clients || []).filter(c => c && c.DisplayName);
-    const sorted = [...validClients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
+  const [open, setOpen] = useState(false);
 
-    if (!searchTerm) {
-      return sorted;
-    }
-    return sorted.filter(client =>
-      (client.DisplayName || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [clients, searchTerm]);
+  const selectedClient = useMemo(() => {
+    if (!value) return null;
+    const trimmed = String(value).trim();
+    return (clients || []).find(c => c && String(c.DisplayName || '').trim() === trimmed);
+  }, [clients, value]);
+
+  const sortedClients = useMemo(() => {
+    const validClients = (clients || []).filter(c => c && c.DisplayName);
+    return [...validClients].sort((a, b) => {
+      const specialClients = ['PTO', 'Unallocated'];
+      const aIsSpecial = specialClients.includes(a.DisplayName);
+      const bIsSpecial = specialClients.includes(b.DisplayName);
+      if (aIsSpecial && !bIsSpecial) return -1;
+      if (!aIsSpecial && bIsSpecial) return 1;
+      if (aIsSpecial && bIsSpecial) return a.DisplayName === 'Unallocated' ? -1 : 1;
+      return (a.DisplayName || '').localeCompare(b.DisplayName || '');
+    });
+  }, [clients]);
 
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger>
-          <SelectValue placeholder="Select Client..." />
-      </SelectTrigger>
-      <SelectContent>
-          <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
-          <ScrollArea className="h-64">
-            {filteredClients.map(client => <SelectItem key={client.Code} value={client.DisplayName}>{client.DisplayName}</SelectItem>)}
-            {filteredClients.length === 0 && (
-                <div className="p-4 text-sm text-center text-muted-foreground">
-                    No clients found.
-                </div>
-            )}
-          </ScrollArea>
-      </SelectContent>
-    </Select>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+          disabled={disabled}
+        >
+          <span className="truncate">
+            {selectedClient ? selectedClient.DisplayName : (value || "Select Client...")}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
+          <CommandInput placeholder="Search name or code..." />
+          <CommandList>
+            <CommandEmpty>No clients found.</CommandEmpty>
+            <CommandGroup>
+              <ScrollArea className="h-64">
+                {sortedClients.map((cc, idx) => (
+                  <CommandItem
+                    key={`${cc.DisplayName}-${cc.Code || idx}`}
+                    value={`${cc.DisplayName} ${cc.Code || ''}`}
+                    onSelect={() => {
+                      onValueChange(cc.DisplayName);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        String(value || '').trim() === String(cc.DisplayName || '').trim() ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <div className="flex flex-col">
+                        <span>{cc.DisplayName}</span>
+                        <span className="text-xs text-muted-foreground">{cc.Code || 'No Code'}</span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </ScrollArea>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };
 
@@ -187,7 +228,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     department: [] as string[]
   });
 
-  const { currentUser, loading: userLoading } = useCurrentUser();
+  const { loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
   
   useEffect(() => {
@@ -208,8 +249,15 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       if (!empResponse.ok) writeLog('BulkAllocationGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
       if (!clientResponse.ok) writeLog('BulkAllocationGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e && e.full_name).sort((a,b) => (a.full_name || '').localeCompare(b.full_name || '')) : [];
-      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c && c.Code && c.DisplayName) : [];
+      const rawEmpData = empResponse.ok ? await empResponse.json() : [];
+      const rawClientData = clientResponse.ok ? await clientResponse.json() : [];
+      
+      const empData: TeamMember[] = (Array.isArray(rawEmpData) ? rawEmpData : [])
+        .filter((e: TeamMember) => e && e.full_name)
+        .sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
+      
+      const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : [])
+        .filter((c: AiReportData) => c && c.Code && c.DisplayName);
       
       const tempWorker: TeamMember = {
         person_id: 'TEMP_WORKER',
@@ -648,11 +696,11 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                   <Input 
                     type="number"
                     min="0"
-                    step="1"
+                    step="0.05"
                     value={row.fte}
                     onChange={e => handleAllocationChange(row.id, 'fte', e.target.value)}
                     className="w-32 text-center"
-                    placeholder="0"
+                    placeholder="0.00"
                     disabled={isPageLoading || isSubmitting}
                   />
                   <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(row.id)} disabled={allocationRows.length === 1 || isPageLoading || isSubmitting}>

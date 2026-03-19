@@ -547,57 +547,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     toast({ title: 'Team Loaded', description: `Loaded ${newAllocations.length} members for ${managerName}.` });
   };
 
-  const handleRemoveEmployee = (employeeId: string) => {
-      setActiveAllocations(prev => (prev || []).filter(a => a?.employee?.person_id !== employeeId));
-      setSelectedManager(''); 
-  };
-  
-  const handleFteChange = (employeeId: string, allocId: string, weekKey: string, val: string) => {
-    const fte = parseFloat(val) || 0;
-    setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employeeId ? { ...ea, allocations: ea.allocations.map(a => a.id === allocId ? { ...a, weeklyFtes: { ...a.weeklyFtes, [weekKey]: fte } } : a) } : ea));
-  };
-  
-  const handleMonthlyFteChange = (employeeId: string, allocId: string, val: string) => {
-    if (!startOfCurrentWeek) return;
-    const monthlyFte = parseFloat(val) || 0;
-    setActiveAllocations(prev => (prev || []).map(ea => {
-        if (ea.employee?.person_id === employeeId) {
-          return { ...ea, allocations: ea.allocations.map(a => {
-            if (a.id === allocId) {
-              const updated = { ...a.weeklyFtes };
-              weeks.forEach(week => {
-                const key = formatDateKey(week.startDate);
-                if (isWeekEditable(week.startDate)) updated[key] = monthlyFte;
-              });
-              return { ...a, weeklyFtes: updated };
-            }
-            return a;
-          })};
-        }
-        return ea;
-    }));
-  };
-  
-  const handleClientChange = (employeeId: string, allocId: string, name: string) => {
-     setActiveAllocations(prev => (prev || []).map(ea => {
-        if (ea.employee?.person_id === employeeId) {
-            return { ...ea, allocations: ea.allocations.map(a => {
-                if (a.id === allocId) {
-                    const trimmed = String(name || '').trim();
-                    const master = (clients || []).find(cc => cc && String(cc.DisplayName || '').trim() === trimmed);
-                    return { ...a, clientId: (master?.Code || '').trim(), clientName: trimmed };
-                }
-                return a;
-            })};
-        }
-        return ea;
-    }));
-  };
-
-  const handleAddAllocationRow = (employeeId: string) => {
-    setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employeeId ? { ...ea, allocations: [...ea.allocations, { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }] } : ea));
-  };
-
   const handleRemoveAllocationRow = (employeeId: string, allocId: string) => {
     setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employeeId ? { ...ea, allocations: ea.allocations.filter(a => a.id !== allocId) } : ea));
   };
