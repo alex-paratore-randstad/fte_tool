@@ -27,7 +27,6 @@ import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, g
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { v4 as uuidv4 } from 'uuid';
 import { writeLog } from '@/lib/logger';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 type AiReportData = {
     Code: string;
@@ -69,12 +68,7 @@ const ClientSelect = ({
   disabled?: boolean 
 }) => {
   const [open, setOpen] = useState(false);
-
-  const selectedClient = useMemo(() => {
-    if (!value) return null;
-    const trimmed = String(value).trim();
-    return (clients || []).find(c => c && String(c.DisplayName || '').trim() === trimmed);
-  }, [clients, value]);
+  const [search, setSearch] = useState('');
 
   const sortedClients = useMemo(() => {
     const validClients = (clients || []).filter(c => c && c.DisplayName);
@@ -88,6 +82,21 @@ const ClientSelect = ({
       return (a.DisplayName || '').localeCompare(b.DisplayName || '');
     });
   }, [clients]);
+
+  const filteredClients = useMemo(() => {
+    if (!search) return sortedClients;
+    const s = search.toLowerCase();
+    return sortedClients.filter(c => 
+      c.DisplayName.toLowerCase().includes(s) || 
+      (c.Code && c.Code.toLowerCase().includes(s))
+    );
+  }, [search, sortedClients]);
+
+  const selectedClient = useMemo(() => {
+    if (!value) return null;
+    const trimmed = String(value).trim();
+    return (clients || []).find(c => c && String(c.DisplayName || '').trim() === trimmed);
+  }, [clients, value]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -106,34 +115,37 @@ const ClientSelect = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-          <CommandInput placeholder="Search name or code..." />
-          <CommandList>
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Search name or code..." 
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-64 overflow-y-auto">
             <CommandEmpty>No clients found.</CommandEmpty>
             <CommandGroup>
-              <ScrollArea className="h-64">
-                {sortedClients.map((cc, idx) => (
-                  <CommandItem
-                    key={`${cc.DisplayName}-${cc.Code || idx}`}
-                    value={`${cc.DisplayName} ${cc.Code || ''}`}
-                    onSelect={() => {
-                      onValueChange(cc.DisplayName);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        String(value || '').trim() === String(cc.DisplayName || '').trim() ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex flex-col">
-                        <span>{cc.DisplayName}</span>
-                        <span className="text-xs text-muted-foreground">{cc.Code || 'No Code'}</span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </ScrollArea>
+              {filteredClients.map((cc, idx) => (
+                <CommandItem
+                  key={`${cc.DisplayName}-${cc.Code || idx}`}
+                  value={`${cc.DisplayName} ${cc.Code || ''}`}
+                  onSelect={() => {
+                    onValueChange(cc.DisplayName);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      String(value || '').trim() === String(cc.DisplayName || '').trim() ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <div className="flex flex-col">
+                      <span>{cc.DisplayName}</span>
+                      <span className="text-xs text-muted-foreground">{cc.Code || 'No Code'}</span>
+                  </div>
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -154,6 +166,13 @@ const EmployeeSelect = ({
   disabled?: boolean,
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredEmployees = useMemo(() => {
+    if (!search) return employees || [];
+    const s = search.toLowerCase();
+    return (employees || []).filter(e => e.full_name.toLowerCase().includes(s));
+  }, [search, employees]);
 
   const selectedEmployee = useMemo(() => {
     return (employees || []).find(e => e && e.person_id === value);
@@ -176,31 +195,34 @@ const EmployeeSelect = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0" align="start">
-        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-          <CommandInput placeholder="Search employee..." />
-          <CommandList>
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Search employee..." 
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-64 overflow-y-auto">
             <CommandEmpty>No employees found.</CommandEmpty>
             <CommandGroup>
-              <ScrollArea className="h-64">
-                {(employees || []).map((e) => (
-                  <CommandItem
-                    key={e.person_id}
-                    value={e.full_name}
-                    onSelect={() => {
-                      onValueChange(e.person_id);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === e.person_id ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <span>{e.full_name}</span>
-                  </CommandItem>
-                ))}
-              </ScrollArea>
+              {filteredEmployees.map((e) => (
+                <CommandItem
+                  key={e.person_id}
+                  value={e.full_name}
+                  onSelect={() => {
+                    onValueChange(e.person_id);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === e.person_id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <span>{e.full_name}</span>
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -221,6 +243,13 @@ const ManagerSelect = ({
   disabled?: boolean
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredManagers = useMemo(() => {
+    if (!search) return managers || [];
+    const s = search.toLowerCase();
+    return (managers || []).filter(m => m.name.toLowerCase().includes(s));
+  }, [search, managers]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -239,32 +268,35 @@ const ManagerSelect = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0" align="start">
-        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-          <CommandInput placeholder="Search manager..." />
-          <CommandList>
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Search manager..." 
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-64 overflow-y-auto">
             <CommandEmpty>No managers found.</CommandEmpty>
             <CommandGroup>
-              <ScrollArea className="h-64">
-                {(managers || []).map((m) => (
-                  <CommandItem
-                    key={m.id}
-                    value={m.name}
-                    onSelect={() => {
-                      const newValue = m.name === value ? "" : m.name;
-                      onValueChange(newValue);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === m.name ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <span>{m.name}</span>
-                  </CommandItem>
-                ))}
-              </ScrollArea>
+              {filteredManagers.map((m) => (
+                <CommandItem
+                  key={m.id}
+                  value={m.name}
+                  onSelect={() => {
+                    const newValue = m.name === value ? "" : m.name;
+                    onValueChange(newValue);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === m.name ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <span>{m.name}</span>
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -341,7 +373,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             if (!empAlloc?.employee) return empAlloc;
             const employeeIdString = `[${empAlloc.employee.person_id}]`;
             
-            // ROLLOVER LOGIC: Only preload if work existed in viewing month or previous month
             const empAllAllocs = allRelevantAllocations.filter(alloc => 
                 alloc?.content?.allocation_name && 
                 String(alloc.content.allocation_name).startsWith(employeeIdString) &&
@@ -434,6 +465,51 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   const handlePrevMonth = () => { if (currentDate && isValid(currentDate)) setCurrentDate(getPreviousFiscalMonth(currentDate)); };
   const handleNextMonth = () => { if (currentDate && isValid(currentDate)) setCurrentDate(getNextFiscalMonth(currentDate)); };
+
+  const handleFteChange = (employeeId: string, allocId: string, weekKey: string, val: string) => {
+    const fte = parseFloat(val) || 0;
+    setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employeeId ? { ...ea, allocations: ea.allocations.map(a => a.id === allocId ? { ...a, weeklyFtes: { ...a.weeklyFtes, [weekKey]: fte } } : a) } : ea));
+  };
+  
+  const handleMonthlyFteChange = (employeeId: string, allocId: string, val: string) => {
+    const monthlyFte = parseFloat(val) || 0;
+    setActiveAllocations(prev => (prev || []).map(ea => {
+        if (ea.employee?.person_id === employeeId) {
+          return { ...ea, allocations: ea.allocations.map(a => {
+            if (a.id === allocId) {
+              const updated = { ...a.weeklyFtes };
+              weeks.forEach(week => {
+                const key = formatDateKey(week.startDate);
+                if (isWeekEditable(week.startDate)) updated[key] = monthlyFte;
+              });
+              return { ...a, weeklyFtes: updated };
+            }
+            return a;
+          })};
+        }
+        return ea;
+    }));
+  };
+  
+  const handleClientChange = (employeeId: string, allocId: string, name: string) => {
+     setActiveAllocations(prev => (prev || []).map(ea => {
+        if (ea.employee?.person_id === employeeId) {
+            return { ...ea, allocations: ea.allocations.map(a => {
+                if (a.id === allocId) {
+                    const trimmed = String(name || '').trim();
+                    const master = (clients || []).find(cc => cc && String(cc.DisplayName || '').trim() === trimmed);
+                    return { ...a, clientId: (master?.Code || '').trim(), clientName: trimmed };
+                }
+                return a;
+            })};
+        }
+        return ea;
+    }));
+  };
+
+  const handleAddAllocationRow = (employeeId: string) => {
+    setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employeeId ? { ...ea, allocations: [...ea.allocations, { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }] } : ea));
+  };
 
   const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
     if (!currentDate || !isValid(currentDate) || !employee) return;

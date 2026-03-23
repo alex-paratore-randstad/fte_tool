@@ -48,6 +48,13 @@ const MultiSelectFilter = ({
   disabled?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredOptions = useMemo(() => {
+    if (!search) return options || [];
+    const s = search.toLowerCase();
+    return (options || []).filter(o => o.toLowerCase().includes(s));
+  }, [search, options]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -70,26 +77,28 @@ const MultiSelectFilter = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-          <CommandInput placeholder="Search..." />
-          <CommandList>
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Search..." 
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-64 overflow-y-auto">
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              <ScrollArea className="h-64">
-                {(options || []).map(option => (
-                  <CommandItem
-                    key={option}
-                    value={option}
-                    onSelect={() => onValueChange(option)}
-                  >
-                    <Checkbox
-                      className="mr-2"
-                      checked={(selected || []).includes(option)}
-                    />
-                    <span>{option}</span>
-                  </CommandItem>
-                ))}
-              </ScrollArea>
+              {filteredOptions.map(option => (
+                <CommandItem
+                  key={option}
+                  value={option}
+                  onSelect={() => onValueChange(option)}
+                >
+                  <Checkbox
+                    className="mr-2"
+                    checked={(selected || []).includes(option)}
+                  />
+                  <span>{option}</span>
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>

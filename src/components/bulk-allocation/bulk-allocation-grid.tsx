@@ -26,7 +26,6 @@ import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { ScrollArea } from '../ui/scroll-area';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Label } from '../ui/label';
@@ -71,6 +70,13 @@ const MultiSelectFilter = ({
   disabled?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredOptions = useMemo(() => {
+    if (!search) return options || [];
+    const s = search.toLowerCase();
+    return (options || []).filter(o => o.toLowerCase().includes(s));
+  }, [search, options]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -93,26 +99,28 @@ const MultiSelectFilter = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-          <CommandInput placeholder="Search..." />
-          <CommandList>
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Search..." 
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-64 overflow-y-auto">
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              <ScrollArea className="h-64">
-                {(options || []).map(option => (
-                  <CommandItem
-                    key={option}
-                    value={option}
-                    onSelect={() => onValueChange(option)}
-                  >
-                    <Checkbox
-                      className="mr-2"
-                      checked={(selected || []).includes(option)}
-                    />
-                    <span>{option}</span>
-                  </CommandItem>
-                ))}
-              </ScrollArea>
+              {filteredOptions.map(option => (
+                <CommandItem
+                  key={option}
+                  value={option}
+                  onSelect={() => onValueChange(option)}
+                >
+                  <Checkbox
+                    className="mr-2"
+                    checked={(selected || []).includes(option)}
+                  />
+                  <span>{option}</span>
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -133,12 +141,7 @@ const ClientSelect = ({
   disabled?: boolean 
 }) => {
   const [open, setOpen] = useState(false);
-
-  const selectedClient = useMemo(() => {
-    if (!value) return null;
-    const trimmed = String(value).trim();
-    return (clients || []).find(c => c && String(c.DisplayName || '').trim() === trimmed);
-  }, [clients, value]);
+  const [search, setSearch] = useState('');
 
   const sortedClients = useMemo(() => {
     const validClients = (clients || []).filter(c => c && c.DisplayName);
@@ -152,6 +155,21 @@ const ClientSelect = ({
       return (a.DisplayName || '').localeCompare(b.DisplayName || '');
     });
   }, [clients]);
+
+  const filteredClients = useMemo(() => {
+    if (!search) return sortedClients;
+    const s = search.toLowerCase();
+    return sortedClients.filter(c => 
+      c.DisplayName.toLowerCase().includes(s) || 
+      (c.Code && c.Code.toLowerCase().includes(s))
+    );
+  }, [search, sortedClients]);
+
+  const selectedClient = useMemo(() => {
+    if (!value) return null;
+    const trimmed = String(value).trim();
+    return (clients || []).find(c => c && String(c.DisplayName || '').trim() === trimmed);
+  }, [clients, value]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -170,34 +188,37 @@ const ClientSelect = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-          <CommandInput placeholder="Search name or code..." />
-          <CommandList>
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Search name or code..." 
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-64 overflow-y-auto">
             <CommandEmpty>No clients found.</CommandEmpty>
             <CommandGroup>
-              <ScrollArea className="h-64">
-                {sortedClients.map((cc, idx) => (
-                  <CommandItem
-                    key={`${cc.DisplayName}-${cc.Code || idx}`}
-                    value={`${cc.DisplayName} ${cc.Code || ''}`}
-                    onSelect={() => {
-                      onValueChange(cc.DisplayName);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        String(value || '').trim() === String(cc.DisplayName || '').trim() ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex flex-col">
-                        <span>{cc.DisplayName}</span>
-                        <span className="text-xs text-muted-foreground">{cc.Code || 'No Code'}</span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </ScrollArea>
+              {filteredClients.map((cc, idx) => (
+                <CommandItem
+                  key={`${cc.DisplayName}-${cc.Code || idx}`}
+                  value={`${cc.DisplayName} ${cc.Code || ''}`}
+                  onSelect={() => {
+                    onValueChange(cc.DisplayName);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      String(value || '').trim() === String(cc.DisplayName || '').trim() ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <div className="flex flex-col">
+                      <span>{cc.DisplayName}</span>
+                      <span className="text-xs text-muted-foreground">{cc.Code || 'No Code'}</span>
+                  </div>
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>
