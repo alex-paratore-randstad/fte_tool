@@ -21,17 +21,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlusCircle, X, ChevronsUpDown, Check } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from '../ui/skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import { v4 as uuidv4 } from 'uuid';
-import { Alert, AlertDescription } from '../ui/alert';
-import { Label } from '../ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
 import type { SummaryEntry } from './saved-bulk-allocations-table';
 import { writeLog } from '@/lib/logger';
-import { Badge } from '../ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
@@ -85,7 +86,7 @@ const MultiSelectFilter = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between font-normal"
           disabled={disabled}
         >
           <span className="truncate">
@@ -157,10 +158,10 @@ const ClientSelect = ({
   }, [clients]);
 
   const filteredClients = useMemo(() => {
-    if (!search) return sortedClients;
-    const s = search.toLowerCase();
+    const s = (search || '').toLowerCase();
+    if (!s) return sortedClients;
     return sortedClients.filter(c => 
-      c.DisplayName.toLowerCase().includes(s) || 
+      (c.DisplayName || '').toLowerCase().includes(s) || 
       (c.Code && c.Code.toLowerCase().includes(s))
     );
   }, [search, sortedClients]);
@@ -350,7 +351,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
             setAllocationRows([{ id: uuidv4(), clientName: '', fte: 0 }]);
         }
     }
-  }, [templateToCopy, totalSelectedFte, toast]);
+  }, [templateToCopy, totalSelectedFte, toast, allocationRows.length]);
 
   useEffect(() => {
     if (!userLoading) {

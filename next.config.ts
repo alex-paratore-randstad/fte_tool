@@ -25,8 +25,9 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Force alphanumeric chunk names to avoid issues with special characters in build artifacts
-      config.output.chunkFilename = 'static/chunks/[name].[contenthash].js';
+      // Force strictly alphanumeric chunk names to avoid issues with special characters (e.g. [ or ]) in build artifacts.
+      // This uses chunk hashes which are guaranteed to be alphanumeric strings.
+      config.output.chunkFilename = 'static/chunks/[id]-[chunkhash].js';
     }
     return config;
   },
