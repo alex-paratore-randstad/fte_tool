@@ -1,18 +1,10 @@
 
 'use client';
 
-import { useState, useMemo, Fragment, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { SelectSearch } from '@/components/ui/select-search';
 import {
   Table,
   TableBody,
@@ -21,13 +13,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, PlusCircle, Trash2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember, WeeklyTarget } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { v4 as uuidv4 } from 'uuid';
 import { writeLog } from '@/lib/logger';
 
@@ -67,37 +60,97 @@ const ClientSelect = ({
   clients, 
   value, 
   onValueChange,
-  disabled
+  disabled 
 }: { 
   clients: AiReportData[], 
   value: string, 
-  onValueChange: (value: string) => void,
+  onValueChange: (displayName: string) => void,
   disabled?: boolean 
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const sortedClients = useMemo(() => {
+    const validClients = (clients || []).filter(c => c && c.DisplayName);
+    return [...validClients].sort((a, b) => {
+      const specialClients = ['PTO', 'Unallocated'];
+      const aIsSpecial = specialClients.includes(a.DisplayName);
+      const bIsSpecial = specialClients.includes(b.DisplayName);
+      if (aIsSpecial && !bIsSpecial) return -1;
+      if (!aIsSpecial && bIsSpecial) return 1;
+      if (aIsSpecial && bIsSpecial) return a.DisplayName === 'Unallocated' ? -1 : 1;
+      return (a.DisplayName || '').localeCompare(b.DisplayName || '');
+    });
+  }, [clients]);
+
   const filteredClients = useMemo(() => {
-    const validClients = clients.filter(c => c && c.DisplayName);
-    const sorted = [...validClients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
-    if (!searchTerm) return sorted;
-    return sorted.filter(cc => cc.DisplayName && cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [clients, searchTerm]);
+    const s = search.toLowerCase();
+    if (!s) return sortedClients;
+    return sortedClients.filter(c => 
+      c.DisplayName.toLowerCase().includes(s) || 
+      (c.Code && c.Code.toLowerCase().includes(s))
+    );
+  }, [search, sortedClients]);
+
+  const selectedClient = useMemo(() => {
+    if (!value) return null;
+    const trimmed = String(value).trim();
+    return (clients || []).find(c => c && String(c.DisplayName || '').trim() === trimmed);
+  }, [clients, value]);
 
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger><SelectValue placeholder="Select Client..." /></SelectTrigger>
-      <SelectContent>
-        <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
-        <ScrollArea className="h-64">
-          {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
-           {filteredClients.length === 0 && (
-            <div className="p-4 text-sm text-center text-muted-foreground">
-                No clients found.
-            </div>
-          )}
-        </ScrollArea>
-      </SelectContent>
-    </Select>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+          disabled={disabled}
+        >
+          <span className="truncate">
+            {selectedClient ? selectedClient.DisplayName : (value || "Select Client...")}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Search name or code..." 
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-64 overflow-y-auto">
+            <CommandEmpty>No clients found.</CommandEmpty>
+            <CommandGroup>
+              {filteredClients.map((cc, idx) => (
+                <CommandItem
+                  key={`${cc.DisplayName}-${cc.Code || idx}`}
+                  value={`${cc.DisplayName} ${cc.Code || ''}`}
+                  onSelect={() => {
+                    onValueChange(cc.DisplayName);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      String(value || '').trim() === String(cc.DisplayName || '').trim() ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <div className="flex flex-col">
+                      <span>{cc.DisplayName}</span>
+                      <span className="text-xs text-muted-foreground">{cc.Code || 'No Code'}</span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };
 
@@ -105,85 +158,150 @@ const EmployeeSelect = ({
   employees, 
   onValueChange,
   value,
-  disabled
+  disabled,
 }: { 
   employees: TeamMember[], 
   onValueChange: (value: string) => void,
   value: string,
-  disabled?: boolean
+  disabled?: boolean,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
   const filteredEmployees = useMemo(() => {
-    const validEmps = employees.filter(e => e && e.full_name);
-    const sortedEmployees = [...validEmps].sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
-    if (!searchTerm) return sortedEmployees;
-    return sortedEmployees.filter(e => e.full_name && e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [employees, searchTerm]);
-  
+    if (!search) return employees || [];
+    const s = search.toLowerCase();
+    return (employees || []).filter(e => e.full_name.toLowerCase().includes(s));
+  }, [search, employees]);
+
+  const selectedEmployee = useMemo(() => {
+    return (employees || []).find(e => e && e.person_id === value);
+  }, [employees, value]);
+
   return (
-    <Select onValueChange={onValueChange} value={value} disabled={disabled}>
-      <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Load Employee..." />
-      </SelectTrigger>
-      <SelectContent>
-          <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
-          <ScrollArea className="h-64">
-            {filteredEmployees.map(e => (
-                <SelectItem key={e.person_id} value={e.person_id}>
-                    {e.full_name}
-                </SelectItem>
-            ))}
-            {filteredEmployees.length === 0 && (
-                <div className="p-4 text-sm text-center text-muted-foreground">
-                    No employees found.
-                </div>
-            )}
-          </ScrollArea>
-      </SelectContent>
-    </Select>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-[200px] justify-between font-normal"
+          disabled={disabled}
+        >
+          <span className="truncate">
+            {selectedEmployee ? selectedEmployee.full_name : "Load Employee..."}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Search employee..." 
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-64 overflow-y-auto">
+            <CommandEmpty>No employees found.</CommandEmpty>
+            <CommandGroup>
+              {filteredEmployees.map((e) => (
+                <CommandItem
+                  key={e.person_id}
+                  value={e.full_name}
+                  onSelect={() => {
+                    onValueChange(e.person_id);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === e.person_id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <span>{e.full_name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };
 
 const ManagerSelect = ({ 
   managers, 
   onValueChange,
+  value,
   disabled
 }: { 
-  managers: {id: string, name: string}[], 
+  managers: {id: string, name: string}[]|null, 
   onValueChange: (value: string) => void,
+  value?: string,
   disabled?: boolean
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
   const filteredManagers = useMemo(() => {
-    const validManagers = managers.filter(m => m && m.name);
-    const sortedManagers = [...validManagers].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
-    if (!searchTerm) return sortedManagers;
-    return sortedManagers.filter(m => m.name && m.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [managers, searchTerm]);
+    if (!search) return managers || [];
+    const s = search.toLowerCase();
+    return (managers || []).filter(m => m.name.toLowerCase().includes(s));
+  }, [search, managers]);
 
   return (
-    <Select onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Load Team..." />
-        </SelectTrigger>
-        <SelectContent>
-            <SelectSearch placeholder="Search manager..." onChange={setSearchTerm} />
-            <ScrollArea className="h-64">
-              {filteredManagers.map(m => (
-                  <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                  </SelectItem>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-[200px] justify-between font-normal"
+          disabled={disabled}
+        >
+          <span className="truncate">
+            {value || "Load Team..."}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Search manager..." 
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-64 overflow-y-auto">
+            <CommandEmpty>No managers found.</CommandEmpty>
+            <CommandGroup>
+              {filteredManagers.map((m) => (
+                <CommandItem
+                  key={m.id}
+                  value={m.name}
+                  onSelect={() => {
+                    const newValue = m.name === value ? "" : m.name;
+                    onValueChange(newValue);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === m.name ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <span>{m.name}</span>
+                </CommandItem>
               ))}
-               {filteredManagers.length === 0 && (
-                <div className="p-4 text-sm text-center text-muted-foreground">
-                    No managers found.
-                </div>
-              )}
-            </ScrollArea>
-        </SelectContent>
-    </Select>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };
 
@@ -196,9 +314,11 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   const [internalLoading, setInternalLoading] = useState(true);
   const [yearDataCache, setYearDataCache] = useState<WeeklyTarget[]>([]);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
+  const [selectedManager, setSelectedManager] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
 
-  const { currentUser, loading: userLoading } = useCurrentUser();
+  const { isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -214,8 +334,8 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
         const allYearlyTargets: WeeklyTarget[] = (await Promise.all(responses.map(res => res.ok ? res.json() : []))).flat();
         setYearDataCache(allYearlyTargets);
 
-        // Refresh active employees
-        setActiveTargets(prev => prev.map(empTarget => {
+        setActiveTargets(prev => (prev || []).map(empTarget => {
+            if (!empTarget?.employee) return empTarget;
             const employeeIdString = `[${empTarget.employee.person_id}]`;
             const employeeTargets = allYearlyTargets.filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
             
@@ -294,12 +414,17 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       setAllEmployees([tempWorker, ...empData]);
       setClients([...clientData]);
       
-      const managerMap = new Map<string, string>();
-      empData.forEach(emp => { if(emp.manager_id && emp.manager) managerMap.set(emp.manager_id, emp.manager); });
-      setManagers(Array.from(managerMap, ([id, name]) => ({ id, name })).sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+      const uniqueManagerNames = Array.from(
+        new Set(
+          empData
+            .map(e => e?.manager)
+            .filter(m => typeof m === 'string' && m)
+        )
+      ).sort().map(name => ({ id: name as string, name: name as string }));
+      setManagers(uniqueManagerNames);
 
     } catch (error) {
-      writeLog('QuarterlyTargetGrid', 'error', 'Failed to fetch metadata', error);
+      writeLog('QuarterlyTargetGrid', 'error', 'Failed to fetch base data', error);
       toast({ variant: 'destructive', title: 'Failed to fetch data' });
     } finally {
       setInternalLoading(false);
@@ -311,21 +436,22 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   }, [fetchBaseData, userLoading]);
 
   const availableEmployees = useMemo(() => {
-    const activeEmployeeIds = new Set(activeTargets.map(a => a.employee.person_id));
-    return allEmployees.filter(e => e && e.person_id && !activeEmployeeIds.has(e.person_id));
+    const activeEmployeeIds = new Set((activeTargets || []).map(a => a.employee.person_id));
+    return (allEmployees || []).filter(e => e && e.person_id && !activeEmployeeIds.has(e.person_id));
   }, [allEmployees, activeTargets]);
 
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId) return;
     setSelectedEmployeeToAdd(employeeId);
-    const employeeToAdd = allEmployees.find(e => e && e.person_id === employeeId);
+    setSelectedManager('');
+    const employeeToAdd = (allEmployees || []).find(e => e && e.person_id === employeeId);
     if (employeeToAdd) {
-      if (activeTargets.some(a => a.employee.person_id === employeeId)) {
+      if ((activeTargets || []).some(a => a.employee.person_id === employeeId)) {
           toast({ variant: 'destructive', title: 'Employee already in grid' }); return;
       }
       
       const employeeIdString = `[${employeeToAdd.person_id}]`;
-      const employeeTargets = yearDataCache.filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
+      const employeeTargets = (yearDataCache || []).filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
       
       let rows: TargetRow[] = [];
       if (employeeTargets.length === 0) {
@@ -354,14 +480,24 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     setTimeout(() => setSelectedEmployeeToAdd(''), 0);
   };
 
-  const handleAddManagerTeam = (managerId: string) => {
-    if (!managerId) return;
-    const teamMembers = allEmployees.filter(e => e && e.manager_id === managerId && !activeTargets.some(a => a.employee.person_id === e.person_id));
-    if (teamMembers.length === 0) { toast({ title: 'No new employees to add', description: 'All direct reports for this manager are already in the grid.' }); return; }
+  const handleAddManagerTeam = (managerName: string) => {
+    if (!managerName) {
+        setSelectedManager('');
+        setActiveTargets([]);
+        return;
+    }
+    setSelectedManager(managerName);
+    setSelectedEmployeeToAdd('');
+    const teamMembers = (allEmployees || []).filter(e => e && e.manager === managerName);
+    if (teamMembers.length === 0) { 
+        toast({ title: 'No employees found for this manager.' }); 
+        setActiveTargets([]);
+        return; 
+    }
     
     const newEmployeeTargets = teamMembers.map(employee => {
         const employeeIdString = `[${employee.person_id}]`;
-        const employeeTargets = yearDataCache.filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
+        const employeeTargets = (yearDataCache || []).filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
         
         let rows: TargetRow[] = [];
         if (employeeTargets.length === 0) {
@@ -387,8 +523,8 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
         return { employee, targets: rows };
     });
 
-    setActiveTargets(prev => [...newEmployeeTargets, ...prev]);
-    toast({ title: 'Team Loaded', description: `Loaded ${newEmployeeTargets.length} team members.` });
+    setActiveTargets(newEmployeeTargets);
+    toast({ title: 'Team Loaded', description: `Loaded ${newEmployeeTargets.length} members for ${managerName}.` });
   };
 
   const handleRemoveEmployee = (employeeId: string) => setActiveTargets(prev => prev.filter(a => a.employee.person_id !== employeeId));
@@ -405,7 +541,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   const handleClientChange = (employeeId: string, rowId: string, newClientName: string) => {
      setActiveTargets(prev => prev.map(emp => (emp.employee.person_id === employeeId ? {
         ...emp, targets: emp.targets.map(row => (row.id === rowId ? {
-            ...row, clientName: newClientName, clientId: clients.find(c => c.DisplayName === newClientName)?.Code || ''
+            ...row, clientName: newClientName, clientId: (clients.find(c => c.DisplayName === newClientName)?.Code || '').trim()
         } : row))
      } : emp)));
   };
@@ -423,7 +559,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   };
 
   const handleSave = async () => {
-    const yearAtSave = currentYear;
+    setIsSaving(true);
     const submissions: any[] = [];
     let hasInvalidTarget = false;
 
@@ -437,7 +573,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
                 return;
             }
             submissions.push({ content: {
-                targets_allocation_date: getQuarterStartDate(yearAtSave, quarter),
+                targets_allocation_date: getQuarterStartDate(currentYear, quarter),
                 targets_allocation_name: `[${emp.employee.person_id}] ${emp.employee.full_name}`,
                 targets_cost_center_name: row.clientName,
                 targets_cost_center_number: row.clientId,
@@ -448,8 +584,8 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       });
     });
 
-    if (hasInvalidTarget) return;
-    if (submissions.length === 0) { toast({ title: 'No changes to save.' }); return; }
+    if (hasInvalidTarget) { setIsSaving(false); return; }
+    if (submissions.length === 0) { toast({ title: 'No changes to save.' }); setIsSaving(false); return; }
 
     try {
         await Promise.all(submissions.map(entry => 
@@ -459,12 +595,14 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
                 body: JSON.stringify(entry),
             }).then(res => { if (!res.ok) throw new Error('One or more saves failed.') })
         ));
-        toast({ title: 'Targets Saved', description: `${submissions.length} target entries have been saved for ${yearAtSave}.` });
-        writeLog('QuarterlyTargetGrid', 'success', 'Targets saved', { count: submissions.length, year: yearAtSave });
+        toast({ title: 'Targets Saved', description: `${submissions.length} target entries saved for ${currentYear}.` });
+        writeLog('QuarterlyTargetGrid', 'success', 'Targets saved', { count: submissions.length, year: currentYear });
         onSaveSuccess();
     } catch (error: any) {
         writeLog('QuarterlyTargetGrid', 'error', 'Save failed', error);
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+    } finally {
+        setIsSaving(false);
     }
   };
   
@@ -479,12 +617,15 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
             <CardDescription>Add employees to build your hiring target plan for the year.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <EmployeeSelect employees={availableEmployees} onValueChange={handleAddEmployee} value={selectedEmployeeToAdd} disabled={pageIsLoading} />
-            <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} disabled={pageIsLoading} />
-            <Button variant="outline" size="icon" onClick={() => setCurrentYear(currentYear - 1)} disabled={pageIsLoading}><ChevronLeft className="h-4 w-4" /></Button>
+            <EmployeeSelect employees={availableEmployees} onValueChange={handleAddEmployee} value={selectedEmployeeToAdd} disabled={pageIsLoading || isSaving} />
+            <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} value={selectedManager} disabled={pageIsLoading || isSaving} />
+            <Button variant="outline" size="icon" onClick={() => setCurrentYear(currentYear - 1)} disabled={pageIsLoading || isSaving}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium w-20 text-center">{pageIsLoading ? <Skeleton className="h-5 w-16 mx-auto" /> : currentYear}</span>
-            <Button variant="outline" size="icon" onClick={() => setCurrentYear(currentYear + 1)} disabled={pageIsLoading}><ChevronRight className="h-4 w-4" /></Button>
-            <Button onClick={handleSave} disabled={pageIsLoading || activeTargets.length === 0}>Save All</Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentYear(currentYear + 1)} disabled={pageIsLoading || isSaving}><ChevronRight className="h-4 w-4" /></Button>
+            <Button onClick={handleSave} disabled={pageIsLoading || isSaving || (activeTargets?.length || 0) === 0}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {isSaving ? 'Saving...' : 'Save All'}
+            </Button>
           </div>
         </div>
       </CardHeader>
@@ -502,8 +643,8 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
               <TableBody>
               {!hasMounted || pageIsLoading ? (
                 <TableRow><TableCell colSpan={7}><div className="space-y-4 py-8"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div></TableCell></TableRow>
-              ) : activeTargets.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center h-24 text-muted-foreground">Select an employee to begin.</TableCell></TableRow>
+              ) : (activeTargets?.length || 0) === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center h-24 text-muted-foreground">Select an employee or load a team to begin.</TableCell></TableRow>
               ) : activeTargets.map(({ employee, targets }) => (
                     <Fragment key={employee.person_id}>
                       <TableRow className="bg-muted/50 hover:bg-muted">
@@ -512,27 +653,28 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
                           <div className="text-xs text-muted-foreground font-normal">{employee.title}</div>
                         </TableCell>
                         <TableCell></TableCell>
-                        {quarters.map(q => <TableCell key={q} className="text-center font-semibold text-muted-foreground">{targets.reduce((sum, row) => sum + (row.quarterlyTargets[q] || 0), 0) || '-'}</TableCell>)}
-                        <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.person_id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                        {quarters.map(q => <TableCell key={q} className="text-center font-semibold text-muted-foreground">{(targets || []).reduce((sum, row) => sum + (row.quarterlyTargets[q] || 0), 0) || '-'}</TableCell>)}
+                        <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.person_id)} disabled={isSaving}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                       </TableRow>
-                      {targets.map(row => (
+                      {(targets || []).map(row => (
                         <TableRow key={row.id}>
                           <TableCell className="sticky left-0 bg-card z-10"></TableCell>
-                          <TableCell><ClientSelect clients={clients} value={row.clientName} onValueChange={name => handleClientChange(employee.person_id, row.id, name)}/></TableCell>
+                          <TableCell><ClientSelect clients={clients} value={row.clientName} onValueChange={name => handleClientChange(employee.person_id, row.id, name)} disabled={isSaving}/></TableCell>
                           {quarters.map(q => (
                               <TableCell key={q} className="text-center">
                                 <Input type="number" step="1" min="0" placeholder="0" className="w-20 text-center mx-auto"
                                   value={row.quarterlyTargets[q] || ''}
                                   onChange={e => handleTargetChange(employee.person_id, row.id, q, e.target.value)}
+                                  disabled={isSaving}
                                 />
                               </TableCell>
                           ))}
-                          <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveTargetRow(employee.person_id, row.id)} disabled={targets.length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                          <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveTargetRow(employee.person_id, row.id)} disabled={targets.length <= 1 || isSaving}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                         </TableRow>
                       ))}
                       <TableRow>
                         <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
-                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddTargetRow(employee.person_id)}><PlusCircle className="mr-2 h-4 w-4" /> Add Target Row</Button>
+                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddTargetRow(employee.person_id)} disabled={isSaving}><PlusCircle className="mr-2 h-4 w-4" /> Add Target Row</Button>
                         </TableCell>
                         <TableCell colSpan={5}></TableCell>
                       </TableRow>
