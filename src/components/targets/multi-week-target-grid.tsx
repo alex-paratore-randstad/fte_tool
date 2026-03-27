@@ -84,8 +84,8 @@ const ClientSelect = ({
   }, [clients]);
 
   const filteredClients = useMemo(() => {
+    if (!search) return sortedClients;
     const s = search.toLowerCase();
-    if (!s) return sortedClients;
     return sortedClients.filter(c => 
       c.DisplayName.toLowerCase().includes(s) || 
       (c.Code && c.Code.toLowerCase().includes(s))
@@ -326,18 +326,20 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   }, []);
 
   const fetchYearData = useCallback(async () => {
+    if (!currentYear) return;
     setInternalLoading(true);
     try {
         const quarterDates = quarters.map(q => getQuarterStartDate(currentYear, q));
         const requests = quarterDates.map(date => fetch(`/domo/datastores/v1/collections/weekly_targets/documents?q=content.targets_allocation_date='${date}'`));
         const responses = await Promise.all(requests);
         const allYearlyTargets: WeeklyTarget[] = (await Promise.all(responses.map(res => res.ok ? res.json() : []))).flat();
-        setYearDataCache(allYearlyTargets);
+        const safeTargets = allYearlyTargets.filter(t => t && t.content);
+        setYearDataCache(safeTargets);
 
         setActiveTargets(prev => (prev || []).map(empTarget => {
             if (!empTarget?.employee) return empTarget;
             const employeeIdString = `[${empTarget.employee.person_id}]`;
-            const employeeTargets = allYearlyTargets.filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
+            const employeeTargets = safeTargets.filter(t => t.content.targets_allocation_name?.startsWith(employeeIdString));
             
             if (employeeTargets.length === 0) {
                 return { ...empTarget, targets: [{ id: uuidv4(), clientId: '', clientName: '', quarterlyTargets: {} }] };
@@ -436,22 +438,22 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   }, [fetchBaseData, userLoading]);
 
   const availableEmployees = useMemo(() => {
-    const activeEmployeeIds = new Set((activeTargets || []).map(a => a.employee.person_id));
-    return (allEmployees || []).filter(e => e && e.person_id && !activeEmployeeIds.has(e.person_id));
+    const activeEmployeeIds = new Set((activeTargets || []).map(a => a?.employee?.person_id).filter(Boolean));
+    return (allEmployees || []).filter(e => e?.person_id && !activeEmployeeIds.has(e.person_id));
   }, [allEmployees, activeTargets]);
 
   const handleAddEmployee = (employeeId: string) => {
-    if (!employeeId) return;
+    if (!employeeId || !currentYear) return;
     setSelectedEmployeeToAdd(employeeId);
     setSelectedManager('');
     const employeeToAdd = (allEmployees || []).find(e => e && e.person_id === employeeId);
     if (employeeToAdd) {
-      if ((activeTargets || []).some(a => a.employee.person_id === employeeId)) {
+      if ((activeTargets || []).some(a => a?.employee?.person_id === employeeId)) {
           toast({ variant: 'destructive', title: 'Employee already in grid' }); return;
       }
       
       const employeeIdString = `[${employeeToAdd.person_id}]`;
-      const employeeTargets = (yearDataCache || []).filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
+      const employeeTargets = (yearDataCache || []).filter(t => t.content.targets_allocation_name?.startsWith(employeeIdString));
       
       let rows: TargetRow[] = [];
       if (employeeTargets.length === 0) {
@@ -481,6 +483,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   };
 
   const handleAddManagerTeam = (managerName: string) => {
+    if (!currentYear) return;
     if (!managerName) {
         setSelectedManager('');
         setActiveTargets([]);
@@ -497,7 +500,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     
     const newEmployeeTargets = teamMembers.map(employee => {
         const employeeIdString = `[${employee.person_id}]`;
-        const employeeTargets = (yearDataCache || []).filter(t => t?.content?.targets_allocation_name?.startsWith(employeeIdString));
+        const employeeTargets = (yearDataCache || []).filter(t => t.content.targets_allocation_name?.startsWith(employeeIdString));
         
         let rows: TargetRow[] = [];
         if (employeeTargets.length === 0) {
@@ -527,7 +530,10 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     toast({ title: 'Team Loaded', description: `Loaded ${newEmployeeTargets.length} members for ${managerName}.` });
   };
 
-  const handleRemoveEmployee = (employeeId: string) => setActiveTargets(prev => prev.filter(a => a.employee.person_id !== employeeId));
+  const handleRemoveEmployee = (employeeId: string) => {
+      setActiveTargets(prev => prev.filter(a => a.employee.person_id !== employeeId));
+      setSelectedManager('');
+  };
   
   const handleTargetChange = (employeeId: string, rowId: string, quarter: string, value: string) => {
     const newTarget = parseInt(value, 10) || 0;

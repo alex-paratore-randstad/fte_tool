@@ -51,9 +51,9 @@ const MultiSelectFilter = ({
   const [search, setSearch] = useState('');
 
   const filteredOptions = useMemo(() => {
-    if (!search) return options || [];
-    const s = search.toLowerCase();
-    return (options || []).filter(o => o.toLowerCase().includes(s));
+    const s = (search || '').toLowerCase();
+    if (!s) return options || [];
+    return (options || []).filter(o => o && o.toLowerCase().includes(s));
   }, [search, options]);
 
   return (
