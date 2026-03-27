@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronsUpDown, Check } from 'lucide-react';
+import { ChevronsUpDown, Check, Search } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -43,6 +43,15 @@ const MultiSelectFilter = ({
   disabled?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredOptions = useMemo(() => {
+    const s = (search || '').toLowerCase().trim();
+    if (!s) return options || [];
+    return (options || []).filter(o => 
+      o && String(o).toLowerCase().includes(s)
+    );
+  }, [search, options]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -65,14 +74,22 @@ const MultiSelectFilter = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command filter={(val, search) => val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-          <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} />
+        <Command shouldFilter={false}>
+          <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <input
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder={`Search ${placeholder.toLowerCase()}...`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <CommandList className="max-h-64 overflow-y-auto">
             <CommandEmpty>No matches found.</CommandEmpty>
             <CommandGroup>
-                {(options || []).map(option => (
+                {filteredOptions.map((option, idx) => (
                   <CommandItem
-                    key={option}
+                    key={`${option}-${idx}`}
                     value={option}
                     onSelect={() => onValueChange(option)}
                   >
@@ -116,7 +133,8 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
                 new Set(
                     reportData
                         .map(item => item && item[key])
-                        .filter(val => typeof val === 'string' && val) as string[]
+                        .filter(val => typeof val === 'string' && val)
+                        .map(val => (val as string).trim())
                 )
             ).sort((a, b) => a.localeCompare(b));
         
@@ -133,11 +151,12 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
     if (!Array.isArray(reportData)) return [];
     return reportData.filter(row => {
         if (!row) return false;
+        
         const filterBy = (key: keyof typeof filters, rowField: keyof AiReportData) => {
             const values = filters[key];
             if (!values || values.length === 0) return true;
-            const rowValue = row[rowField];
-            return rowValue ? values.includes(rowValue as string) : false;
+            const rowValue = (row[rowField] || '').toString().trim();
+            return values.includes(rowValue);
         };
 
         return (
@@ -201,9 +220,9 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
                             <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                         </TableRow>
                     ))
-                ) : (filteredData || []).length > 0 ? (
+                ) : filteredData.length > 0 ? (
                     filteredData.map((row, rowIndex) => (
-                    <TableRow key={row.Code || rowIndex}>
+                    <TableRow key={`${row.Code}-${rowIndex}`}>
                         <TableCell>{row.Region || '-'}</TableCell>
                         <TableCell>{row.Country || '-'}</TableCell>
                         <TableCell className="font-medium">{row.DisplayName || '-'}</TableCell>
