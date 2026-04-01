@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -26,7 +27,7 @@ import { Alert, AlertDescription } from '../ui/alert';
 import { Copy, Trash2, PlusCircle, X, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SelectSearch } from '../ui/select-search';
-import type { TeamMember } from '@/types';
+import type { TeamMember, SummaryEntry, EmployeeEntry } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import {
   AlertDialog,
@@ -70,21 +71,6 @@ type SummaryDoc = {
     bulk_allocation_date: string;
     allocation_group?: string;
   };
-};
-
-export type SummaryEntry = { 
-  id: string; 
-  name: string;
-  number: string;
-  percentage: number;
-  isNew?: boolean;
-};
-
-export type EmployeeEntry = {
-    id: string; 
-    employeeId: string;
-    name: string;
-    isNew?: boolean;
 };
 
 type ProcessedAllocation = {
@@ -214,14 +200,11 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
         }
         
         const percNumber = Number(allocation_percentage) || 0;
-        // In bulk allocation, percentages are stored as 0-1 decimals
-        const decimalPerc = percNumber > 1 ? percNumber / 100 : percNumber;
-
         acc[bulk_allocation_id].summaries.push({
           id: summary.id,
           name: cost_center_name || 'Unknown',
           number: cost_center_number || 'Unknown',
-          percentage: decimalPerc,
+          percentage: percNumber,
         });
 
         return acc;
@@ -357,6 +340,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
     }
 
     const totalAllocation = editableAlloc.summaries.reduce((sum, s) => sum + s.percentage, 0);
+    // Use floating point margin for validation
     if (Math.abs(totalAllocation - 1.0) > 0.01) {
       toast({ variant: 'destructive', title: 'Validation Error', description: 'Total allocation must be exactly 1.00.' });
       setIsSaving(prev => ({...prev, [allocId]: false}));
@@ -503,7 +487,9 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                 const isProfileSaving = isSaving[alloc.id];
                 const isProfileDeleting = isDeleting[alloc.id];
                 const displayId = alloc.id ? alloc.id.substring(0, 8) : 'unknown';
+                
                 const clientSummary = (alloc.summaries || []).map(s => `${s.name} (${(Number(s.percentage) || 0).toFixed(2)})`).join(', ');
+                
               return (
               <AccordionItem value={alloc.id} key={alloc.id}>
                 <AccordionTrigger>

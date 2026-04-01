@@ -95,6 +95,20 @@ export type BulkSummaryDoc = {
   };
 };
 
+export type SummaryEntry = { 
+  id: string; 
+  name: string;
+  number: string;
+  percentage: number;
+  isNew?: boolean;
+};
+
+export type EmployeeEntry = {
+    id: string; 
+    employeeId: string;
+    name: string;
+    isNew?: boolean;
+};
 
 export type NavItem = {
   href: string;

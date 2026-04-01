@@ -24,13 +24,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlusCircle, X, ChevronsUpDown, Check } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import type { TeamMember } from '@/types';
+import type { TeamMember, SummaryEntry } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
-import type { SummaryEntry } from './saved-bulk-allocations-table';
 import { writeLog } from '@/lib/logger';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -158,7 +157,7 @@ const ClientSelect = ({
   }, [clients]);
 
   const filteredClients = useMemo(() => {
-    const s = (search || '').toLowerCase();
+    const s = (search || '').toLowerCase().trim();
     if (!s) return sortedClients;
     return sortedClients.filter(c => 
       (c.DisplayName || '').toLowerCase().includes(s) || 

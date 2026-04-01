@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { BulkAllocationGrid } from '@/components/bulk-allocation/bulk-allocation-grid';
 import { SavedBulkAllocationsTable } from '@/components/bulk-allocation/saved-bulk-allocations-table';
-import type { SummaryEntry } from '@/components/bulk-allocation/saved-bulk-allocations-table';
+import type { SummaryEntry } from '@/types';
 import { writeLog } from '@/lib/logger';
 
 export default function BulkAllocationPage() {
