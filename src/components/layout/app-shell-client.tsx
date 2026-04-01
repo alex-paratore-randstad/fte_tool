@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -59,25 +58,30 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     setHasMounted(true);
   }, []);
 
-  const normalize = useCallback((p: any) => {
-      if (!p || typeof p !== 'string') return '/';
-      let clean = p.split('?')[0].split('#')[0];
-      clean = clean.replace(/\/+$/, '');
-      clean = clean.replace(/\/index\.html$/, '');
-      return clean || '/';
-  }, []);
-
   const isActive = useCallback((href: string) => {
     if (!pathname) return false;
+    
+    const normalize = (p: any) => {
+        if (!p || typeof p !== 'string') return '';
+        let clean = p.split('?')[0].split('#')[0];
+        clean = clean.replace(/\/index\.html$/, '');
+        clean = clean.replace(/\/+$/, '');
+        return clean || '/';
+    };
+
     const currentPath = normalize(pathname);
     const targetPath = normalize(href);
-    if (targetPath === '/') return currentPath === '/' || currentPath === '';
+
+    if (targetPath === '/') {
+        return currentPath === '/' || currentPath === '';
+    }
+
     return currentPath === targetPath;
-  }, [pathname, normalize]);
+  }, [pathname]);
 
   const isGroupActive = useCallback((items: { href: string }[]) => {
     if (!items || !Array.isArray(items)) return false;
-    return items.some(item => item && isActive(item.href));
+    return items.some(item => isActive(item.href));
   }, [isActive]);
 
   const userHasAccess = useCallback((roles?: string[]) => {

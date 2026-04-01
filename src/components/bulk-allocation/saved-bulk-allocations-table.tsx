@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -46,6 +45,8 @@ type AiReportData = {
     Name: string;
     DisplayName: string;
     RollsUpTo: string;
+    Region?: string;
+    Country?: string;
 };
 
 type FteDoc = {
@@ -72,7 +73,7 @@ type SummaryDoc = {
 };
 
 export type SummaryEntry = { 
-  id: string; // This is the doc ID if it exists, or a temp UUID for new rows
+  id: string; 
   name: string;
   number: string;
   percentage: number;
@@ -80,14 +81,14 @@ export type SummaryEntry = {
 };
 
 export type EmployeeEntry = {
-    id: string; // doc ID
+    id: string; 
     employeeId: string;
     name: string;
     isNew?: boolean;
 };
 
 type ProcessedAllocation = {
-  id: string; // bulk_allocation_id
+  id: string; 
   allocationDate: string;
   allocationMonthYear?: string;
   allocationGroup?: string;
@@ -113,7 +114,7 @@ const ClientSelect = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const filteredClients = useMemo(() => {
-    const sorted = [...clients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
+    const sorted = [...(clients || [])].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
     if (!searchTerm) return sorted;
     return sorted.filter(c => c.DisplayName?.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [clients, searchTerm]);
@@ -142,7 +143,7 @@ const EmployeeSelect = ({
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const filtered = useMemo(() => {
-        const sorted = [...employees].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        const sorted = [...(employees || [])].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
         if (!searchTerm) return sorted;
         return sorted.filter(e => e.full_name?.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [employees, searchTerm]);
@@ -456,13 +457,9 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
 
     try {
         const operations: Promise<any>[] = [];
-        
-        // Delete all employees assigned to this profile
         profile.employees.forEach(emp => {
             operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_fte/documents/${emp.id}`, { method: 'DELETE' }));
         });
-        
-        // Delete all summaries (clients) assigned to this profile
         profile.summaries.forEach(sum => {
             operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/${sum.id}`, { method: 'DELETE' }));
         });
@@ -581,7 +578,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                             <TableCell className="text-right">
                                               <Input 
                                                 type="number" min="0" max="1" step="0.01"
-                                                value={s.percentage}
+                                                value={s.percentage.toFixed(2)}
                                                 onChange={(e) => handlePercentageChange(alloc.id, s.id, e.target.value)}
                                                 className="w-20 text-center ml-auto"
                                                 disabled={isProfileSaving || isProfileDeleting}
@@ -591,7 +588,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                                 <Button 
                                                     variant="ghost" size="icon" className="h-8 w-8"
                                                     onClick={() => handleRemoveSummary(alloc.id, s.id)}
-                                                    disabled={isProfileSaving || isProfileDeleting || alloc.summaries.length === 1}
+                                                    disabled={isProfileSaving || isProfileDeleting || (alloc.summaries || []).length === 1}
                                                 >
                                                     <Trash2 className="h-4 w-4 text-destructive" />
                                                 </Button>

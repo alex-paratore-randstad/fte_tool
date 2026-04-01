@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCallback } from 'react';
@@ -49,21 +48,26 @@ export function TopNav() {
   const pathname = usePathname();
   const { currentUser, loading } = useCurrentUser();
 
-  const normalize = useCallback((p: any) => {
-      if (!p || typeof p !== 'string') return '/';
-      let clean = p.split('?')[0].split('#')[0];
-      clean = clean.replace(/\/+$/, '');
-      clean = clean.replace(/\/index\.html$/, '');
-      return clean || '/';
-  }, []);
-
   const isActive = useCallback((href: string) => {
     if (!pathname) return false;
+    
+    const normalize = (p: any) => {
+        if (!p || typeof p !== 'string') return '';
+        let clean = p.split('?')[0].split('#')[0];
+        clean = clean.replace(/\/index\.html$/, '');
+        clean = clean.replace(/\/+$/, '');
+        return clean || '/';
+    };
+
     const currentPath = normalize(pathname);
     const targetPath = normalize(href);
-    if (targetPath === '/') return currentPath === '/' || currentPath === '';
+
+    if (targetPath === '/') {
+        return currentPath === '/' || currentPath === '';
+    }
+
     return currentPath === targetPath;
-  }, [pathname, normalize]);
+  }, [pathname]);
   
   const userHasAccess = (roles?: string[]) => {
     if (loading || !currentUser || !currentUser.role) return false;
