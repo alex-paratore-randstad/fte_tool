@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -504,15 +505,21 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                 const isProfileSaving = isSaving[alloc.id];
                 const isProfileDeleting = isDeleting[alloc.id];
                 const displayId = alloc.id ? alloc.id.substring(0, 8) : 'unknown';
+                const clientSummary = (alloc.summaries || []).map(s => `${s.name} (${s.percentage.toFixed(2)})`).join(', ');
               return (
               <AccordionItem value={alloc.id} key={alloc.id}>
                 <AccordionTrigger>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                        <span className="font-mono text-sm text-primary">{displayId}...</span>
-                        {alloc.allocationGroup && <Badge variant="outline">{alloc.allocationGroup}</Badge>}
-                        {alloc.allocationMonthYear && <Badge>{alloc.allocationMonthYear}</Badge>}
-                        <Badge variant="secondary">{(alloc.employees || []).length} Employees</Badge>
-                        <span className="text-sm text-muted-foreground hidden sm:inline">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-left w-full">
+                        <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-mono text-sm text-primary">{displayId}...</span>
+                            {alloc.allocationGroup && <Badge variant="outline">{alloc.allocationGroup}</Badge>}
+                            {alloc.allocationMonthYear && <Badge>{alloc.allocationMonthYear}</Badge>}
+                            <Badge variant="secondary">{(alloc.employees || []).length} Employees</Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate flex-1 max-w-[300px] hidden md:block">
+                            {clientSummary}
+                        </div>
+                        <span className="text-sm text-muted-foreground hidden sm:inline ml-auto pr-4">
                             Created: {alloc.allocationDate ? new Date(alloc.allocationDate).toLocaleDateString() : 'N/A'}
                         </span>
                     </div>
