@@ -339,16 +339,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   /**
    * LOCKING LOGIC:
-   * Edits are permitted for current and previous fiscal months.
-   * Older months are locked.
+   * Edits are permitted for current and previous fiscal months only.
+   * This is enforced based on the global "Today" reference.
    */
   const isWeekEditable = useCallback((weekStartDate: Date) => {
     if (isAdmin) return true;
     
-    // We use "now" as the reference for locking
     const today = new Date();
     const weekFiscal = getFiscalDataForDate(weekStartDate);
     const todayFiscal = getFiscalDataForDate(today);
+    
+    // GUARD AGAINST UNDEFINED FISCAL DATA (BUILD TIME PROTECTION)
     if (!weekFiscal || !todayFiscal) return false;
 
     const monthMap: Record<string, number> = {
@@ -357,8 +358,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     };
 
     const getMonthVal = (f: { Reporting_Month: string, Reporting_Year: string }) => {
+        if (!f) return 0;
         const mStr = (f.Reporting_Month || '').substring(0, 3).toUpperCase();
-        const m = monthMap[mStr] || 0;
+        let m = monthMap[mStr] || 0;
+        if (m === 0) {
+            const numericMatch = (f.Reporting_Month || '').match(/\d+/);
+            if (numericMatch) m = parseInt(numericMatch[0], 10);
+        }
         const yStr = (f.Reporting_Year || '').replace(/\D/g, '');
         const y = parseInt(yStr, 10) || 0;
         return y * 12 + m;
@@ -367,9 +373,15 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const currentMonthValue = getMonthVal(todayFiscal);
     const targetMonthValue = getMonthVal(weekFiscal);
     
-    // Editable if the fiscal month being viewed is Current-1 or later (Today forward logic).
+    // Editable if Month(Target) >= Month(Today) - 1
     return targetMonthValue >= (currentMonthValue - 1);
   }, [isAdmin]);
+
+  const isMonthLocked = useMemo(() => {
+    if (weeks.length === 0) return false;
+    // If all weeks in the currently viewed month are locked, the month is locked.
+    return weeks.every(w => !isWeekEditable(w.startDate));
+  }, [weeks, isWeekEditable]);
 
   const fetchMonthData = useCallback(async () => {
     if (!currentDate || !isValid(currentDate) || (weeks?.length || 0) === 0) return;
@@ -650,20 +662,39 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     setIsSaving(true);
     const submissions: any[] = [];
     let invalid = false;
-    const currentKeys = new Set(weeks.map(w => formatDateKey(w.startDate)));
+    
+    // Only save weeks that are currently editable based on the global date rule
+    const currentKeys = weeks.filter(w => isWeekEditable(w.startDate)).map(w => formatDateKey(w.startDate));
+    const validKeysSet = new Set(currentKeys);
+
     activeAllocations.forEach(ea => {
       if (!ea?.employee) return;
       ea.allocations.forEach(alloc => {
         Object.entries(alloc.weeklyFtes).forEach(([key, fte]) => {
-          if (currentKeys.has(key) && fte > 0) {
-            if (!alloc.clientName) { invalid = true; toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${ea.employee.full_name}.` }); return; }
-            submissions.push({ content: { allocation_date: key, allocation_name: `[${ea.employee.person_id}] ${ea.employee.full_name}`, employee_id: ea.employee.person_id, cost_center_name: alloc.clientName, cost_center_number: alloc.clientId || alloc.clientName, allocation_amount: fte.toString() } });
+          if (validKeysSet.has(key) && fte > 0) {
+            if (!alloc.clientName) { 
+                invalid = true; 
+                toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${ea.employee.full_name}.` }); 
+                return; 
+            }
+            submissions.push({ 
+                content: { 
+                    allocation_date: key, 
+                    allocation_name: `[${ea.employee.person_id}] ${ea.employee.full_name}`, 
+                    employee_id: ea.employee.person_id, 
+                    cost_center_name: alloc.clientName, 
+                    cost_center_number: alloc.clientId || alloc.clientName, 
+                    allocation_amount: fte.toString() 
+                } 
+            });
           }
         });
       });
     });
+
     if (invalid) { setIsSaving(false); return; }
     if (submissions.length === 0) { toast({ title: 'No changes to save.' }); setIsSaving(false); return; }
+    
     try {
         await Promise.all(submissions.map(entry => fetch('/domo/datastores/v1/collections/weekly_allocation/documents/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry) }).then(res => { if (!res.ok) throw new Error('Saves failed.'); return res.json(); })));
         toast({ title: 'Allocations Saved', description: `${submissions.length} entries saved successfully.` });
@@ -672,19 +703,24 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     finally { setIsSaving(false); }
   };
 
-  const allLocked = useMemo(() => {
-    if ((weeks || []).length === 0) return false;
-    return weeks.every(w => !isWeekEditable(w.startDate));
-  }, [weeks, isWeekEditable]);
-
   return (
     <TooltipProvider>
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <CardTitle>Monthly Allocation Grid</CardTitle>
-              <CardDescription>Edits are permitted for current and previous fiscal months. Older months are locked.</CardDescription>
+              <div className="flex items-center gap-3">
+                <CardTitle>Monthly Allocation Grid</CardTitle>
+                {isMonthLocked && (
+                    <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/30">
+                        <Lock className="h-3 w-3 mr-1" /> Read Only
+                    </Badge>
+                )}
+              </div>
+              <CardDescription>
+                Edits permitted for current and previous fiscal months only. 
+                Historical periods are locked for non-admins.
+              </CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <EmployeeSelect employees={availableEmployees} onValueChange={handleAddEmployee} value={selectedEmployeeToAdd} disabled={isLoading || isSaving} />
@@ -692,7 +728,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
               <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isLoading || isSaving}><ChevronLeft className="h-4 w-4" /></Button>
               <span className="text-sm font-medium w-32 text-center">{isLoading ? <Skeleton className="h-5 w-24 mx-auto" /> : fiscalMonthLabel}</span>
               <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isLoading || isSaving}><ChevronRight className="h-4 w-4" /></Button>
-              <Button onClick={handleSave} disabled={isLoading || isSaving || (activeAllocations?.length || 0) === 0 || allLocked}>
+              <Button onClick={handleSave} disabled={isLoading || isSaving || (activeAllocations?.length || 0) === 0 || isMonthLocked}>
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 {isSaving ? 'Saving...' : 'Save All'}
               </Button>
@@ -748,7 +784,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                           </div>
                           <Tooltip>
                               <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)} disabled={allLocked || isSaving}><Copy className="h-3.5 w-3.5" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)} disabled={isMonthLocked || isSaving}><Copy className="h-3.5 w-3.5" /></Button>
                               </TooltipTrigger>
                               <TooltipContent><p>Copy Prior Month's Allocations</p></TooltipContent>
                           </Tooltip>
@@ -781,9 +817,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                         return (
                         <TableRow key={alloc.id}>
                           <TableCell className="sticky left-0 bg-card z-10"></TableCell>
-                          <TableCell><ClientSelect clients={clients} value={alloc.clientName} onValueChange={(name) => handleClientChange(employee.person_id, alloc.id, name)} disabled={allLocked || isSaving} /></TableCell>
+                          <TableCell><ClientSelect clients={clients} value={alloc.clientName} onValueChange={(name) => handleClientChange(employee.person_id, alloc.id, name)} disabled={isMonthLocked || isSaving} /></TableCell>
                           <TableCell className="p-2"><Input value={alloc.clientId} readOnly className="bg-muted w-24" placeholder="Code" /></TableCell>
-                          <TableCell className="text-center"><Input type="number" step="0.05" min="0" placeholder="0.00" className="w-20 text-center mx-auto" value={displayBulkFte} onChange={(e) => handleMonthlyFteChange(employee.person_id, alloc.id, e.target.value)} disabled={allLocked || isSaving} /></TableCell>
+                          <TableCell className="text-center"><Input type="number" step="0.05" min="0" placeholder="0.00" className="w-20 text-center mx-auto" value={displayBulkFte} onChange={(e) => handleMonthlyFteChange(employee.person_id, alloc.id, e.target.value)} disabled={isMonthLocked || isSaving} /></TableCell>
                           {(weeks || []).map(week => {
                             const weekKey = formatDateKey(week.startDate);
                             const locked = !isWeekEditable(week.startDate);
@@ -794,11 +830,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                               </TableCell>
                             )
                           })}
-                          <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(employee.person_id, alloc.id)} disabled={allocations.length === 1 || allLocked || isSaving}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                          <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(employee.person_id, alloc.id)} disabled={allocations.length === 1 || isMonthLocked || isSaving}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                         </TableRow>
                       )})}
                       <TableRow>
-                        <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}><Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.person_id)} disabled={isSaving || allLocked}><PlusCircle className="mr-2 h-4 w-4" /> Add Allocation</Button></TableCell>
+                        <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={3}><Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(employee.person_id)} disabled={isSaving || isMonthLocked}><PlusCircle className="mr-2 h-4 w-4" /> Add Allocation</Button></TableCell>
                         <TableCell colSpan={(weeks?.length || 0) + 2}></TableCell>
                       </TableRow>
                     </Fragment>

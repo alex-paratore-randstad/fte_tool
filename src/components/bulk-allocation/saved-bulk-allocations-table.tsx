@@ -500,7 +500,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                             {alloc.allocationMonthYear && <Badge>{alloc.allocationMonthYear}</Badge>}
                             <Badge variant="secondary">{(alloc.employees || []).length} Employees</Badge>
                         </div>
-                        <div className="text-xs text-muted-foreground truncate flex-1 max-w-[300px] hidden md:block">
+                        <div className="text-xs text-muted-foreground truncate flex-1 max-w-[350px] hidden md:block">
                             {clientSummary}
                         </div>
                         <span className="text-sm text-muted-foreground hidden sm:inline ml-auto pr-4">
@@ -526,15 +526,13 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                     {(alloc.employees || []).map((emp) => (
                                         <div key={emp.id} className="flex items-center justify-between p-2 rounded hover:bg-muted group text-sm">
                                             <span>{emp.name}</span>
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="h-6 w-6 opacity-0 group-hover:opacity-100" 
+                                            <button 
+                                                className="h-6 w-6 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded hover:bg-destructive/10 text-destructive disabled:opacity-50" 
                                                 onClick={() => handleRemoveEmployee(alloc.id, emp.id)}
                                                 disabled={isProfileSaving || isProfileDeleting}
                                             >
-                                                <X className="h-3 w-3 text-destructive" />
-                                            </Button>
+                                                <X className="h-3 w-3" />
+                                            </button>
                                         </div>
                                     ))}
                                     {(!alloc.employees || alloc.employees.length === 0) && <p className="text-center py-4 text-muted-foreground">No employees assigned.</p>}
