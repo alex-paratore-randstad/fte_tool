@@ -23,7 +23,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Copy, Trash2, PlusCircle, UserPlus, X, Loader2 } from 'lucide-react';
+import { Copy, Trash2, PlusCircle, X, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SelectSearch } from '../ui/select-search';
 import type { TeamMember } from '@/types';
@@ -214,6 +214,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
         }
         
         const percNumber = Number(allocation_percentage) || 0;
+        // In bulk allocation, percentages are stored as 0-1 decimals
         const decimalPerc = percNumber > 1 ? percNumber / 100 : percNumber;
 
         acc[bulk_allocation_id].summaries.push({
@@ -502,7 +503,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                 const isProfileSaving = isSaving[alloc.id];
                 const isProfileDeleting = isDeleting[alloc.id];
                 const displayId = alloc.id ? alloc.id.substring(0, 8) : 'unknown';
-                const clientSummary = (alloc.summaries || []).map(s => `${s.name} (${s.percentage.toFixed(2)})`).join(', ');
+                const clientSummary = (alloc.summaries || []).map(s => `${s.name} (${(Number(s.percentage) || 0).toFixed(2)})`).join(', ');
               return (
               <AccordionItem value={alloc.id} key={alloc.id}>
                 <AccordionTrigger>
@@ -578,7 +579,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                             <TableCell className="text-right">
                                               <Input 
                                                 type="number" min="0" max="1" step="0.01"
-                                                value={s.percentage.toFixed(2)}
+                                                value={(Number(s.percentage) || 0).toFixed(2)}
                                                 onChange={(e) => handlePercentageChange(alloc.id, s.id, e.target.value)}
                                                 className="w-20 text-center ml-auto"
                                                 disabled={isProfileSaving || isProfileDeleting}

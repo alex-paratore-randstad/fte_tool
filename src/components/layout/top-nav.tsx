@@ -44,6 +44,13 @@ const navGroups: NavGroup[] = [
   }
 ];
 
+const getHref = (href: string) => {
+    if (!href) return '/index.html';
+    const cleanHref = typeof href === 'string' ? href : '/index.html';
+    if (cleanHref === '/') return '/index.html';
+    return `${cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`}index.html`;
+};
+
 export function TopNav() {
   const pathname = usePathname();
   const { currentUser, loading } = useCurrentUser();
@@ -83,7 +90,7 @@ export function TopNav() {
   return (
     <>
       <Link
-        href="/"
+        href={getHref('/')}
         className={cn(
           'text-sm font-medium transition-colors hover:text-primary',
           isActive('/') ? 'text-primary' : 'text-muted-foreground'
@@ -116,7 +123,7 @@ export function TopNav() {
               <DropdownMenuContent align="start">
                 {(group.items || []).filter(item => item && userHasAccess(item.roles)).map(item => (
                   <DropdownMenuItem key={item.href} asChild>
-                    <Link href={item.href} className={cn(isActive(item.href) && 'font-semibold')}>
+                    <Link href={getHref(item.href)} className={cn(isActive(item.href) && 'font-semibold')}>
                       {item.label}
                     </Link>
                   </DropdownMenuItem>
