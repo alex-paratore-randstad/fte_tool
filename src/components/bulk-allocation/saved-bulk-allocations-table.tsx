@@ -249,7 +249,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
   const handlePercentageChange = (allocId: string, summaryId: string, newPercentage: string) => {
     setEditableAllocations(prev => prev.map(alloc => {
       if (alloc.id === allocId) {
-        const updatedSummaries = alloc.summaries.map(s => s.id === summaryId ? { ...s, percentage: Number(newPercentage) } : s);
+        const updatedSummaries = (alloc.summaries || []).map(s => s.id === summaryId ? { ...s, percentage: Number(newPercentage) } : s);
         return { ...alloc, summaries: updatedSummaries };
       }
       return alloc;
@@ -260,7 +260,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
     const client = allClients.find(c => c.DisplayName === newClientName);
     setEditableAllocations(prev => prev.map(alloc => {
         if (alloc.id === allocId) {
-            const updatedSummaries = alloc.summaries.map(s => s.id === summaryId ? { 
+            const updatedSummaries = (alloc.summaries || []).map(s => s.id === summaryId ? { 
                 ...s, 
                 name: newClientName, 
                 number: client?.Code || 'Unknown' 
@@ -274,7 +274,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
   const handleRemoveSummary = (allocId: string, summaryId: string) => {
     setEditableAllocations(prev => prev.map(alloc => {
         if (alloc.id === allocId) {
-            return { ...alloc, summaries: alloc.summaries.filter(s => s.id !== summaryId) };
+            return { ...alloc, summaries: (alloc.summaries || []).filter(s => s.id !== summaryId) };
         }
         return alloc;
     }));
@@ -290,7 +290,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                 percentage: 0,
                 isNew: true
             };
-            return { ...alloc, summaries: [...alloc.summaries, newSummary] };
+            return { ...alloc, summaries: [...(alloc.summaries || []), newSummary] };
         }
         return alloc;
     }));
@@ -302,7 +302,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
 
     setEditableAllocations(prev => prev.map(alloc => {
         if (alloc.id === allocId) {
-            if (alloc.employees.some(e => e.employeeId === employeeId)) {
+            if ((alloc.employees || []).some(e => e.employeeId === employeeId)) {
                 toast({ variant: 'destructive', title: 'Employee already added' });
                 return alloc;
             }
@@ -312,7 +312,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                 name: employee.full_name,
                 isNew: true
             };
-            return { ...alloc, employees: [...alloc.employees, newEntry] };
+            return { ...alloc, employees: [...(alloc.employees || []), newEntry] };
         }
         return alloc;
     }));
@@ -321,7 +321,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
   const handleRemoveEmployee = (allocId: string, docId: string) => {
     setEditableAllocations(prev => prev.map(alloc => {
         if (alloc.id === allocId) {
-            return { ...alloc, employees: alloc.employees.filter(e => e.id !== docId) };
+            return { ...alloc, employees: (alloc.employees || []).filter(e => e.id !== docId) };
         }
         return alloc;
     }));
@@ -339,15 +339,15 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       return;
     }
 
-    const totalAllocation = editableAlloc.summaries.reduce((sum, s) => sum + s.percentage, 0);
+    const totalAllocation = (editableAlloc.summaries || []).reduce((sum, s) => sum + s.percentage, 0);
     // Use floating point margin for validation
-    if (Math.abs(totalAllocation - 1.0) > 0.01) {
-      toast({ variant: 'destructive', title: 'Validation Error', description: 'Total allocation must be exactly 1.00.' });
+    if (Math.abs(totalAllocation - 1.0) > 0.05) {
+      toast({ variant: 'destructive', title: 'Validation Error', description: 'Total allocation must sum to the group FTE total.' });
       setIsSaving(prev => ({...prev, [allocId]: false}));
       return;
     }
 
-    if (editableAlloc.employees.length === 0) {
+    if ((editableAlloc.employees || []).length === 0) {
         toast({ variant: 'destructive', title: 'Validation Error', description: 'Profile must have at least one employee.' });
         setIsSaving(prev => ({...prev, [allocId]: false}));
         return;
@@ -356,13 +356,13 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
     try {
         const operations: Promise<any>[] = [];
 
-        originalAlloc.summaries.forEach(orig => {
-            if (!editableAlloc.summaries.some(edit => edit.id === orig.id)) {
+        (originalAlloc.summaries || []).forEach(orig => {
+            if (!(editableAlloc.summaries || []).some(edit => edit.id === orig.id)) {
                 operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/${orig.id}`, { method: 'DELETE' }));
             }
         });
         
-        editableAlloc.summaries.forEach(edit => {
+        (editableAlloc.summaries || []).forEach(edit => {
             const content = {
                 bulk_allocation_id: allocId,
                 cost_center_number: edit.number,
@@ -379,7 +379,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                     body: JSON.stringify({ content }),
                 }));
             } else {
-                const original = originalAlloc.summaries.find(o => o.id === edit.id);
+                const original = (originalAlloc.summaries || []).find(o => o.id === edit.id);
                 if (original && (original.percentage !== edit.percentage || original.number !== edit.number)) {
                     operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/${edit.id}`, {
                         method: 'PUT',
@@ -390,13 +390,13 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
             }
         });
 
-        originalAlloc.employees.forEach(orig => {
-            if (!editableAlloc.employees.some(edit => edit.id === orig.id)) {
+        (originalAlloc.employees || []).forEach(orig => {
+            if (!(editableAlloc.employees || []).some(edit => edit.id === orig.id)) {
                 operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_fte/documents/${orig.id}`, { method: 'DELETE' }));
             }
         });
         
-        editableAlloc.employees.forEach(edit => {
+        (editableAlloc.employees || []).forEach(edit => {
             if (edit.isNew) {
                 const content = {
                     bulk_allocation_id: allocId,
@@ -442,10 +442,10 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
 
     try {
         const operations: Promise<any>[] = [];
-        profile.employees.forEach(emp => {
+        (profile.employees || []).forEach(emp => {
             operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_fte/documents/${emp.id}`, { method: 'DELETE' }));
         });
-        profile.summaries.forEach(sum => {
+        (profile.summaries || []).forEach(sum => {
             operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_summary/documents/${sum.id}`, { method: 'DELETE' }));
         });
 
@@ -563,7 +563,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                             </TableCell>
                                             <TableCell className="text-right">
                                               <Input 
-                                                type="number" min="0" max="1" step="0.01"
+                                                type="number" min="0" step="0.05"
                                                 // ROUND TABLE VALUE TO 2 DECIMAL PLACES
                                                 value={(Number(s.percentage) || 0).toFixed(2)}
                                                 onChange={(e) => handlePercentageChange(alloc.id, s.id, e.target.value)}
@@ -593,16 +593,15 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                         <Button variant="outline" size="sm" onClick={() => onCopyTemplate(alloc.summaries)} disabled={isProfileSaving || isProfileDeleting}>
                                             <Copy className="mr-2 h-4 w-4" /> Copy
                                         </Button>
-                                        <Button size="sm" onClick={() => handleSaveChanges(alloc.id)} disabled={isProfileSaving || isProfileDeleting || Math.abs(totalAllocation - 1.0) > 0.01}>
+                                        <Button size="sm" onClick={() => handleSaveChanges(alloc.id)} disabled={isProfileSaving || isProfileDeleting}>
                                             {isProfileSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                                             {isProfileSaving ? 'Saving...' : 'Save Changes'}
                                         </Button>
                                     </div>
                                 </div>
-                                <Alert variant={Math.abs(totalAllocation - 1.0) > 0.01 ? 'destructive' : 'default'}>
+                                <Alert variant="default">
                                     <AlertDescription>
-                                    Total Allocation: <span className="font-bold">{totalAllocation.toFixed(2)}</span>
-                                    {Math.abs(totalAllocation - 1.0) > 0.01 && " (Must equal 1.00)"}
+                                    Total Group FTE: <span className="font-bold">{totalAllocation.toFixed(2)}</span>
                                     </AlertDescription>
                                 </Alert>
                                 <div className="border-t pt-4 mt-2">
@@ -621,10 +620,10 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
                                                 <AlertDialogAction onClick={() => handleDeleteProfile(alloc.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                                                     Delete Profile
                                                 </AlertDialogAction>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>

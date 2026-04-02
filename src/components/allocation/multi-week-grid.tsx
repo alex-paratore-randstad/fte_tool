@@ -314,6 +314,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const [internalLoading, setInternalLoading] = useState(true);
   const [monthDataCache, setMonthDataCache] = useState<WeeklyAllocation[]>([]);
   const [startOfCurrentWeek, setStartOfCurrentWeek] = useState<Date | null>(null);
+  const [todayRef, setTodayRef] = useState<Date | null>(null);
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState('');
   const [selectedManager, setSelectedManager] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
@@ -326,7 +327,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
   useEffect(() => {
     setHasMounted(true);
-    setStartOfCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    const now = new Date();
+    setTodayRef(now);
+    setStartOfCurrentWeek(startOfWeek(now, { weekStartsOn: 1 }));
   }, []);
 
   const { weeks, fiscalMonthLabel } = useMemo(() => {
@@ -340,16 +343,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   /**
    * LOCKING LOGIC:
    * Edits are permitted for current and previous fiscal months only.
-   * Based on the current date, we calculate the threshold month.
+   * This applies to ALL users, including admins.
    */
   const isWeekEditable = useCallback((weekStartDate: Date) => {
-    if (isAdmin) return true;
+    if (!todayRef) return false;
     
-    const today = new Date();
     const weekFiscal = getFiscalDataForDate(weekStartDate);
-    const todayFiscal = getFiscalDataForDate(today);
+    const todayFiscal = getFiscalDataForDate(todayRef);
     
-    // GUARD AGAINST UNDEFINED FISCAL DATA (BUILD TIME PROTECTION)
     if (!weekFiscal || !todayFiscal) return false;
 
     const monthMap: Record<string, number> = {
@@ -375,7 +376,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     
     // Editable if Month(Target) >= Month(Today) - 1
     return targetMonthValue >= (currentMonthValue - 1);
-  }, [isAdmin]);
+  }, [todayRef]);
 
   const isMonthLocked = useMemo(() => {
     if (weeks.length === 0) return false;
@@ -719,7 +720,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
               </div>
               <CardDescription>
                 Edits permitted for current and previous fiscal months only. 
-                Historical periods are locked for non-admins.
+                Historical periods are locked for ALL users.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
