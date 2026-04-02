@@ -358,15 +358,16 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
     };
 
-    const getMonthVal = (f: { Reporting_Month: string, Reporting_Year: string }) => {
+    const getMonthVal = (f: { Reporting_Month: string, Reporting_Year: string | number }) => {
         if (!f) return 0;
-        const mStr = (f.Reporting_Month || '').substring(0, 3).toUpperCase();
+        const mStr = String(f.Reporting_Month || '').substring(0, 3).toUpperCase();
         let m = monthMap[mStr] || 0;
         if (m === 0) {
-            const numericMatch = (f.Reporting_Month || '').match(/\d+/);
+            const numericMatch = String(f.Reporting_Month || '').match(/\d+/);
             if (numericMatch) m = parseInt(numericMatch[0], 10);
         }
-        const yStr = (f.Reporting_Year || '').replace(/\D/g, '');
+        // Use String() to prevent TypeError if year is a number
+        const yStr = String(f.Reporting_Year || '').replace(/\D/g, '');
         const y = parseInt(yStr, 10) || 0;
         return y * 12 + m;
     };

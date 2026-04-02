@@ -167,8 +167,8 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       const [fteResponse, summaryResponse, metaEmpResponse, metaClientResponse] = await Promise.all([
         fetch('/domo/datastores/v1/collections/bulk_allocation_fte/documents/'),
         fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/'),
-        fetch('/data/v1/consolidated_hr_fte_report_view'),
-        fetch('/data/v1/ai_report'),
+        fetch(`/data/v1/consolidated_hr_fte_report_view`),
+        fetch(`/data/v1/ai_report`),
       ]);
 
       const ftes: FteDoc[] = fteResponse.ok ? await fteResponse.json() : [];
@@ -342,7 +342,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
     const totalAllocation = (editableAlloc.summaries || []).reduce((sum, s) => sum + s.percentage, 0);
     // Use floating point margin for validation
     if (Math.abs(totalAllocation - 1.0) > 0.05) {
-      toast({ variant: 'destructive', title: 'Validation Error', description: 'Total allocation must sum to the group FTE total.' });
+      toast({ variant: 'destructive', title: 'Validation Error', description: 'Total allocation must be within range of assigned FTEs.' });
       setIsSaving(prev => ({...prev, [allocId]: false}));
       return;
     }
@@ -488,7 +488,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                 const isProfileDeleting = isDeleting[alloc.id];
                 const displayId = alloc.id ? alloc.id.substring(0, 8) : 'unknown';
                 
-                // ROUND CLIENT SUMMARY TO 2 DECIMAL PLACES
+                // Formatted summary rounded to 2 decimal places
                 const clientSummary = (alloc.summaries || []).map(s => `${s.name} (${(Number(s.percentage) || 0).toFixed(2)})`).join(', ');
                 
               return (
@@ -564,7 +564,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                             <TableCell className="text-right">
                                               <Input 
                                                 type="number" min="0" step="0.05"
-                                                // ROUND TABLE VALUE TO 2 DECIMAL PLACES
+                                                // Strictly display 2 decimal places
                                                 value={(Number(s.percentage) || 0).toFixed(2)}
                                                 onChange={(e) => handlePercentageChange(alloc.id, s.id, e.target.value)}
                                                 className="w-20 text-center ml-auto"
