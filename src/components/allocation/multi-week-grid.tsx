@@ -340,7 +340,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   /**
    * LOCKING LOGIC:
    * Edits are permitted for current and previous fiscal months only.
-   * This is enforced based on the global "Today" reference.
+   * Based on the current date, we calculate the threshold month.
    */
   const isWeekEditable = useCallback((weekStartDate: Date) => {
     if (isAdmin) return true;
@@ -712,8 +712,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
               <div className="flex items-center gap-3">
                 <CardTitle>Monthly Allocation Grid</CardTitle>
                 {isMonthLocked && (
-                    <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/30">
-                        <Lock className="h-3 w-3 mr-1" /> Read Only
+                    <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/30 px-3 py-1">
+                        <Lock className="h-3.5 w-3.5 mr-2" /> Read Only
                     </Badge>
                 )}
               </div>

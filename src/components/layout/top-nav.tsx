@@ -49,7 +49,8 @@ const getHref = (href: string) => {
     if (!href) return '/index.html';
     const cleanHref = typeof href === 'string' ? href : '/index.html';
     if (cleanHref === '/') return '/index.html';
-    return `${cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`}index.html`;
+    const base = cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`;
+    return `${base}index.html`;
 };
 
 export function TopNav() {
