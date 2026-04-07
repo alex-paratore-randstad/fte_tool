@@ -51,25 +51,31 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
       return { chartConfig: {}, costCenters: [] };
     }
 
-    // 1. Extract all unique cost center names
-    const ccKeys = new Set<string>();
+    // 1. Calculate total FTE for each client across all data points to determine Top 10
+    const totals: Record<string, number> = {};
     data.forEach(week => {
       if (week) {
         Object.keys(week).forEach(key => {
           if (key !== 'name' && key !== 'undefined' && key !== 'null') {
-            ccKeys.add(key);
+            const val = Number(week[key]) || 0;
+            totals[key] = (totals[key] || 0) + val;
           }
         });
       }
     });
-    const uniqueCostCenters = Array.from(ccKeys).sort();
 
-    // 2. Get the correct palette based on count
-    const palette = getBrandPalette(uniqueCostCenters.length);
+    // 2. Sort clients by total FTE and slice to top 10
+    const topClients = Object.entries(totals)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10)
+      .map(([name]) => name);
 
-    // 3. Build the config using SAFE keys
+    // 3. Get the correct palette based on count
+    const palette = getBrandPalette(topClients.length);
+
+    // 4. Build the config using SAFE keys
     const config: ChartConfig = {};
-    uniqueCostCenters.forEach((ccName, index) => {
+    topClients.forEach((ccName, index) => {
       const safeKey = toSafeKey(ccName);
       config[safeKey] = {
         label: ccName,
@@ -77,10 +83,10 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
       };
     });
 
-    return { chartConfig: config, costCenters: uniqueCostCenters };
+    return { chartConfig: config, costCenters: topClients };
   }, [data]);
 
-  // 4. Transform data to use the same SAFE keys
+  // 5. Transform data to use the same SAFE keys
   const formattedData = useMemo(() => {
     if (!data || data.length === 0) return [];
     return data.map(item => {
