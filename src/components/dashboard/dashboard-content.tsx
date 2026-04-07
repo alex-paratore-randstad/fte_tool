@@ -174,12 +174,33 @@ export function DashboardContent() {
     fetchData();
   }, []);
 
+  // Sync logic: Pre-filter the employee list based on grid filters
+  const filteredEmployeesBase = useMemo(() => {
+    if (!hasMounted) return [];
+    return (allEmployees || []).filter(member => {
+        if (!member) return false;
+        
+        const fullName = member.full_name || member.Full_Name || '';
+        const title = member.title || member.Market_Facing_Title || '';
+        const manager = member.manager || member.First_Reviewer_Name || '';
+        const department = member.department || member.Team_Name || '';
+
+        const fullNameMatch = employeeFilters.fullName.length === 0 || employeeFilters.fullName.includes(fullName);
+        const titleMatch = employeeFilters.title.length === 0 || employeeFilters.title.includes(title);
+        const managerMatch = employeeFilters.manager.length === 0 || employeeFilters.manager.includes(manager);
+        const deptMatch = employeeFilters.department.length === 0 || employeeFilters.department.includes(department);
+
+        return fullNameMatch && titleMatch && managerMatch && deptMatch;
+    });
+  }, [allEmployees, employeeFilters, hasMounted]);
+
   const stats = useMemo(() => {
     if (!today || !hasMounted || loading) {
       return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, missingAllocations: 0, allocatedEmployees: [], unallocatedEmployees: [] };
     }
 
-    const safeEmployees = (allEmployees || []).filter(e => e && (e.person_id || e.Person_Number));
+    // Use the base filtered employees so the cards match the grid filters
+    const safeEmployees = filteredEmployeesBase;
     const total = safeEmployees.length;
     
     const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 });
@@ -209,7 +230,7 @@ export function DashboardContent() {
       allocatedEmployees: allocatedEmps,
       unallocatedEmployees: unallocatedEmps,
     };
-  }, [today, hasMounted, loading, allEmployees, weeklyAllocations]);
+  }, [today, hasMounted, loading, filteredEmployeesBase, weeklyAllocations]);
 
   const employeeFilterOptions = useMemo<FilterOptions>(() => {
     const safeEmployees = (allEmployees || []).filter(e => e && (e.person_id || e.Person_Number));
@@ -405,37 +426,21 @@ export function DashboardContent() {
   const detailState = useMemo(() => {
     if (!hasMounted) return { title: 'FTE List', data: [], description: 'Loading...' };
     
-    const currentFilters = employeeFilters || { fullName: [], title: [], manager: [], department: [] };
-    
+    // Logic updated: use the already filtered pool and slice by card selection
     let baseData: TeamMember[] = [];
     let baseTitle: string = 'FTE List';
     switch (activeView) {
-      case 'total': baseData = allEmployees || []; baseTitle = 'All FTEs'; break;
-      case 'allocated': baseData = stats.allocatedEmployees || []; baseTitle = 'Allocated FTEs (Current Week)'; break;
-      case 'unallocated': case 'missing': baseData = stats.unallocatedEmployees || []; baseTitle = activeView === 'unallocated' ? 'Unallocated FTEs (Current Week)' : 'FTEs with Missing Allocations (Current Week)'; break;
-      default: baseData = allEmployees || []; baseTitle = 'All FTEs';
+      case 'total': baseData = filteredEmployeesBase; baseTitle = 'All FTEs'; break;
+      case 'allocated': baseData = stats.allocatedEmployees; baseTitle = 'Allocated FTEs (Current Week)'; break;
+      case 'unallocated': case 'missing': baseData = stats.unallocatedEmployees; baseTitle = activeView === 'unallocated' ? 'Unallocated FTEs (Current Week)' : 'FTEs with Missing Allocations (Current Week)'; break;
+      default: baseData = filteredEmployeesBase; baseTitle = 'All FTEs';
     }
-    const filteredData = (baseData || []).filter(member => {
-        if (!member) return false;
-        
-        const fullName = member.full_name || member.Full_Name || '';
-        const title = member.title || member.Market_Facing_Title || '';
-        const manager = member.manager || member.First_Reviewer_Name || '';
-        const department = member.department || member.Team_Name || '';
-
-        const fullNameMatch = currentFilters.fullName.length === 0 || currentFilters.fullName.includes(fullName);
-        const titleMatch = currentFilters.title.length === 0 || currentFilters.title.includes(title);
-        const managerMatch = currentFilters.manager.length === 0 || currentFilters.manager.includes(manager);
-        const deptMatch = currentFilters.department.length === 0 || currentFilters.department.includes(department);
-
-        return fullNameMatch && titleMatch && managerMatch && deptMatch;
-    });
     
-    const isFiltered = currentFilters.fullName.length > 0 || currentFilters.title.length > 0 || currentFilters.manager.length > 0 || currentFilters.department.length > 0;
-    let descriptionText = `Displaying ${filteredData.length} employee(s).`;
-    if (isFiltered && baseData.length !== filteredData.length) descriptionText = `Displaying ${filteredData.length} of ${baseData.length} employee(s) matching filters.`;
-    return { title: baseTitle, data: filteredData, description: descriptionText };
-  }, [activeView, allEmployees, stats.allocatedEmployees, stats.unallocatedEmployees, employeeFilters, hasMounted]);
+    const isFiltered = employeeFilters.fullName.length > 0 || employeeFilters.title.length > 0 || employeeFilters.manager.length > 0 || employeeFilters.department.length > 0;
+    let descriptionText = `Displaying ${baseData.length} employee(s).`;
+    if (isFiltered) descriptionText = `Displaying ${baseData.length} filtered employee(s).`;
+    return { title: baseTitle, data: baseData, description: descriptionText };
+  }, [activeView, filteredEmployeesBase, stats.allocatedEmployees, stats.unallocatedEmployees, employeeFilters, hasMounted]);
 
   const handleCardClick = (view: ActiveView) => setActiveView(current => (current === view ? null : view));
   const handleEmployeeFilterChange = (filterName: keyof typeof employeeFilters, value: string) => setEmployeeFilters(prev => { const current = prev[filterName] || []; const next = current.includes(value) ? current.filter(v => v !== value) : [...current, value]; return { ...prev, [filterName]: next }; });
