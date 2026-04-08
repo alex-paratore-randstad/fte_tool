@@ -53,7 +53,6 @@ const getHref = (href: string) => {
     if (!href) return '/index.html';
     const cleanHref = typeof href === 'string' ? href : '/index.html';
     if (cleanHref === '/') return '/index.html';
-    // Domo static hosting requires explicit .html for subdirectories to load correctly
     const base = cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`;
     return `${base}index.html`;
 };

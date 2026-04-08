@@ -320,10 +320,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const [isSaving, setIsSaving] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   
-  const { isAdmin, loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
   
-  const isLoading = initialLoading || internalLoading || userLoading;
+  const isLoading = initialLoading || internalLoading;
 
   useEffect(() => {
     setHasMounted(true);
@@ -366,7 +365,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             const numericMatch = String(f.Reporting_Month || '').match(/\d+/);
             if (numericMatch) m = parseInt(numericMatch[0], 10);
         }
-        // Use String() to prevent TypeError if year is a number
         const yStr = String(f.Reporting_Year || '').replace(/\D/g, '');
         const y = parseInt(yStr, 10) || 0;
         return y * 12 + m;
@@ -375,13 +373,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const currentMonthValue = getMonthVal(todayFiscal);
     const targetMonthValue = getMonthVal(weekFiscal);
     
-    // Editable if Month(Target) >= Month(Today) - 1
     return targetMonthValue >= (currentMonthValue - 1);
   }, [todayRef]);
 
   const isMonthLocked = useMemo(() => {
     if (weeks.length === 0) return false;
-    // If all weeks in the currently viewed month are locked, the month is locked.
     return weeks.every(w => !isWeekEditable(w.startDate));
   }, [weeks, isWeekEditable]);
 
@@ -488,8 +484,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   }, [toast]);
 
   useEffect(() => {
-    if (!userLoading) fetchData();
-  }, [userLoading, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
   const availableEmployees = useMemo(() => {
     const activeIds = new Set((activeAllocations || []).map(a => a?.employee?.person_id).filter(Boolean));
@@ -544,118 +540,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employeeId ? { ...ea, allocations: [...ea.allocations, { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }] } : ea));
   };
 
-  const fetchAndApplyPreviousMonthAllocations = useCallback(async (employee: TeamMember) => {
-    if (!currentDate || !isValid(currentDate) || !employee) return;
-    const prevDate = getPreviousFiscalMonth(currentDate);
-    const prevWeeks = getWeeksForFiscalMonth(prevDate);
-    if ((prevWeeks?.length || 0) === 0) { toast({ title: 'No Prior Data', description: `No data found for the previous month.`}); return; }
-    try {
-        const sourceKeys = prevWeeks.map(w => formatDateKey(w.startDate));
-        const weeklyDataPromises = sourceKeys.map(key => fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${key}'`).then(res => res.ok ? res.json() : []));
-        const nested = await Promise.all(weeklyDataPromises);
-        const allPrev = nested.flat().filter(a => a && a.content);
-        const empIdString = `[${employee.person_id}]`;
-        const empAllocs = allPrev.filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdString) && parseFloat(a.content?.allocation_amount || '0') > 0);
-        if (empAllocs.length === 0) { toast({ title: 'No Prior Data', description: `No allocations found for ${employee.full_name} in the previous month.`}); return; }
-        const clientMap = new Map<string, { clientId: string, weeklyFtes: Map<string, number> }>();
-        empAllocs.forEach(a => {
-            if (!a?.content || !a.content.cost_center_name) return;
-            const nameKey = String(a.content.cost_center_name).trim();
-            if (!clientMap.has(nameKey)) {
-                const master = (clients || []).find(c => c && String(c.DisplayName || '').trim() === nameKey);
-                clientMap.set(nameKey, { clientId: (master?.Code || a.content.cost_center_number || '').trim(), weeklyFtes: new Map() });
-            }
-            clientMap.get(nameKey)!.weeklyFtes.set(a.content.allocation_date, parseFloat(a.content.allocation_amount || '0'));
-        });
-        const newRows: AllocationRow[] = [];
-        clientMap.forEach((data, clientName) => {
-            const row: AllocationRow = { id: uuidv4(), clientId: data.clientId, clientName, weeklyFtes: {} };
-            weeks.forEach((curr, idx) => { if (idx < prevWeeks.length) { const sKey = formatDateKey(prevWeeks[idx].startDate); if (data.weeklyFtes.has(sKey)) row.weeklyFtes[formatDateKey(curr.startDate)] = data.weeklyFtes.get(sKey)!; } });
-            if (Object.keys(row.weeklyFtes).length > 0) newRows.push(row);
-        });
-        if (newRows.length > 0) {
-            setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employee.person_id ? { ...ea, allocations: newRows } : ea));
-            toast({ title: 'Prior Allocations Loaded', description: `Copied allocations for ${employee.full_name} from the previous month.`});
-        }
-    } catch (error) { writeLog('MultiWeekGrid', 'error', `Could not load prior allocations for ${employee.full_name}`, error); }
-  }, [currentDate, weeks, toast, clients]);
-  
-  const handleAddEmployee = (employeeId: string) => {
-    if (!employeeId || !currentDate) return;
-    setSelectedEmployeeToAdd(employeeId); 
-    setSelectedManager(''); 
-    const employeeToAdd = (allEmployees || []).find(e => e && e.person_id === employeeId);
-    if (employeeToAdd) {
-      if ((activeAllocations || []).some(a => a?.employee?.person_id === employeeId)) { toast({ variant: 'destructive', title: 'Employee already in grid' }); return; }
-      const empIdStr = `[${employeeToAdd.person_id}]`;
-      const currentKeys = (weeks || []).map(w => formatDateKey(w.startDate));
-      const prevDate = getPreviousFiscalMonth(currentDate);
-      const prevWeeks = getWeeksForFiscalMonth(prevDate);
-      const prevKeys = (prevWeeks || []).map(w => formatDateKey(w.startDate));
-      
-      const allKeys = new Set([...currentKeys, ...prevKeys]);
-      const empAllocs = (monthDataCache || []).filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && allKeys.has(a.content.allocation_date) && parseFloat(a.content?.allocation_amount || '0') > 0);
-      let initialRows: AllocationRow[] = [];
-      if (empAllocs.length === 0) {
-          initialRows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }];
-      } else {
-          const names = Array.from(new Set(empAllocs.map(a => String(a?.content?.cost_center_name || '').trim()).filter(Boolean)));
-          initialRows = names.map(name => {
-              const cAllocs = empAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === name);
-              const master = (clients || []).find(c => c && String(c.DisplayName || '').trim() === name);
-              const weeklyFtes: { [weekKey: string]: number } = {};
-              cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { if (a?.content) weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0'); });
-              return { id: uuidv4(), clientId: (master?.Code || cAllocs[0]?.content?.cost_center_number || '').trim(), clientName: name, weeklyFtes };
-          });
-      }
-      setActiveAllocations(prev => [{ employee: employeeToAdd, allocations: initialRows }, ...prev]);
-    }
-    setTimeout(() => setSelectedEmployeeToAdd(''), 0);
-  };
-
-  const handleAddManagerTeam = (managerName: string) => {
-    if (!currentDate) return;
-    if (!managerName) {
-        setSelectedManager('');
-        setActiveAllocations([]);
-        return;
-    }
-    setSelectedManager(managerName);
-    setSelectedEmployeeToAdd(''); 
-    const team = (allEmployees || []).filter(e => e && e.manager === managerName);
-    if (team.length === 0) { 
-        toast({ title: 'No employees found for this manager.' }); 
-        setActiveAllocations([]);
-        return; 
-    }
-    const currentKeys = (weeks || []).map(w => formatDateKey(w.startDate));
-    const prevDate = getPreviousFiscalMonth(currentDate);
-    const prevWeeks = getWeeksForFiscalMonth(prevDate);
-    const prevKeys = (prevWeeks || []).map(w => formatDateKey(w.startDate));
-    const allKeys = new Set([...currentKeys, ...prevKeys]);
-    
-    const newAllocations = team.map(employee => {
-        const empIdStr = `[${employee.person_id}]`;
-        const empAllocs = (monthDataCache || []).filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && allKeys.has(a.content.allocation_date) && parseFloat(a.content?.allocation_amount || '0') > 0);
-        let rows: AllocationRow[] = [];
-        if (empAllocs.length === 0) {
-            rows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }];
-        } else {
-            const names = Array.from(new Set(empAllocs.map(a => String(a?.content?.cost_center_name || '').trim()).filter(Boolean)));
-            rows = names.map(name => {
-                const cAllocs = empAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === name);
-                const master = (clients || []).find(c => c && String(c.DisplayName || '').trim() === name);
-                const weeklyFtes: { [key: string]: number } = {};
-                cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { if (a?.content) weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0'); });
-                return { id: uuidv4(), clientId: (master?.Code || cAllocs[0]?.content?.cost_center_number || '').trim(), clientName: name, weeklyFtes };
-            });
-        }
-        return { employee, allocations: rows };
-    });
-    setActiveAllocations(newAllocations); 
-    toast({ title: 'Team Loaded', description: `Loaded ${newAllocations.length} members for ${managerName}.` });
-  };
-
   const handleRemoveAllocationRow = (employeeId: string, allocId: string) => {
     setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employeeId ? { ...ea, allocations: ea.allocations.filter(a => a.id !== allocId) } : ea));
   };
@@ -665,7 +549,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const submissions: any[] = [];
     let invalid = false;
     
-    // Only save weeks that are currently editable based on the global date rule
     const currentKeys = weeks.filter(w => isWeekEditable(w.startDate)).map(w => formatDateKey(w.startDate));
     const validKeysSet = new Set(currentKeys);
 
@@ -784,12 +667,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                             </div>
                             <div className="text-xs text-muted-foreground font-normal">{employee.title || ''}</div>
                           </div>
-                          <Tooltip>
-                              <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => fetchAndApplyPreviousMonthAllocations(employee)} disabled={isMonthLocked || isSaving}><Copy className="h-3.5 w-3.5" /></Button>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Copy Prior Month's Allocations</p></TooltipContent>
-                          </Tooltip>
                         </TableCell>
                         <TableCell colSpan={3}></TableCell>
                         {weeklyTotals.map((total, index) => {

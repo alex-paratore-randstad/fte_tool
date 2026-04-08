@@ -24,7 +24,6 @@ type FteAllocationChartProps = {
   data: any[];
 };
 
-// BRAND PALETTE LOGIC
 const getBrandPalette = (count: number) => {
   if (count <= 1) return ['#255CA9'];
   if (count <= 3) return ['#255CA9', '#BAD808', '#007C82'];
@@ -34,11 +33,9 @@ const getBrandPalette = (count: number) => {
   if (count === 7) return ['#5887D8', '#255CA9', '#BAD808', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
   if (count === 8) return ['#5887D8', '#255CA9', '#BAD808', '#5A7A00', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
   if (count === 9) return ['#ABCFFE', '#5887D8', '#255CA9', '#BAD808', '#5A7A00', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2'];
-  // Default for 10-12+ items
   return ['#ABCFFE', '#5887D8', '#255CA9', '#BAD808', '#88A800', '#5A7A00', '#8FEEF4', '#00C4CA', '#007C82', '#B2CFF2', '#83A0C2', '#415E7D'];
 };
 
-// SAFE KEY GENERATOR
 const toSafeKey = (key: string) => {
   if (!key) return 'c_unknown';
   return 'c_' + String(key).toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -51,7 +48,6 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
       return { chartConfig: {}, costCenters: [] };
     }
 
-    // 1. Calculate total FTE for each client across all data points to determine Top 10
     const totals: Record<string, number> = {};
     data.forEach(week => {
       if (week) {
@@ -64,16 +60,13 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
       }
     });
 
-    // 2. Sort clients by total FTE and slice to top 10
     const topClients = Object.entries(totals)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
       .map(([name]) => name);
 
-    // 3. Get the correct palette based on count
     const palette = getBrandPalette(topClients.length);
 
-    // 4. Build the config using SAFE keys
     const config: ChartConfig = {};
     topClients.forEach((ccName, index) => {
       const safeKey = toSafeKey(ccName);
@@ -86,7 +79,6 @@ export default function FteAllocationChart({ data }: FteAllocationChartProps) {
     return { chartConfig: config, costCenters: topClients };
   }, [data]);
 
-  // 5. Transform data to use the same SAFE keys
   const formattedData = useMemo(() => {
     if (!data || data.length === 0) return [];
     return data.map(item => {

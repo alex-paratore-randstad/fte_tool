@@ -174,7 +174,6 @@ export function DashboardContent() {
     fetchData();
   }, []);
 
-  // Sync logic: Pre-filter the employee list based on grid filters
   const filteredEmployeesBase = useMemo(() => {
     if (!hasMounted) return [];
     return (allEmployees || []).filter(member => {
@@ -199,7 +198,6 @@ export function DashboardContent() {
       return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, missingAllocations: 0, allocatedEmployees: [], unallocatedEmployees: [] };
     }
 
-    // Use the base filtered employees so the cards match the grid filters
     const safeEmployees = filteredEmployeesBase;
     const total = safeEmployees.length;
     
@@ -426,7 +424,6 @@ export function DashboardContent() {
   const detailState = useMemo(() => {
     if (!hasMounted) return { title: 'FTE List', data: [], description: 'Loading...' };
     
-    // Logic updated: use the already filtered pool and slice by card selection
     let baseData: TeamMember[] = [];
     let baseTitle: string = 'FTE List';
     switch (activeView) {

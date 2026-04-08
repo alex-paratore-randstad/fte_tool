@@ -488,7 +488,6 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                 const isProfileDeleting = isDeleting[alloc.id];
                 const displayId = alloc.id ? alloc.id.substring(0, 8) : 'unknown';
                 
-                // Formatted summary rounded to 2 decimal places
                 const clientSummary = (alloc.summaries || []).map(s => `${s.name} (${(Number(s.percentage) || 0).toFixed(2)})`).join(', ');
                 
               return (
@@ -564,7 +563,6 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                             <TableCell className="text-right">
                                               <Input 
                                                 type="number" min="0" step="0.05"
-                                                // Strictly display 2 decimal places
                                                 value={(Number(s.percentage) || 0).toFixed(2)}
                                                 onChange={(e) => handlePercentageChange(alloc.id, s.id, e.target.value)}
                                                 className="w-20 text-center ml-auto"
