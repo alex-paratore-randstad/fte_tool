@@ -176,7 +176,8 @@ export function DashboardContent() {
 
   const filteredEmployeesBase = useMemo(() => {
     if (!hasMounted) return [];
-    return (allEmployees || []).filter(member => {
+    return (allEmployees || [])
+      .filter(member => {
         if (!member) return false;
         
         const fullName = member.full_name || member.Full_Name || '';
@@ -190,45 +191,97 @@ export function DashboardContent() {
         const deptMatch = employeeFilters.department.length === 0 || employeeFilters.department.includes(department);
 
         return fullNameMatch && titleMatch && managerMatch && deptMatch;
-    });
+      })
+      .sort((a, b) => {
+        const nameA = (a.full_name || a.Full_Name || '').toLowerCase();
+        const nameB = (b.full_name || b.Full_Name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
   }, [allEmployees, employeeFilters, hasMounted]);
 
   const stats = useMemo(() => {
     if (!today || !hasMounted || loading) {
-      return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, missingAllocations: 0, allocatedEmployees: [], unallocatedEmployees: [] };
+      return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, missingAllocations: 0, allocatedEmployees: [], unallocatedEmployees: [], allocatedFteMap: new Map() };
     }
 
     const safeEmployees = filteredEmployeesBase;
-    const total = safeEmployees.length;
     
     const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 });
     const currentWeekKey = format(startOfThisWeek, 'yyyy-MM-dd');
     const currentWeekAllocations = (weeklyAllocations || []).filter(a => a?.content?.allocation_date === currentWeekKey);
     
-    const allocatedEmployeeIds = new Set<string>();
+    const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const currentMonthYear = `${monthsShort[today.getMonth()]} ${today.getFullYear()}`;
+
+    const allocatedFteMap = new Map<string, number>();
+    
+    // 1. Process Weekly/Freshservice allocations
     currentWeekAllocations
       .filter(a => a?.content && parseFloat(a.content.allocation_amount || '0') > 0)
       .forEach(a => {
-        if (a?.content?.employee_id) {
-          allocatedEmployeeIds.add(a.content.employee_id);
-        } else if (a?.content?.allocation_name && typeof a.content.allocation_name === 'string') {
+        let empId = a?.content?.employee_id || '';
+        if (!empId && a?.content?.allocation_name) {
           const match = String(a.content.allocation_name).match(/\[(.*?)\]/);
-          if (match && match[1]) allocatedEmployeeIds.add(match[1]);
+          if (match && match[1]) empId = match[1];
+        }
+        
+        if (empId) {
+            const currentAmount = allocatedFteMap.get(empId) || 0;
+            allocatedFteMap.set(empId, currentAmount + parseFloat(a.content.allocation_amount || '0'));
         }
       });
 
-    const allocatedEmps = safeEmployees.filter(e => allocatedEmployeeIds.has(e.person_id || e.Person_Number));
-    const unallocatedEmps = safeEmployees.filter(e => !allocatedEmployeeIds.has(e.person_id || e.Person_Number));
+    // 2. Process Bulk allocations
+    const profilePercentageMap = new Map<string, number>();
+    (bulkSummaries || []).forEach(s => {
+        if (s?.content?.bulk_allocation_id) {
+            const val = parseFloat(s.content.allocation_percentage || '0');
+            profilePercentageMap.set(s.content.bulk_allocation_id, (profilePercentageMap.get(s.content.bulk_allocation_id) || 0) + val);
+        }
+    });
+
+    (bulkFtes || []).forEach(f => {
+        if (f?.content?.allocation_monthyear === currentMonthYear && f.content.employee_id) {
+            const empId = f.content.employee_id;
+            const profilePercentage = profilePercentageMap.get(f.content.bulk_allocation_id) || 0;
+            
+            if (profilePercentage > 0) {
+                // Find employee base FTE to apply percentage correctly
+                const employee = safeEmployees.find(e => (e.person_id === empId || e.Person_Number === empId));
+                if (employee) {
+                    const baseFte = parseFloat(employee.fte || employee.LOB || '0') || 0;
+                    const allocatedFte = profilePercentage * baseFte;
+                    allocatedFteMap.set(empId, (allocatedFteMap.get(empId) || 0) + allocatedFte);
+                }
+            }
+        }
+    });
+
+    let totalBaseFteSum = 0;
+    let totalAllocatedFteSum = 0;
+    
+    safeEmployees.forEach(e => {
+        const empId = e.person_id || e.Person_Number;
+        const base = parseFloat(e.fte || e.LOB || '0') || 0;
+        const alloc = allocatedFteMap.get(empId) || 0;
+        
+        totalBaseFteSum += base;
+        totalAllocatedFteSum += alloc;
+    });
+
+    const allocatedEmps = safeEmployees.filter(e => (allocatedFteMap.get(e.person_id || e.Person_Number) || 0) > 0);
+    const unallocatedEmps = safeEmployees.filter(e => (allocatedFteMap.get(e.person_id || e.Person_Number) || 0) <= 0);
     
     return {
-      totalFtes: total,
-      allocatedFtes: allocatedEmps.length,
-      unallocatedFtes: unallocatedEmps.length,
+      totalFtes: totalBaseFteSum,
+      allocatedFtes: totalAllocatedFteSum,
+      unallocatedFtes: Math.max(0, totalBaseFteSum - totalAllocatedFteSum),
       missingAllocations: unallocatedEmps.length,
       allocatedEmployees: allocatedEmps,
       unallocatedEmployees: unallocatedEmps,
+      allocatedFteMap
     };
-  }, [today, hasMounted, loading, filteredEmployeesBase, weeklyAllocations]);
+  }, [today, hasMounted, loading, filteredEmployeesBase, weeklyAllocations, bulkFtes, bulkSummaries]);
 
   const employeeFilterOptions = useMemo<FilterOptions>(() => {
     const safeEmployees = (allEmployees || []).filter(e => e && (e.person_id || e.Person_Number));
@@ -451,9 +504,9 @@ export function DashboardContent() {
     <div className="flex flex-col gap-8">
       <PageHeader title="Dashboard" />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard title="Total FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.totalFtes.toString()} icon={Users} onClick={() => handleCardClick('total')} isActive={activeView === 'total'} />
-        <SummaryCard title="Allocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.allocatedFtes.toString()} icon={Briefcase} onClick={() => handleCardClick('allocated')} isActive={activeView === 'allocated'} />
-        <SummaryCard title="Unallocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.unallocatedFtes.toString()} icon={UserMinus} onClick={() => handleCardClick('unallocated')} isActive={activeView === 'unallocated'} />
+        <SummaryCard title="Total FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.totalFtes.toFixed(2)} icon={Users} onClick={() => handleCardClick('total')} isActive={activeView === 'total'} />
+        <SummaryCard title="Allocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.allocatedFtes.toFixed(2)} icon={Briefcase} onClick={() => handleCardClick('allocated')} isActive={activeView === 'allocated'} />
+        <SummaryCard title="Unallocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.unallocatedFtes.toFixed(2)} icon={UserMinus} onClick={() => handleCardClick('unallocated')} isActive={activeView === 'unallocated'} />
         <SummaryCard title="Missing Allocations" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.missingAllocations.toString()} icon={AlertTriangle} variant={stats.missingAllocations > 0 ? 'destructive' : 'default'} onClick={() => handleCardClick('missing')} isActive={activeView === 'missing'} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -506,7 +559,7 @@ export function DashboardContent() {
                       <TableHead>Full Name</TableHead>
                       <TableHead>Title</TableHead>
                       <TableHead>Manager</TableHead>
-                      <TableHead className="text-right">FTE</TableHead>
+                      <TableHead className="text-right">Allocated FTE</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -519,14 +572,19 @@ export function DashboardContent() {
                           <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                         </TableRow>
                       ))
-                    ) : (detailState.data || []).length > 0 ? detailState.data.map((employee, idx) => (
-                      <TableRow key={(employee.person_id || employee.Person_Number) || idx}>
-                        <TableCell>{employee.full_name || employee.Full_Name}</TableCell>
-                        <TableCell>{employee.title || employee.Market_Facing_Title}</TableCell>
-                        <TableCell>{employee.manager || employee.First_Reviewer_Name}</TableCell>
-                        <TableCell className="text-right font-mono">{employee.fte || employee.LOB || '0.00'}</TableCell>
-                      </TableRow>
-                    )) : (
+                    ) : (detailState.data || []).length > 0 ? detailState.data.map((employee, idx) => {
+                      const empId = employee.person_id || employee.Person_Number;
+                      const allocatedAmount = stats.allocatedFteMap.get(empId) || 0;
+                      
+                      return (
+                        <TableRow key={empId || idx}>
+                          <TableCell>{employee.full_name || employee.Full_Name}</TableCell>
+                          <TableCell>{employee.title || employee.Market_Facing_Title}</TableCell>
+                          <TableCell>{employee.manager || employee.First_Reviewer_Name}</TableCell>
+                          <TableCell className="text-right font-mono">{allocatedAmount.toFixed(2)}</TableCell>
+                        </TableRow>
+                      );
+                    }) : (
                       <TableRow>
                         <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No data to display.</TableCell>
                       </TableRow>
