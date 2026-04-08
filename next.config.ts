@@ -23,6 +23,15 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
+  // Custom webpack config to handle Domo's restriction on special characters in filenames
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Sanitize chunk filenames to remove brackets used by Next.js for dynamic routes/turbopack
+      config.output.filename = 'static/chunks/[name]-[contenthash].js';
+      config.output.chunkFilename = 'static/chunks/[name]-[chunkhash].js';
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
@@ -564,6 +565,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     });
     setActiveAllocations(newAllocations);
     toast({ title: 'Team Loaded', description: `Loaded ${newAllocations.length} members for ${managerName}.` });
+  };
+
+  const handleRemoveEmployee = (employeeId: string) => {
+      setActiveAllocations(prev => prev.filter(a => a.employee?.person_id !== employeeId));
+      setSelectedManager('');
   };
 
   const handleFteChange = (employeeId: string, allocId: string, weekKey: string, val: string) => {
