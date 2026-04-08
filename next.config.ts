@@ -27,8 +27,17 @@ const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Sanitize chunk filenames to remove brackets used by Next.js for dynamic routes/turbopack
+      // Domo Appstore does not allow [ ] in filenames
       config.output.filename = 'static/chunks/[name]-[contenthash].js';
       config.output.chunkFilename = 'static/chunks/[name]-[chunkhash].js';
+      
+      // Additional sanitization for the root and internal chunk names
+      if (config.output.chunkFilename) {
+        config.output.chunkFilename = (config.output.chunkFilename as string).replace(/\[|\]/g, '');
+      }
+      if (config.output.filename) {
+        config.output.filename = (config.output.filename as string).replace(/\[|\]/g, '');
+      }
     }
     return config;
   },

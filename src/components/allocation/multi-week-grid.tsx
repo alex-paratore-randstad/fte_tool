@@ -42,6 +42,7 @@ type AllocationRow = {
   clientId: string;
   clientName: string;
   weeklyFtes: { [weekKey: string]: number };
+  docIds: { [weekKey: string]: string }; // Tracks DB document IDs for updates/deletes
 };
 
 type EmployeeAllocation = {
@@ -168,11 +169,15 @@ const EmployeeSelect = ({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
+  const sortedEmployees = useMemo(() => {
+    return [...(employees || [])].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+  }, [employees]);
+
   const filteredEmployees = useMemo(() => {
-    if (!search) return employees || [];
+    if (!search) return sortedEmployees;
     const s = search.toLowerCase();
-    return (employees || []).filter(e => e.full_name.toLowerCase().includes(s));
-  }, [search, employees]);
+    return sortedEmployees.filter(e => e.full_name.toLowerCase().includes(s));
+  }, [search, sortedEmployees]);
 
   const selectedEmployee = useMemo(() => {
     return (employees || []).find(e => e && e.person_id === value);
@@ -246,9 +251,10 @@ const ManagerSelect = ({
   const [search, setSearch] = useState('');
 
   const filteredManagers = useMemo(() => {
-    if (!search) return managers || [];
+    const list = managers || [];
+    if (!search) return list;
     const s = search.toLowerCase();
-    return (managers || []).filter(m => m.name.toLowerCase().includes(s));
+    return list.filter(m => m.name.toLowerCase().includes(s));
   }, [search, managers]);
 
   return (
@@ -308,6 +314,7 @@ const ManagerSelect = ({
 
 export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, initialLoading }: MultiWeekGridProps) {
   const [activeAllocations, setActiveAllocations] = useState<EmployeeAllocation[]>([]);
+  const [pendingDeletions, setPendingDeletions] = useState<string[]>([]);
   const [allEmployees, setAllEmployees] = useState<TeamMember[]>([]);
   const [managers, setManagers] = useState<{id: string, name: string}[]>([]);
   const [clients, setClients] = useState<AiReportData[]>([]);
@@ -342,7 +349,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   /**
    * LOCKING LOGIC:
    * Edits are permitted for current and previous fiscal months only.
-   * This applies to ALL users, including admins.
+   * Locked for ALL users.
    */
   const isWeekEditable = useCallback((weekStartDate: Date) => {
     if (!todayRef) return false;
@@ -412,16 +419,20 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             empAllAllocs.forEach(a => { if (a?.content?.cost_center_name) clientNames.add(String(a.content.cost_center_name).trim()); });
             
             if (clientNames.size === 0) {
-                return { ...empAlloc, allocations: [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }] };
+                return { ...empAlloc, allocations: [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {} }] };
             }
             
             const newAllocationRows: AllocationRow[] = Array.from(clientNames).map(clientName => {
                 const clientSpecificAllocs = empAllAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === clientName);
                 const masterClient = (clients || []).find(c => c && String(c.DisplayName || '').trim() === clientName);
                 const weeklyFtes: { [weekKey: string]: number } = {};
+                const docIds: { [weekKey: string]: string } = {};
                 
                 clientSpecificAllocs.filter(a => a?.content && currentMonthWeekKeys.includes(a.content.allocation_date)).forEach(a => {
-                    if (a?.content) weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0');
+                    if (a?.content) {
+                        weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0');
+                        docIds[a.content.allocation_date] = a.id;
+                    }
                 });
                 
                 return {
@@ -429,6 +440,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     clientId: (masterClient?.Code || clientSpecificAllocs[0]?.content?.cost_center_number || '').trim(),
                     clientName,
                     weeklyFtes,
+                    docIds
                 };
             });
             return { ...empAlloc, allocations: newAllocationRows };
@@ -513,15 +525,21 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       const empAllocs = monthDataCache.filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && parseFloat(a.content?.allocation_amount || '0') > 0);
       let initialRows: AllocationRow[] = [];
       if (empAllocs.length === 0) {
-          initialRows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }];
+          initialRows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {} }];
       } else {
           const names = Array.from(new Set(empAllocs.map(a => String(a?.content?.cost_center_name || '').trim()).filter(Boolean)));
           initialRows = names.map(name => {
               const cAllocs = empAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === name);
               const master = (clients || []).find(c => c && String(c.DisplayName || '').trim() === name);
               const weeklyFtes: { [weekKey: string]: number } = {};
-              cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { if (a?.content) weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0'); });
-              return { id: uuidv4(), clientId: (master?.Code || cAllocs[0]?.content?.cost_center_number || '').trim(), clientName: name, weeklyFtes };
+              const docIds: { [weekKey: string]: string } = {};
+              cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { 
+                  if (a?.content) {
+                      weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0'); 
+                      docIds[a.content.allocation_date] = a.id;
+                  }
+              });
+              return { id: uuidv4(), clientId: (master?.Code || cAllocs[0]?.content?.cost_center_number || '').trim(), clientName: name, weeklyFtes, docIds };
           });
       }
       setActiveAllocations(prev => [{ employee: employeeToAdd, allocations: initialRows }, ...prev]);
@@ -550,15 +568,21 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         const empAllocs = monthDataCache.filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && parseFloat(a.content?.allocation_amount || '0') > 0);
         let rows: AllocationRow[] = [];
         if (empAllocs.length === 0) {
-            rows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }];
+            rows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {} }];
         } else {
             const names = Array.from(new Set(empAllocs.map(a => String(a?.content?.cost_center_name || '').trim()).filter(Boolean)));
             rows = names.map(name => {
                 const cAllocs = empAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === name);
                 const master = (clients || []).find(c => c && String(c.DisplayName || '').trim() === name);
                 const weeklyFtes: { [key: string]: number } = {};
-                cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { if (a?.content) weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0'); });
-                return { id: uuidv4(), clientId: (master?.Code || cAllocs[0]?.content?.cost_center_number || '').trim(), clientName: name, weeklyFtes };
+                const docIds: { [key: string]: string } = {};
+                cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { 
+                    if (a?.content) {
+                        weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0'); 
+                        docIds[a.content.allocation_date] = a.id;
+                    }
+                });
+                return { id: uuidv4(), clientId: (master?.Code || cAllocs[0]?.content?.cost_center_number || '').trim(), clientName: name, weeklyFtes, docIds };
             });
         }
         return { employee, allocations: rows };
@@ -568,6 +592,11 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   };
 
   const handleRemoveEmployee = (employeeId: string) => {
+      const empAlloc = activeAllocations.find(ea => ea.employee?.person_id === employeeId);
+      if (empAlloc) {
+          const ids = empAlloc.allocations.flatMap(a => Object.values(a.docIds)).filter(Boolean);
+          setPendingDeletions(prev => [...prev, ...ids]);
+      }
       setActiveAllocations(prev => prev.filter(a => a.employee?.person_id !== employeeId));
       setSelectedManager('');
   };
@@ -614,55 +643,95 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   };
 
   const handleAddAllocationRow = (employeeId: string) => {
-    setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employeeId ? { ...ea, allocations: [...ea.allocations, { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {} }] } : ea));
+    setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employeeId ? { ...ea, allocations: [...ea.allocations, { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {} }] } : ea));
   };
 
   const handleRemoveAllocationRow = (employeeId: string, allocId: string) => {
+    const empAlloc = activeAllocations.find(ea => ea.employee?.person_id === employeeId);
+    const rowToRemove = empAlloc?.allocations.find(a => a.id === allocId);
+    if (rowToRemove) {
+        const ids = Object.values(rowToRemove.docIds).filter(Boolean);
+        setPendingDeletions(prev => [...prev, ...ids]);
+    }
     setActiveAllocations(prev => (prev || []).map(ea => ea.employee?.person_id === employeeId ? { ...ea, allocations: ea.allocations.filter(a => a.id !== allocId) } : ea));
   };
 
   const handleSave = async () => {
     setIsSaving(true);
-    const submissions: any[] = [];
+    const operations: Promise<any>[] = [];
     let invalid = false;
     
     const currentKeys = weeks.filter(w => isWeekEditable(w.startDate)).map(w => formatDateKey(w.startDate));
     const validKeysSet = new Set(currentKeys);
 
+    // 1. Process deletions for trashed rows
+    pendingDeletions.forEach(id => {
+        operations.push(fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${id}`, { method: 'DELETE' }));
+    });
+
+    // 2. Process existing grid data
     activeAllocations.forEach(ea => {
       if (!ea?.employee) return;
       ea.allocations.forEach(alloc => {
         Object.entries(alloc.weeklyFtes).forEach(([key, fte]) => {
-          if (validKeysSet.has(key) && fte > 0) {
-            if (!alloc.clientName) { 
-                invalid = true; 
-                toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${ea.employee.full_name}.` }); 
-                return; 
+          if (validKeysSet.has(key)) {
+            const existingDocId = alloc.docIds[key];
+            const content = { 
+                allocation_date: key, 
+                allocation_name: `[${ea.employee.person_id}] ${ea.employee.full_name}`, 
+                employee_id: ea.employee.person_id, 
+                cost_center_name: alloc.clientName, 
+                cost_center_number: alloc.clientId || alloc.clientName, 
+                allocation_amount: fte.toString() 
+            };
+
+            if (fte > 0) {
+                if (!alloc.clientName) { 
+                    invalid = true; 
+                    toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${ea.employee.full_name}.` }); 
+                    return; 
+                }
+                
+                if (existingDocId) {
+                    // Update existing
+                    operations.push(fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${existingDocId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content })
+                    }));
+                } else {
+                    // Create new
+                    operations.push(fetch('/domo/datastores/v1/collections/weekly_allocation/documents/', { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ content }) 
+                    }));
+                }
+            } else if (existingDocId) {
+                // If FTE is 0 but record exists, delete it
+                operations.push(fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${existingDocId}`, { method: 'DELETE' }));
             }
-            submissions.push({ 
-                content: { 
-                    allocation_date: key, 
-                    allocation_name: `[${ea.employee.person_id}] ${ea.employee.full_name}`, 
-                    employee_id: ea.employee.person_id, 
-                    cost_center_name: alloc.clientName, 
-                    cost_center_number: alloc.clientId || alloc.clientName, 
-                    allocation_amount: fte.toString() 
-                } 
-            });
           }
         });
       });
     });
 
     if (invalid) { setIsSaving(false); return; }
-    if (submissions.length === 0) { toast({ title: 'No changes to save.' }); setIsSaving(false); return; }
+    if (operations.length === 0) { toast({ title: 'No changes to save.' }); setIsSaving(false); return; }
     
     try {
-        await Promise.all(submissions.map(entry => fetch('/domo/datastores/v1/collections/weekly_allocation/documents/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry) }).then(res => { if (!res.ok) throw new Error('Saves failed.'); return res.json(); })));
-        toast({ title: 'Allocations Saved', description: `${submissions.length} entries saved successfully.` });
+        const results = await Promise.all(operations);
+        if (results.some(res => !res.ok)) throw new Error('One or more save operations failed.');
+        
+        toast({ title: 'Allocations Saved', description: 'Your changes have been synced successfully.' });
+        setPendingDeletions([]);
         onSaveSuccess();
-    } catch (error: any) { writeLog('MultiWeekGrid', 'error', 'Save failed', error); toast({ variant: 'destructive', title: 'Save Failed', description: error.message }); }
-    finally { setIsSaving(false); }
+    } catch (error: any) { 
+        writeLog('MultiWeekGrid', 'error', 'Save failed', error); 
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.message }); 
+    } finally { 
+        setIsSaving(false); 
+    }
   };
 
   const sortedAllocations = useMemo(() => {
