@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Users, Briefcase, AlertTriangle, UserMinus, ChevronsUpDown } from 'lucide-react';
+import { Users, Briefcase, UserMinus, ChevronsUpDown } from 'lucide-react';
 import SummaryCard from '@/components/dashboard/summary-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,7 +19,7 @@ import { Button } from '../ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
 import { Checkbox } from '../ui/checkbox';
 
-type ActiveView = 'total' | 'allocated' | 'unallocated' | 'missing' | null;
+type ActiveView = 'total' | 'allocated' | 'unallocated' | null;
 
 type ChartData = {
   name: string;
@@ -201,7 +200,7 @@ export function DashboardContent() {
 
   const stats = useMemo(() => {
     if (!today || !hasMounted || loading) {
-      return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, missingAllocations: 0, allocatedEmployees: [], unallocatedEmployees: [], allocatedFteMap: new Map() };
+      return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, allocatedEmployees: [], unallocatedEmployees: [], allocatedFteMap: new Map() };
     }
 
     const safeEmployees = filteredEmployeesBase;
@@ -215,7 +214,6 @@ export function DashboardContent() {
 
     const allocatedFteMap = new Map<string, number>();
     
-    // 1. Process Weekly/Freshservice allocations
     currentWeekAllocations
       .filter(a => a?.content && parseFloat(a.content.allocation_amount || '0') > 0)
       .forEach(a => {
@@ -231,7 +229,6 @@ export function DashboardContent() {
         }
       });
 
-    // 2. Process Bulk allocations
     const profilePercentageMap = new Map<string, number>();
     (bulkSummaries || []).forEach(s => {
         if (s?.content?.bulk_allocation_id) {
@@ -246,7 +243,6 @@ export function DashboardContent() {
             const profilePercentage = profilePercentageMap.get(f.content.bulk_allocation_id) || 0;
             
             if (profilePercentage > 0) {
-                // Find employee base FTE to apply percentage correctly
                 const employee = safeEmployees.find(e => (e.person_id === empId || e.Person_Number === empId));
                 if (employee) {
                     const baseFte = parseFloat(employee.fte || employee.LOB || '0') || 0;
@@ -276,7 +272,6 @@ export function DashboardContent() {
       totalFtes: totalBaseFteSum,
       allocatedFtes: totalAllocatedFteSum,
       unallocatedFtes: Math.max(0, totalBaseFteSum - totalAllocatedFteSum),
-      missingAllocations: unallocatedEmps.length,
       allocatedEmployees: allocatedEmps,
       unallocatedEmployees: unallocatedEmps,
       allocatedFteMap
@@ -482,7 +477,7 @@ export function DashboardContent() {
     switch (activeView) {
       case 'total': baseData = filteredEmployeesBase; baseTitle = 'All FTEs'; break;
       case 'allocated': baseData = stats.allocatedEmployees; baseTitle = 'Allocated FTEs (Current Week)'; break;
-      case 'unallocated': case 'missing': baseData = stats.unallocatedEmployees; baseTitle = activeView === 'unallocated' ? 'Unallocated FTEs (Current Week)' : 'FTEs with Missing Allocations (Current Week)'; break;
+      case 'unallocated': baseData = stats.unallocatedEmployees; baseTitle = 'Unallocated FTEs (Current Week)'; break;
       default: baseData = filteredEmployeesBase; baseTitle = 'All FTEs';
     }
     
@@ -503,11 +498,10 @@ export function DashboardContent() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Dashboard" />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard title="Total FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.totalFtes.toFixed(2)} icon={Users} onClick={() => handleCardClick('total')} isActive={activeView === 'total'} />
         <SummaryCard title="Allocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.allocatedFtes.toFixed(2)} icon={Briefcase} onClick={() => handleCardClick('allocated')} isActive={activeView === 'allocated'} />
         <SummaryCard title="Unallocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.unallocatedFtes.toFixed(2)} icon={UserMinus} onClick={() => handleCardClick('unallocated')} isActive={activeView === 'unallocated'} />
-        <SummaryCard title="Missing Allocations" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.missingAllocations.toString()} icon={AlertTriangle} variant={stats.missingAllocations > 0 ? 'destructive' : 'default'} onClick={() => handleCardClick('missing')} isActive={activeView === 'missing'} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card>
