@@ -346,11 +346,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     return { weeks: monthWeeks, fiscalMonthLabel: label };
   }, [currentDate]);
 
-  /**
-   * LOCKING LOGIC:
-   * Edits are permitted for current and previous fiscal months only.
-   * Locked for ALL users.
-   */
   const isWeekEditable = useCallback((weekStartDate: Date) => {
     if (!todayRef) return false;
     

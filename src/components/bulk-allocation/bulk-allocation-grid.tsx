@@ -325,7 +325,6 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   
   useEffect(() => {
     if (templateToCopy) {
-      // Determine original total FTE from template (percentage field holds the absolute amount)
       const templateTotal = templateToCopy.reduce((sum, s) => sum + (s.percentage || 0), 0);
 
       if (totalSelectedFte === 0) {
@@ -340,7 +339,6 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         }));
         setAllocationRows(newAllocationRows);
       } else {
-        // Re-scale the absolute amounts from the template to the current group's total FTE
         const newAllocationRows = templateToCopy.map(summary => {
             const ratio = templateTotal > 0 ? (summary.percentage || 0) / templateTotal : 0;
             return {
@@ -496,7 +494,6 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
 
     const summarySubmissions = allocationRows.map(row => {
       const client = clients.find(c => c.DisplayName === row.clientName);
-      // Removed the ratio logic; saving absolute FTE amounts as requested
       return fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -505,7 +502,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
             bulk_allocation_id: bulkAllocationId,
             cost_center_number: client?.Code || 'Unknown',
             cost_center_name: row.clientName,
-            allocation_percentage: row.fte.toString(), // Saving absolute FTE value
+            allocation_percentage: row.fte.toString(), 
             bulk_allocation_date: allocationDate,
             allocation_group: allocationGroupValue,
           }
@@ -565,14 +562,14 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
               placeholder="Manager..."
               options={filterOptions.managers}
               selected={employeeFilters.manager}
-              onValueChange={handleFilterChange('manager', value)}
+              onValueChange={value => handleFilterChange('manager', value)}
               disabled={isPageLoading}
             />
             <MultiSelectFilter
               placeholder="Department..."
               options={filterOptions.departments}
               selected={employeeFilters.department}
-              onValueChange={handleFilterChange('department', value)}
+              onValueChange={value => handleFilterChange('department', value)}
               disabled={isPageLoading}
             />
           </div>
@@ -713,7 +710,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
             </div>
 
             <div className="grid gap-4">
-              {allocationRows.map((row, index) => (
+              {allocationRows.map((row) => (
                 <div key={row.id} className="flex gap-2 items-center">
                   <ClientSelect
                     clients={clients}

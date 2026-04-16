@@ -53,7 +53,7 @@ const MultiSelectFilter = ({
   const filteredOptions = useMemo(() => {
     const s = (search || '').toLowerCase();
     if (!s) return options || [];
-    return (options || []).filter(o => o && o.toLowerCase().includes(s));
+    return (options || []).filter(o => o && String(o).toLowerCase().includes(s));
   }, [search, options]);
 
   return (
@@ -86,9 +86,9 @@ const MultiSelectFilter = ({
           <CommandList className="max-h-64 overflow-y-auto">
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              {filteredOptions.map(option => (
+              {filteredOptions.map((option, idx) => (
                 <CommandItem
-                  key={option}
+                  key={`${option}-${idx}`}
                   value={option}
                   onSelect={() => onValueChange(option)}
                 >
@@ -230,8 +230,7 @@ export function DashboardContent() {
         }
       });
 
-    // 2. Process Bulk Allocations (New Format: Absolute FTE Amounts)
-    // To get the individual ratio, we need to know the total group capacity for each profile
+    // 2. Process Bulk Allocations
     const profileCapacityMap = new Map<string, number>();
     const profileAssignments = (bulkFtes || []).filter(f => f?.content?.allocation_monthyear === currentMonthYear);
     
@@ -262,9 +261,6 @@ export function DashboardContent() {
                 const baseFte = parseFloat(employee.fte || employee.LOB || '0') || 0;
                 summaries.forEach(s => {
                     const profileFteAmount = parseFloat(s.content.allocation_percentage || '0') || 0;
-                    // Ratio of this client in the profile = (client_absolute_fte / total_profile_absolute_fte)
-                    // Wait, the new format says the sum of profile absolute FTEs MUST equal the groupCapacity.
-                    // So individual share = (client_absolute_fte / groupCapacity) * baseFte
                     const individualShare = (profileFteAmount / groupCapacity) * baseFte;
                     allocatedFteMap.set(empId, (allocatedFteMap.get(empId) || 0) + individualShare);
                 });
@@ -459,7 +455,7 @@ export function DashboardContent() {
                 const clientName = target?.content?.targets_cost_center_name || 'Unknown';
                 const amount = parseInt(target?.content?.targets_allocation_amount || '0', 10) || 0;
                 acc[quarter] = acc[quarter] || {};
-                acc[quarter][clientName] = (acc[quarter][quarter][clientName] || 0) + amount;
+                acc[quarter][clientName] = (acc[quarter][clientName] || 0) + amount;
                 return acc;
             }, {} as Record<string, Record<string, number>>);
             initialChartData = Object.entries(targetsByQuarter).map(([quarter, totals]) => ({ name: quarter, ...totals }));
