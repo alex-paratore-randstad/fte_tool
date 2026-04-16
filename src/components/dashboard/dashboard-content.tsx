@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -204,7 +205,6 @@ export function DashboardContent() {
     }
 
     const safeEmployees = filteredEmployeesBase;
-    
     const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 });
     const currentWeekKey = format(startOfThisWeek, 'yyyy-MM-dd');
     const currentWeekAllocations = (weeklyAllocations || []).filter(a => a?.content?.allocation_date === currentWeekKey);
@@ -214,6 +214,7 @@ export function DashboardContent() {
 
     const allocatedFteMap = new Map<string, number>();
     
+    // 1. Process Weekly Allocations
     currentWeekAllocations
       .filter(a => a?.content && parseFloat(a.content.allocation_amount || '0') > 0)
       .forEach(a => {
@@ -229,26 +230,44 @@ export function DashboardContent() {
         }
       });
 
-    const profilePercentageMap = new Map<string, number>();
-    (bulkSummaries || []).forEach(s => {
-        if (s?.content?.bulk_allocation_id) {
-            const val = parseFloat(s.content.allocation_percentage || '0');
-            profilePercentageMap.set(s.content.bulk_allocation_id, (profilePercentageMap.get(s.content.bulk_allocation_id) || 0) + val);
+    // 2. Process Bulk Allocations (New Format: Absolute FTE Amounts)
+    // To get the individual ratio, we need to know the total group capacity for each profile
+    const profileCapacityMap = new Map<string, number>();
+    const profileAssignments = (bulkFtes || []).filter(f => f?.content?.allocation_monthyear === currentMonthYear);
+    
+    profileAssignments.forEach(f => {
+        const emp = allEmployees.find(ae => (ae.person_id === f.content.employee_id || ae.Person_Number === f.content.employee_id));
+        if (emp) {
+            const base = parseFloat(emp.fte || emp.LOB || '0') || 0;
+            profileCapacityMap.set(f.content.bulk_allocation_id, (profileCapacityMap.get(f.content.bulk_allocation_id) || 0) + base);
         }
     });
 
-    (bulkFtes || []).forEach(f => {
-        if (f?.content?.allocation_monthyear === currentMonthYear && f.content.employee_id) {
-            const empId = f.content.employee_id;
-            const profilePercentage = profilePercentageMap.get(f.content.bulk_allocation_id) || 0;
-            
-            if (profilePercentage > 0) {
-                const employee = safeEmployees.find(e => (e.person_id === empId || e.Person_Number === empId));
-                if (employee) {
-                    const baseFte = parseFloat(employee.fte || employee.LOB || '0') || 0;
-                    const allocatedFte = profilePercentage * baseFte;
-                    allocatedFteMap.set(empId, (allocatedFteMap.get(empId) || 0) + allocatedFte);
-                }
+    const profileSummariesByProfileId = (bulkSummaries || []).reduce((acc, s) => {
+        if (!s?.content?.bulk_allocation_id) return acc;
+        if (!acc[s.content.bulk_allocation_id]) acc[s.content.bulk_allocation_id] = [];
+        acc[s.content.bulk_allocation_id].push(s);
+        return acc;
+    }, {} as Record<string, BulkSummaryDoc[]>);
+
+    profileAssignments.forEach(f => {
+        const empId = f.content.employee_id;
+        const profileId = f.content.bulk_allocation_id;
+        const summaries = profileSummariesByProfileId[profileId] || [];
+        const groupCapacity = profileCapacityMap.get(profileId) || 0;
+        
+        if (groupCapacity > 0) {
+            const employee = safeEmployees.find(e => (e.person_id === empId || e.Person_Number === empId));
+            if (employee) {
+                const baseFte = parseFloat(employee.fte || employee.LOB || '0') || 0;
+                summaries.forEach(s => {
+                    const profileFteAmount = parseFloat(s.content.allocation_percentage || '0') || 0;
+                    // Ratio of this client in the profile = (client_absolute_fte / total_profile_absolute_fte)
+                    // Wait, the new format says the sum of profile absolute FTEs MUST equal the groupCapacity.
+                    // So individual share = (client_absolute_fte / groupCapacity) * baseFte
+                    const individualShare = (profileFteAmount / groupCapacity) * baseFte;
+                    allocatedFteMap.set(empId, (allocatedFteMap.get(empId) || 0) + individualShare);
+                });
             }
         }
     });
@@ -265,8 +284,8 @@ export function DashboardContent() {
         totalAllocatedFteSum += alloc;
     });
 
-    const allocatedEmps = safeEmployees.filter(e => (allocatedFteMap.get(e.person_id || e.Person_Number) || 0) > 0);
-    const unallocatedEmps = safeEmployees.filter(e => (allocatedFteMap.get(e.person_id || e.Person_Number) || 0) <= 0);
+    const allocatedEmps = safeEmployees.filter(e => (allocatedFteMap.get(e.person_id || e.Person_Number) || 0) > 0.005);
+    const unallocatedEmps = safeEmployees.filter(e => (allocatedFteMap.get(e.person_id || e.Person_Number) || 0) <= 0.005);
     
     return {
       totalFtes: totalBaseFteSum,
@@ -276,7 +295,7 @@ export function DashboardContent() {
       unallocatedEmployees: unallocatedEmps,
       allocatedFteMap
     };
-  }, [today, hasMounted, loading, filteredEmployeesBase, weeklyAllocations, bulkFtes, bulkSummaries]);
+  }, [today, hasMounted, loading, filteredEmployeesBase, weeklyAllocations, bulkFtes, bulkSummaries, allEmployees]);
 
   const employeeFilterOptions = useMemo<FilterOptions>(() => {
     const safeEmployees = (allEmployees || []).filter(e => e && (e.person_id || e.Person_Number));
@@ -367,16 +386,33 @@ export function DashboardContent() {
                 return acc;
             }, {} as Record<string, BulkSummaryDoc[]>);
 
+            const profileCapacityMap = new Map<string, number>();
+            (bulkFtes || []).forEach(f => {
+                const emp = localAllEmployees.find(ae => (ae.person_id === f.content.employee_id || ae.Person_Number === f.content.employee_id));
+                if (emp) {
+                    const base = parseFloat(emp.fte || emp.LOB || '0') || 0;
+                    profileCapacityMap.set(f.content.bulk_allocation_id, (profileCapacityMap.get(f.content.bulk_allocation_id) || 0) + base);
+                }
+            });
+
             const bulkDataByMonth = (bulkFtes || []).reduce((acc, fte) => {
                 const { allocation_monthyear, bulk_allocation_id, employee_id, employee_name } = fte?.content || {};
                 if (!allocation_monthyear || !bulk_allocation_id) return acc;
                 if (!checkDeptMatch(employee_id, employee_name)) return acc;
+                
+                const groupCapacity = profileCapacityMap.get(bulk_allocation_id) || 0;
+                if (groupCapacity <= 0) return acc;
+
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
+                const employee = localAllEmployees.find(e => (e.person_id === employee_id || e.Person_Number === employee_id));
+                const baseFte = employee ? (parseFloat(employee.fte || employee.LOB || '0') || 0) : 0;
+
                 if (!acc[allocation_monthyear]) acc[allocation_monthyear] = {};
                 summariesForFte.forEach(summary => {
-                    const percentage = parseFloat(summary?.content?.allocation_percentage || '0') || 0;
+                    const profileFteAmount = parseFloat(summary?.content?.allocation_percentage || '0') || 0;
                     const clientName = summary?.content?.cost_center_name || 'Unknown';
-                    acc[allocation_monthyear][clientName] = (acc[allocation_monthyear][clientName] || 0) + percentage;
+                    const share = (profileFteAmount / groupCapacity) * baseFte;
+                    acc[allocation_monthyear][clientName] = (acc[allocation_monthyear][clientName] || 0) + share;
                 });
                 return acc;
             }, {} as Record<string, Record<string, number>>);
@@ -388,9 +424,9 @@ export function DashboardContent() {
         case 'freshservice': {
             const freshserviceAllocations = (weeklyAllocations || []).filter(a => {
                 if (!a?.content) return false;
-                const matchesClient = a.content.cost_center_name === a.content.cost_center_number;
+                const isManual = a.content.cost_center_name === 'MANUAL ENTRY';
                 const matchesDept = checkDeptMatch(a.content.employee_id, a.content.allocation_name);
-                return matchesClient && matchesDept;
+                return !isManual && matchesDept;
             });
             const freshserviceDataByMonth = freshserviceAllocations.reduce((acc, alloc) => {
                 const dateStr = alloc?.content?.allocation_date;
@@ -423,7 +459,7 @@ export function DashboardContent() {
                 const clientName = target?.content?.targets_cost_center_name || 'Unknown';
                 const amount = parseInt(target?.content?.targets_allocation_amount || '0', 10) || 0;
                 acc[quarter] = acc[quarter] || {};
-                acc[quarter][clientName] = (acc[quarter][clientName] || 0) + amount;
+                acc[quarter][clientName] = (acc[quarter][quarter][clientName] || 0) + amount;
                 return acc;
             }, {} as Record<string, Record<string, number>>);
             initialChartData = Object.entries(targetsByQuarter).map(([quarter, totals]) => ({ name: quarter, ...totals }));

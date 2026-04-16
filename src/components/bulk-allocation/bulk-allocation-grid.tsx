@@ -325,10 +325,13 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   
   useEffect(() => {
     if (templateToCopy) {
+      // Determine original total FTE from template (percentage field holds the absolute amount)
+      const templateTotal = templateToCopy.reduce((sum, s) => sum + (s.percentage || 0), 0);
+
       if (totalSelectedFte === 0) {
         toast({
           title: 'Select Employees First',
-          description: 'Copying template as a 1.0 FTE base. Select employees to see the true distribution.',
+          description: 'Copying template with original FTE values. Select employees to validate.',
         });
         const newAllocationRows = templateToCopy.map(summary => ({
           id: uuidv4(),
@@ -337,20 +340,24 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         }));
         setAllocationRows(newAllocationRows);
       } else {
-        const newAllocationRows = templateToCopy.map(summary => ({
-          id: uuidv4(),
-          clientName: summary.name || 'Unknown',
-          fte: (summary.percentage || 0) * totalSelectedFte
-        }));
+        // Re-scale the absolute amounts from the template to the current group's total FTE
+        const newAllocationRows = templateToCopy.map(summary => {
+            const ratio = templateTotal > 0 ? (summary.percentage || 0) / templateTotal : 0;
+            return {
+                id: uuidv4(),
+                clientName: summary.name || 'Unknown',
+                fte: ratio * totalSelectedFte
+            };
+        });
         setAllocationRows(newAllocationRows);
-        toast({ title: 'Template Copied', description: 'Allocation profile has been copied. Review the FTE distribution.' });
+        toast({ title: 'Template Copied', description: 'Allocation profile has been copied. Amounts scaled to current group FTE.' });
       }
     } else {
         if (allocationRows.length === 0) {
             setAllocationRows([{ id: uuidv4(), clientName: '', fte: 0 }]);
         }
     }
-  }, [templateToCopy, totalSelectedFte, toast, allocationRows.length]);
+  }, [templateToCopy, totalSelectedFte, toast]);
 
   useEffect(() => {
     if (!userLoading) {
@@ -489,7 +496,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
 
     const summarySubmissions = allocationRows.map(row => {
       const client = clients.find(c => c.DisplayName === row.clientName);
-      const percentage = totalSelectedFte > 0 ? row.fte / totalSelectedFte : 0;
+      // Removed the ratio logic; saving absolute FTE amounts as requested
       return fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -498,7 +505,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
             bulk_allocation_id: bulkAllocationId,
             cost_center_number: client?.Code || 'Unknown',
             cost_center_name: row.clientName,
-            allocation_percentage: percentage.toString(),
+            allocation_percentage: row.fte.toString(), // Saving absolute FTE value
             bulk_allocation_date: allocationDate,
             allocation_group: allocationGroupValue,
           }
@@ -558,14 +565,14 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
               placeholder="Manager..."
               options={filterOptions.managers}
               selected={employeeFilters.manager}
-              onValueChange={value => handleFilterChange('manager', value)}
+              onValueChange={handleFilterChange('manager', value)}
               disabled={isPageLoading}
             />
             <MultiSelectFilter
               placeholder="Department..."
               options={filterOptions.departments}
               selected={employeeFilters.department}
-              onValueChange={value => handleFilterChange('department', value)}
+              onValueChange={handleFilterChange('department', value)}
               disabled={isPageLoading}
             />
           </div>

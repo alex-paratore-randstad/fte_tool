@@ -67,7 +67,7 @@ type SummaryDoc = {
     bulk_allocation_id: string;
     cost_center_number: string;
     cost_center_name: string;
-    allocation_percentage: string;
+    allocation_percentage: string; // This holds absolute FTE string in new format
     bulk_allocation_date: string;
     allocation_group?: string;
   };
@@ -171,8 +171,8 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
         fetch(`/data/v1/ai_report`),
       ]);
 
-      const ftes: FteDoc[] = fteResponse.ok ? await fteResponse.json() : [];
-      const summaries: SummaryDoc[] = summaryResponse.ok ? await summaryResponse.json() : [];
+      const rawFtes = fteResponse.ok ? await fteResponse.json() : [];
+      const rawSummaries = summaryResponse.ok ? await summaryResponse.json() : [];
       const emps: TeamMember[] = metaEmpResponse.ok ? await metaEmpResponse.json() : [];
       const clients: AiReportData[] = metaClientResponse.ok ? await metaClientResponse.json() : [];
 
@@ -183,7 +183,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       ];
       setAllClients([...staticClients, ...(Array.isArray(clients) ? clients.filter(c => c && c.DisplayName) : [])]);
 
-      const grouped = (Array.isArray(summaries) ? summaries : []).reduce((acc, summary) => {
+      const grouped = (Array.isArray(rawSummaries) ? rawSummaries : []).reduce((acc, summary) => {
         if (!summary?.content) return acc;
         const { bulk_allocation_id, cost_center_name, cost_center_number, allocation_percentage, bulk_allocation_date, allocation_group } = summary.content;
         
@@ -199,18 +199,18 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
           };
         }
         
-        const percNumber = Number(allocation_percentage) || 0;
+        const fteVal = parseFloat(allocation_percentage) || 0;
         acc[bulk_allocation_id].summaries.push({
           id: summary.id,
           name: cost_center_name || 'Unknown',
           number: cost_center_number || 'Unknown',
-          percentage: percNumber,
+          percentage: fteVal, // Treated as absolute FTE in new format
         });
 
         return acc;
       }, {} as Record<string, ProcessedAllocation>);
 
-      (Array.isArray(ftes) ? ftes : []).forEach(fte => {
+      (Array.isArray(rawFtes) ? rawFtes : []).forEach(fte => {
         if (!fte?.content) return;
         const { bulk_allocation_id, employee_id, employee_name, allocation_monthyear } = fte.content;
         if (bulk_allocation_id && grouped[bulk_allocation_id]) {
@@ -246,10 +246,10 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
     fetchData();
   }, [fetchData, refreshKey]);
   
-  const handlePercentageChange = (allocId: string, summaryId: string, newPercentage: string) => {
+  const handlePercentageChange = (allocId: string, summaryId: string, newFte: string) => {
     setEditableAllocations(prev => prev.map(alloc => {
       if (alloc.id === allocId) {
-        const updatedSummaries = (alloc.summaries || []).map(s => s.id === summaryId ? { ...s, percentage: Number(newPercentage) } : s);
+        const updatedSummaries = (alloc.summaries || []).map(s => s.id === summaryId ? { ...s, percentage: parseFloat(newFte) || 0 } : s);
         return { ...alloc, summaries: updatedSummaries };
       }
       return alloc;
@@ -339,10 +339,20 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       return;
     }
 
+    const totalEmployeeFte = (editableAlloc.employees || []).reduce((sum, e) => {
+        const emp = allEmployees.find(ae => ae.person_id === e.employeeId);
+        return sum + (parseFloat(emp?.fte || '0') || 0);
+    }, 0);
+
     const totalAllocation = (editableAlloc.summaries || []).reduce((sum, s) => sum + s.percentage, 0);
-    // Use floating point margin for validation
-    if (Math.abs(totalAllocation - 1.0) > 0.05) {
-      toast({ variant: 'destructive', title: 'Validation Error', description: 'Total allocation must be within range of assigned FTEs.' });
+    
+    // New format: Validate that sum of allocations matches sum of assigned employee capacities
+    if (Math.abs(totalAllocation - totalEmployeeFte) > 0.05) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Validation Error', 
+        description: `Total allocation (${totalAllocation.toFixed(2)}) must match assigned employee FTE (${totalEmployeeFte.toFixed(2)}).` 
+      });
       setIsSaving(prev => ({...prev, [allocId]: false}));
       return;
     }
@@ -484,6 +494,10 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
           <Accordion type="single" collapsible className="w-full">
             {editableAllocations.map(alloc => {
                 const totalAllocation = (alloc.summaries || []).reduce((sum, s) => sum + s.percentage, 0);
+                const totalEmployeeFte = (alloc.employees || []).reduce((sum, e) => {
+                    const emp = allEmployees.find(ae => ae.person_id === e.employeeId);
+                    return sum + (parseFloat(emp?.fte || '0') || 0);
+                }, 0);
                 const isProfileSaving = isSaving[alloc.id];
                 const isProfileDeleting = isDeleting[alloc.id];
                 const displayId = alloc.id ? alloc.id.substring(0, 8) : 'unknown';
@@ -597,9 +611,9 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                         </Button>
                                     </div>
                                 </div>
-                                <Alert variant="default">
+                                <Alert variant={Math.abs(totalAllocation - totalEmployeeFte) > 0.05 ? 'destructive' : 'default'}>
                                     <AlertDescription>
-                                    Total Group FTE: <span className="font-bold">{totalAllocation.toFixed(2)}</span>
+                                    Total Group FTE: <span className="font-bold">{totalAllocation.toFixed(2)}</span> / {totalEmployeeFte.toFixed(2)} FTE
                                     </AlertDescription>
                                 </Alert>
                                 <div className="border-t pt-4 mt-2">
