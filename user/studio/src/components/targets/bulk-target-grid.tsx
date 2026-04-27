@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -48,10 +47,9 @@ const months = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
+const currentYearValue = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => (currentYearValue - 2 + i).toString());
 
-// New self-contained component for the Client dropdown
 const ClientSelect = ({
   clients,
   value,
@@ -64,7 +62,6 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    // Create a stable sort: special clients first, then alphabetical.
     const sorted = [...clients].sort((a, b) => {
       const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
@@ -72,18 +69,13 @@ const ClientSelect = ({
 
       if (aIsSpecial && !bIsSpecial) return -1;
       if (!aIsSpecial && bIsSpecial) return 1;
-      
-      // If both are special or both are not, sort by name.
       if (aIsSpecial && bIsSpecial) {
           return a.DisplayName === 'Unallocated' ? -1 : 1;
       }
-      
       return a.DisplayName.localeCompare(b.DisplayName);
     });
 
-    if (!searchTerm) {
-      return sorted;
-    }
+    if (!searchTerm) return sorted;
     return sorted.filter(client =>
       client.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -121,12 +113,10 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
 
-
-  const { currentUser, loading: userLoading } = useCurrentUser();
+  const { loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set date state on client to avoid hydration mismatch
     const now = new Date();
     setSelectedMonth(months[now.getMonth()]);
     setSelectedYear(now.getFullYear().toString());
@@ -136,7 +126,7 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
     setLoading(true);
     try {
       const [empResponse, clientResponse] = await Promise.all([
-        fetch(`/data/v1/gbs_ind_hr_fte_report`),
+        fetch(`/data/v1/consolidated_hr_fte_report_view`),
         fetch(`/data/v1/ai_report`),
       ]);
 
@@ -144,7 +134,7 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
         console.warn("Could not fetch initial data.");
       }
       
-      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.Full_Name).sort((a,b) => a.Full_Name.localeCompare(b.Full_Name)) : [];
+      const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a,b) => a.full_name.localeCompare(b.full_name)) : [];
       const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
       
       setAllEmployees(empData);
@@ -164,18 +154,13 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
   }, [toast]);
 
   useEffect(() => {
-    if (!userLoading) {
-      fetchData();
-    }
-    // Add default target row
+    if (!userLoading) fetchData();
     setTargetRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
-  }, [fetchData, userLoading, currentUser.id]);
+  }, [fetchData, userLoading]);
 
   const filteredEmployees = useMemo(() => {
-    if (!employeeSearchTerm) {
-      return allEmployees;
-    }
-    return allEmployees.filter(e => e.Full_Name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
+    if (!employeeSearchTerm) return allEmployees;
+    return allEmployees.filter(e => e.full_name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
   }, [allEmployees, employeeSearchTerm]);
   
   const totalPercentage = useMemo(() => {
@@ -185,11 +170,8 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
   const handleEmployeeToggle = (employeeId: string, isSelected: boolean) => {
     setSelectedEmployees(prev => {
       const newSet = new Set(prev);
-      if (isSelected) {
-        newSet.add(employeeId);
-      } else {
-        newSet.delete(employeeId);
-      }
+      if (isSelected) newSet.add(employeeId);
+      else newSet.delete(employeeId);
       return newSet;
     });
   };
@@ -205,9 +187,7 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
   const handleTargetChange = (id: string, field: 'clientName' | 'percentage', value: string) => {
     setTargetRows(prev => prev.map(row => {
       if (row.id === id) {
-        if (field === 'percentage') {
-          return { ...row, [field]: Number(value) };
-        }
+        if (field === 'percentage') return { ...row, [field]: Number(value) };
         return { ...row, [field]: value };
       }
       return row;
@@ -232,15 +212,14 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
       return;
     }
 
-
     setIsSubmitting(true);
     const bulkTargetsId = uuidv4();
     const bulkTargetsDate = new Date().toISOString();
     const targetsMonthYear = `${selectedMonth} ${selectedYear}`;
 
     const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {
-      const employee = allEmployees.find(e => e.Person_Number === employeeId);
-      const compositeName = employee ? `[${employee.Person_Number}] ${employee.Full_Name}` : `[${employeeId}] Unknown`;
+      const employee = allEmployees.find(e => e.person_id === employeeId);
+      const compositeName = employee ? `[${employee.person_id}] ${employee.full_name}` : `[${employeeId}] Unknown`;
       
       return fetch('/domo/datastores/v1/collections/bulk_targets_fte/documents/', {
         method: 'POST',
@@ -274,20 +253,12 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
     });
 
     try {
-      const allPromises = [...employeeSubmissions, ...summarySubmissions];
-      const results = await Promise.all(allPromises);
-
-      if (results.some(res => !res.ok)) {
-        throw new Error('One or more submissions failed.');
-      }
-      
+      const results = await Promise.all([...employeeSubmissions, ...summarySubmissions]);
+      if (results.some(res => !res.ok)) throw new Error('One or more submissions failed.');
       toast({ title: 'Bulk Targets Saved', description: `Assigned target profile to ${selectedEmployees.size} employees for ${targetsMonthYear}.` });
-      
-      // Reset form
       setSelectedEmployees(new Set());
       setTargetRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 100 }]);
       onSaveSuccess();
-
     } catch (error: any) {
       console.error("Save error:", error);
       toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
@@ -335,16 +306,16 @@ export function BulkTargetGrid({ onSaveSuccess }: BulkTargetGridProps) {
                 </TableHeader>
                 <TableBody>
                   {filteredEmployees.map(emp => (
-                    <TableRow key={emp.Person_Number}>
+                    <TableRow key={emp.person_id}>
                       <TableCell>
                         <Checkbox 
-                          checked={selectedEmployees.has(emp.Person_Number)}
-                          onCheckedChange={checked => handleEmployeeToggle(emp.Person_Number, !!checked)}
-                          aria-label={`Select ${emp.Full_Name}`}
+                          checked={selectedEmployees.has(emp.person_id)}
+                          onCheckedChange={checked => handleEmployeeToggle(emp.person_id, !!checked)}
+                          aria-label={`Select ${emp.full_name}`}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{emp.Full_Name}</TableCell>
-                      <TableCell className="text-muted-foreground">{emp.Market_Facing_Title}</TableCell>
+                      <TableCell className="font-medium">{emp.full_name}</TableCell>
+                      <TableCell className="text-muted-foreground">{emp.title}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

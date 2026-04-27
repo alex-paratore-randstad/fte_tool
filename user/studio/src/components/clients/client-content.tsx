@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,20 +17,14 @@ export function ClientContent() {
       try {
         const [aiResponse, ticketsResponse] = await Promise.all([
           fetch(`/data/v1/ai_report`),
-          fetch('/data/v1/fte_tickets_grouped_monthly')
+          fetch('/data/v1/fte_tickets_grouped_monthly_view')
         ]);
 
-        // Process AI Report data
-        if (!aiResponse.ok) {
-          console.warn("Failed to fetch AI report data.");
-        }
+        if (!aiResponse.ok) console.warn("Failed to fetch AI report data.");
         const aiResult: AiReportData[] = aiResponse.ok ? await aiResponse.json() : [];
         setAiReportData(aiResult);
         
-        // Process Ticket Groupings data
-        if (!ticketsResponse.ok) {
-            throw new Error('Failed to fetch ticket data');
-        }
+        if (!ticketsResponse.ok) throw new Error('Failed to fetch ticket data');
         const ticketResult: TicketData[] = await ticketsResponse.json();
         const processedData = ticketResult.reduce((acc: GroupedData, item) => {
             const client = item.client_name || 'N/A';
@@ -49,8 +42,6 @@ export function ClientContent() {
             return acc;
         }, {});
         setGroupedData(processedData);
-
-
       } catch (error) {
         console.error("Failed to fetch client data:", error);
          toast({
@@ -62,7 +53,6 @@ export function ClientContent() {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [toast]);
 

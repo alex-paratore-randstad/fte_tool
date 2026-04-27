@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -51,10 +50,9 @@ const months = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
+const currentYearValue = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => (currentYearValue - 2 + i).toString());
 
-// New self-contained component for the Client dropdown
 const ClientSelect = ({
   clients,
   value,
@@ -69,7 +67,6 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    // Create a stable sort: special clients first, then alphabetical.
     const sorted = [...clients].sort((a, b) => {
       const specialClients = ['PTO', 'Unallocated'];
       const aIsSpecial = specialClients.includes(a.DisplayName);
@@ -77,18 +74,13 @@ const ClientSelect = ({
 
       if (aIsSpecial && !bIsSpecial) return -1;
       if (!aIsSpecial && bIsSpecial) return 1;
-      
-      // If both are special or both are not, sort by name.
       if (aIsSpecial && bIsSpecial) {
           return a.DisplayName === 'Unallocated' ? -1 : 1;
       }
-      
       return a.DisplayName.localeCompare(b.DisplayName);
     });
 
-    if (!searchTerm) {
-      return sorted;
-    }
+    if (!searchTerm) return sorted;
     return sorted.filter(client =>
       client.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -126,10 +118,8 @@ const ManagerSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
-    const sortedManagers = managers.sort((a,b) => a.name.localeCompare(b.name));
-    if (!searchTerm) {
-      return sortedManagers;
-    }
+    const sortedManagers = [...managers].sort((a,b) => a.name.localeCompare(b.name));
+    if (!searchTerm) return sortedManagers;
     return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
 
@@ -173,13 +163,11 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
 
-
-  const { currentUser, loading: userLoading } = useCurrentUser();
+  const { loading: userLoading } = useCurrentUser();
   const { toast } = useToast();
   
   useEffect(() => {
     setHasMounted(true);
-    // Set date state on client to avoid hydration mismatch
     const now = new Date();
     setSelectedMonth(months[now.getMonth()]);
     setSelectedYear(now.getFullYear().toString());
@@ -251,7 +239,6 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       setAllocationRows(newAllocationRows);
       toast({ title: 'Template Copied', description: 'Allocation profile has been copied. Select employees and save.' });
     } else {
-        // Set default allocation row only if not copying
         setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 1.0 }]);
     }
   }, [templateToCopy, toast]);
@@ -260,12 +247,10 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     if (!userLoading) {
       fetchData();
     }
-  }, [fetchData, userLoading, currentUser.id]);
+  }, [fetchData, userLoading]);
 
   const filteredEmployees = useMemo(() => {
-    if (!employeeSearchTerm) {
-      return allEmployees;
-    }
+    if (!employeeSearchTerm) return allEmployees;
     return allEmployees.filter(e => e.full_name.toLowerCase().includes(employeeSearchTerm.toLowerCase()));
   }, [allEmployees, employeeSearchTerm]);
   
@@ -276,11 +261,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   const handleEmployeeToggle = (employeeId: string, isSelected: boolean) => {
     setSelectedEmployees(prev => {
       const newSet = new Set(prev);
-      if (isSelected) {
-        newSet.add(employeeId);
-      } else {
-        newSet.delete(employeeId);
-      }
+      if (isSelected) newSet.add(employeeId);
+      else newSet.delete(employeeId);
       return newSet;
     });
   };
@@ -296,9 +278,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
   const handleAllocationChange = (id: string, field: 'clientName' | 'percentage', value: string) => {
     setAllocationRows(prev => prev.map(row => {
       if (row.id === id) {
-        if (field === 'percentage') {
-          return { ...row, [field]: Number(value) };
-        }
+        if (field === 'percentage') return { ...row, [field]: Number(value) };
         return { ...row, [field]: value };
       }
       return row;
@@ -307,22 +287,18 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
 
   const handleLoadManagerTeam = (managerId: string) => {
     if (!managerId) return;
-
     const teamMemberIds = allEmployees
         .filter(e => e.manager_id === managerId)
         .map(e => e.person_id);
-
     if (teamMemberIds.length === 0) {
       toast({ title: 'No employees found for this manager.' });
       return;
     }
-
     setSelectedEmployees(prev => {
         const newSet = new Set(prev);
         teamMemberIds.forEach(id => newSet.add(id));
         return newSet;
     });
-
     toast({ title: 'Team Loaded', description: `${teamMemberIds.length} employee(s) have been selected.` });
   };
 
@@ -343,7 +319,6 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       toast({ variant: 'destructive', title: 'Please select a month and year.' });
       return;
     }
-
 
     setIsSubmitting(true);
     const bulkAllocationId = uuidv4();
@@ -385,21 +360,12 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     });
 
     try {
-      const allPromises = [...employeeSubmissions, ...summarySubmissions];
-      const results = await Promise.all(allPromises);
-
-      if (results.some(res => !res.ok)) {
-        throw new Error('One or more submissions failed.');
-      }
-      
-      writeLog('BulkAllocationGrid', 'success', 'Bulk allocation saved', { count: selectedEmployees.size, month: allocationMonthYear });
+      const results = await Promise.all([...employeeSubmissions, ...summarySubmissions]);
+      if (results.some(res => !res.ok)) throw new Error('One or more submissions failed.');
       toast({ title: 'Bulk Allocation Saved', description: `Assigned allocation profile to ${selectedEmployees.size} employees for ${allocationMonthYear}.` });
-      
-      // Reset form
       setSelectedEmployees(new Set());
       setAllocationRows([{ id: `new-${Date.now()}`, clientName: '', percentage: 1.0 }]);
       onSaveSuccess();
-
     } catch (error: any) {
       writeLog('BulkAllocationGrid', 'error', 'Bulk allocation save failed', error);
       toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
@@ -512,7 +478,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
                 </div>
             </div>
             <div className="grid gap-4">
-              {allocationRows.map((row, index) => (
+              {allocationRows.map((row) => (
                 <div key={row.id} className="flex gap-2 items-center">
                   <ClientSelect
                     clients={clients}
@@ -557,5 +523,3 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     </div>
   );
 }
-
-    

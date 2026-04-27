@@ -1,5 +1,3 @@
-
-
 export type Employee = {
   id: string;
   name: string;
@@ -32,39 +30,22 @@ export type FtePrototypeData = {
 };
 
 export type TeamMember = {
-  'Person_Number': string;
-  'Full_Name': string;
-  'Employment_Status': string;
-  'Employment_Mode': string;
-  'HO/FO': string;
-  'Legal_Employer': string;
-  LOB: string;
-  'Team_Name': string;
-  'Vertical_Name': string;
-  'Sub_Vertical_Name': string;
-  'Delivery_Mode': string;
-  Client: string;
-  Band: string;
-  'Level_Description': string;
-  'Incentive_Role': string;
-  'Market_Facing_Title': string;
-  Location: string;
-  'Core_Center': string;
-  Region: string;
-  'Team_Code': string;
-  'Cost_Center': string;
-  'First_Reviewer_Code': string;
-  'First_Reviewer_Name': string;
-  'Vertical_Head_Code': string;
-  'Vertical_Head_Name': string;
-  'Official_Email': string;
-  'Personal_Email': string;
-  'Date_Of_Joining': string; // Stays as string for simplicity
-  Gender: string;
-  'Associate_Ecode': string;
-  'Group_DOJ': string; // Stays as string for simplicity
-  'Notified_Date': string; // Stays as string for simplicity
-  'Last_Working_Day': string; // Stays as string for simplicity
+  person_id: string;
+  full_name: string;
+  status: string;
+  employment_type: string;
+  department: string;
+  department_detail?: string;
+  title: string;
+  manager_id: string;
+  manager: string;
+  manager_email: string;
+  person_email: string;
+  start_date: string;
+  end_date: string;
+  country: string;
+  region?: string;
+  fte: string;
 };
 
 export type WeeklyAllocation = {

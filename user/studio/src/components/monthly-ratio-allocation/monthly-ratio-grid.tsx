@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, Fragment, useEffect, useCallback } from 'react';
@@ -51,7 +50,6 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
   const { toast } = useToast();
   
   useEffect(() => {
-    // Set date only on the client to avoid hydration mismatch.
     setCurrentDate(new Date());
   }, []);
 
@@ -62,7 +60,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       const selectedMonth = format(currentDate, 'MMM');
       const selectedYear = format(currentDate, 'yyyy');
 
-      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly`);
+      const response = await fetch(`/data/v1/fte_tickets_grouped_monthly_view`);
       
       if (!response.ok) {
         console.warn(`Failed to fetch ticket data for ${selectedMonth} ${selectedYear}.`);
@@ -71,13 +69,10 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
       }
       
       const ticketData: TicketAllocationData[] = await response.json();
-      // FORCE CLIENT-SIDE FILTERING
       const filteredData = ticketData.filter(item => item.reporting_month === selectedMonth && item.reporting_year === selectedYear );
 
       const groupedByAgent = filteredData.reduce((acc, item) => {
-        if (!acc[item.agent_name]) {
-          acc[item.agent_name] = [];
-        }
+        if (!acc[item.agent_name]) acc[item.agent_name] = [];
         acc[item.agent_name].push(item);
         return acc;
       }, {} as Record<string, TicketAllocationData[]>);
@@ -92,9 +87,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
           })),
         })
       );
-
       setActiveAllocations(prepopulatedAllocations);
-
     } catch (error) {
       console.error("Failed to fetch and process ticket data:", error);
       toast({ variant: 'destructive', title: 'Failed to process data' });
@@ -114,9 +107,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     setActiveAllocations(prev => prev.map(empAlloc => {
       if (empAlloc.agentName === agentName) {
         const newAllocations = empAlloc.allocations.map(alloc => {
-          if (alloc.id === allocId) {
-            return { ...alloc, fte: newFte };
-          }
+          if (alloc.id === allocId) return { ...alloc, fte: newFte };
           return alloc;
         });
         return { ...empAlloc, allocations: newAllocations };
@@ -154,17 +145,15 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
         toast({ variant: 'destructive', title: 'Invalid Date', description: 'Please select a valid month and year.' });
         return;
     }
-    
     const allocationDate = format(startOfMonth(currentDate), 'yyyy-MM-dd');
     const selectedMonth = format(currentDate, 'MMM');
     const selectedYear = format(currentDate, 'yyyy');
-    
     const submissions: any[] = [];
     let hasValidationError = false;
 
     activeAllocations.forEach(empAlloc => {
       const totalFte = empAlloc.allocations.reduce((sum, alloc) => sum + alloc.fte, 0);
-      if (Math.abs(totalFte - 1.0) > 0.01) { // Allow for small floating point inaccuracies
+      if (Math.abs(totalFte - 1.0) > 0.01) {
           toast({ variant: 'destructive', title: `Validation Error for ${empAlloc.agentName}`, description: `Total allocation must be 1.0, but it is ${totalFte.toFixed(3)}.` });
           hasValidationError = true;
           return;
@@ -176,7 +165,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
               allocation_date: allocationDate,
               allocation_name: empAlloc.agentName,
               cost_center_name: alloc.clientName,
-              cost_center_number: alloc.clientName, // Using name as number for this use case
+              cost_center_number: alloc.clientName,
               allocation_amount: alloc.fte.toString(),
             }
           });
@@ -185,7 +174,6 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     });
 
     if (hasValidationError) return;
-
     if (submissions.length === 0) {
       toast({ title: 'No changes to save.' });
       return;
@@ -202,10 +190,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
                 return res.json();
             })
         ));
-        toast({
-            title: 'Allocations Saved',
-            description: `${submissions.length} allocation entries for ${selectedMonth} ${selectedYear} have been saved successfully.`,
-        });
+        toast({ title: 'Allocations Saved', description: `${submissions.length} allocation entries for ${selectedMonth} ${selectedYear} have been saved successfully.` });
         onSaveSuccess();
     } catch (error: any) {
         console.error("Save error:", error);
@@ -213,23 +198,13 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
     }
   };
 
-  // This condition prevents rendering the main UI until the client-side
-  // useEffect has run, which avoids hydration errors with the server.
   if (!currentDate) {
     return (
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <Skeleton className="h-6 w-48 mb-2" />
-                <Skeleton className="h-4 w-96" />
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                  <Skeleton className="h-10 w-10" />
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="h-10 w-10" />
-                  <Skeleton className="h-10 w-24" />
-              </div>
+              <div><Skeleton className="h-6 w-48 mb-2" /><Skeleton className="h-4 w-96" /></div>
+              <div className="flex items-center gap-2 flex-wrap"><Skeleton className="h-10 w-10" /><Skeleton className="h-6 w-32" /><Skeleton className="h-10 w-10" /><Skeleton className="h-10 w-24" /></div>
           </div>
         </CardHeader>
         <CardContent><Skeleton className="h-64 w-full" /></CardContent>
@@ -246,15 +221,9 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
             <CardDescription>Allocations are pre-populated from monthly ticket ratios. Adjust as needed.</CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" size="icon" onClick={handlePrevMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium w-32 text-center">
-              {format(currentDate, 'MMMM yyyy')}
-            </span>
-            <Button variant="outline" size="icon" onClick={handleNextMonth}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <Button variant="outline" size="icon" onClick={handlePrevMonth}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-sm font-medium w-32 text-center">{format(currentDate, 'MMMM yyyy')}</span>
+            <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
             <Button onClick={handleSave} disabled={activeAllocations.length === 0}>Save All</Button>
           </div>
         </div>
@@ -272,11 +241,7 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
             </TableHeader>
             <TableBody>
               {activeAllocations.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                    No ticket data found for the selected period.
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={4} className="text-center h-24 text-muted-foreground">No ticket data found for the selected period.</TableCell></TableRow>
               )}
               {activeAllocations.map(({ agentName, allocations }) => {
                 const totalFte = allocations.reduce((total, alloc) => total + (alloc.fte || 0), 0);
@@ -285,40 +250,19 @@ export function MonthlyRatioGrid({ onSaveSuccess }: MonthlyRatioGridProps) {
                     <TableRow className="bg-muted/50 hover:bg-muted">
                       <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">{agentName}</TableCell>
                       <TableCell></TableCell>
-                      <TableCell className={cn("text-center font-semibold", Math.abs(totalFte - 1.0) > 0.01 ? "text-destructive" : "text-muted-foreground")}>
-                        {totalFte > 0 ? totalFte.toFixed(3) : '-'}
-                      </TableCell>
+                      <TableCell className={cn("text-center font-semibold", Math.abs(totalFte - 1.0) > 0.01 ? "text-destructive" : "text-muted-foreground")}>{totalFte > 0 ? totalFte.toFixed(3) : '-'}</TableCell>
                       <TableCell></TableCell>
                     </TableRow>
-
                     {allocations.map((alloc) => (
                       <TableRow key={alloc.id}>
                         <TableCell className="sticky left-0 bg-card z-10"></TableCell>
-                        <TableCell>
-                           <Input value={alloc.clientName} readOnly className="bg-muted" />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number" step="0.01" min="0" placeholder="0.00"
-                            className="w-32 text-center mx-auto"
-                            value={alloc.fte || ''}
-                            onChange={(e) => handleFteChange(agentName, alloc.id, e.target.value)}
-                          />
-                        </TableCell>
-                        <TableCell className='text-right'>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(agentName, alloc.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
+                        <TableCell><Input value={alloc.clientName} readOnly className="bg-muted" /></TableCell>
+                        <TableCell><Input type="number" step="0.01" min="0" placeholder="0.00" className="w-32 text-center mx-auto" value={alloc.fte || ''} onChange={(e) => handleFteChange(agentName, alloc.id, e.target.value)} /></TableCell>
+                        <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveAllocationRow(agentName, alloc.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                       </TableRow>
                     ))}
-
                     <TableRow>
-                      <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
-                        <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(agentName)}>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Add Manual Allocation
-                        </Button>
-                      </TableCell>
+                      <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}><Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddAllocationRow(agentName)}><PlusCircle className="mr-2 h-4 w-4" /> Add Manual Allocation</Button></TableCell>
                       <TableCell colSpan={2}></TableCell>
                     </TableRow>
                   </Fragment>
