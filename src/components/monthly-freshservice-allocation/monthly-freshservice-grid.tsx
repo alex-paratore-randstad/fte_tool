@@ -194,10 +194,6 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
         .filter(e => e.full_name && uniqueAgentNamesFromTickets.includes(e.full_name) && !activeEmployeeNames.has(e.full_name))
         .map(e => ({ person_id: e.person_id, full_name: e.full_name }));
 
-    const tempWorkerOption = { person_id: 'TEMP_WORKER', full_name: 'Temp Worker' };
-    if (!activeEmployeeNames.has(tempWorkerOption.full_name)) {
-        return [tempWorkerOption, ...dynamicEmployees];
-    }
     return dynamicEmployees;
   }, [allEmployees, allTicketData, activeAllocations]);
 
@@ -210,20 +206,6 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
     if (isAlreadyActive) {
       toast({ variant: 'destructive', title: 'Employee already in grid' });
       return;
-    }
-
-    if (employeeName === 'Temp Worker') {
-        const newEmployeeAllocation: EmployeeAllocation = {
-            agentName: employeeName,
-            allocations: [{
-                id: `temp-worker-new-${Date.now()}`,
-                clientName: '',
-                fte: 1.0
-            }],
-        };
-        setActiveAllocations(prev => [newEmployeeAllocation, ...prev]);
-        setTimeout(() => setSelectedEmployeeToAdd(''), 0);
-        return;
     }
     
     // Find ticket data for the selected employee
@@ -428,7 +410,7 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
                 </TableRow>
               ) : (
                 activeAllocations.map(({ agentName, allocations }) => {
-                  const totalFte = allocations.reduce((total, alloc) => total + (alloc.fte || 0), 0);
+                  const totalFte = allocations.reduce((sum, alloc) => sum + (alloc.fte || 0), 0);
                   return (
                     <Fragment key={agentName}>
                       <TableRow className="bg-muted/50 hover:bg-muted">

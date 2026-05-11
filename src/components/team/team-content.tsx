@@ -157,26 +157,7 @@ export function TeamContent() {
         }
         const rawData: any[] = await response.json();
         
-        const tempWorker: TeamMember = {
-            person_id: 'TEMP_WORKER',
-            full_name: 'Temp Worker',
-            title: 'Temporary Staff',
-            employment_type: 'Temporary',
-            status: 'Active',
-            department: 'Temporary',
-            department_detail: 'Manual Entry',
-            manager_id: 'N/A',
-            manager: 'N/A',
-            manager_email: 'N/A',
-            person_email: 'N/A',
-            start_date: '',
-            end_date: '',
-            country: 'N/A',
-            region: 'N/A',
-            fte: '1.0'
-        };
-
-        const allData = [tempWorker, ...(Array.isArray(rawData) ? rawData : [])];
+        const allData = Array.isArray(rawData) ? rawData : [];
         setTeamMembers(allData);
 
         const getUniqueSorted = (key: keyof TeamMember) =>

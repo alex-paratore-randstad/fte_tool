@@ -397,23 +397,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       const clientData: AiReportData[] = (Array.isArray(rawClients) ? rawClients : [])
         .filter((c: AiReportData) => c && c.Code && c.DisplayName);
       
-      const tempWorker: TeamMember = {
-        person_id: 'TEMP_WORKER',
-        full_name: 'Temp Worker',
-        title: 'Temporary Staff',
-        employment_type: 'Temporary',
-        status: 'Active',
-        department: 'Temporary',
-        manager_id: 'N/A',
-        manager: 'N/A',
-        manager_email: 'N/A',
-        person_email: 'N/A',
-        start_date: '',
-        end_date: '',
-        country: '',
-        fte: '1.0'
-      };
-      setAllEmployees([tempWorker, ...empData]);
+      setAllEmployees(empData);
       setClients([...clientData]);
       
       const uniqueManagerNames = Array.from(

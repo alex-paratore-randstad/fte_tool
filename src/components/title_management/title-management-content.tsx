@@ -113,24 +113,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       const empData: TeamMember[] = await empResponse.json();
       const titleData: any[] = await titleResponse.json();
       
-      const tempWorker: TeamMember = {
-        person_id: 'TEMP_WORKER',
-        full_name: 'Temp Worker',
-        title: 'Temporary Staff',
-        employment_type: 'Temporary',
-        status: 'Active',
-        department: 'Temporary',
-        manager_id: 'N/A',
-        manager: 'N/A',
-        manager_email: 'N/A',
-        person_email: 'N/A',
-        start_date: '',
-        end_date: '',
-        country: 'N/A',
-        fte: '1.0'
-      };
-      
-      setEmployees([tempWorker, ...empData.filter(e => e && e.full_name).sort((a,b) => a.full_name.localeCompare(b.full_name))]);
+      setEmployees(empData.filter(e => e && e.full_name).sort((a,b) => a.full_name.localeCompare(b.full_name)));
       setTitles(titleData.filter(t => t && t['updated_titles']));
 
     } catch (error: any) {
