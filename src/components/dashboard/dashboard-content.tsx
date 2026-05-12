@@ -522,8 +522,6 @@ export function DashboardContent() {
     return { title: baseTitle, data: baseData, description: descriptionText };
   }, [activeView, filteredEmployeesBase, stats.allocatedEmployees, stats.unallocatedEmployees, employeeFilters, hasMounted]);
 
-  const { title: detailTitle, data: detailData, description: detailDescription } = detailState;
-
   const handleCardClick = (view: ActiveView) => setActiveView(current => (current === view ? null : view));
   const handleEmployeeFilterChange = (filterName: keyof typeof employeeFilters, value: string) => setEmployeeFilters(prev => { const current = prev[filterName] || []; const next = current.includes(value) ? current.filter(v => v !== value) : [...current, value]; return { ...prev, [filterName]: next }; });
   const handleChartClientFilterChange = (value: string) => setChartClientFilter(prev => { const current = prev || []; return current.includes(value) ? current.filter(v => v !== value) : [...current, value]; });
@@ -574,8 +572,8 @@ export function DashboardContent() {
             <CardHeader>
                <div className="flex justify-between items-start gap-4">
                     <div>
-                        <CardTitle>{isPageLoading ? <Skeleton className="h-6 w-1/3" /> : detailTitle}</CardTitle>
-                        <CardDescription>{isPageLoading ? <Skeleton className="h-4 w-2/3" /> : detailDescription}</CardDescription>
+                        <CardTitle>{isPageLoading ? <Skeleton className="h-6 w-1/3" /> : detailState.title}</CardTitle>
+                        <CardDescription>{isPageLoading ? <Skeleton className="h-4 w-2/3" /> : detailState.description}</CardDescription>
                     </div>
                     <Button variant="outline" size="sm" onClick={clearEmployeeFilters} disabled={isPageLoading}>Clear Filters</Button>
                 </div>
@@ -607,7 +605,7 @@ export function DashboardContent() {
                           <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                         </TableRow>
                       ))
-                    ) : (detailData || []).length > 0 ? detailData.map((employee, idx) => {
+                    ) : (detailState.data || []).length > 0 ? detailState.data.map((employee, idx) => {
                       const empId = employee.person_id || employee.Person_Number;
                       const allocatedAmount = stats.allocatedFteMap.get(empId) || 0;
                       

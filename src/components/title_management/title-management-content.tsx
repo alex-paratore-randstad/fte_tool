@@ -24,9 +24,16 @@ type TitleManagementContentProps = {
 const EmployeeSelect = ({ employees, value, onValueChange, disabled }: { employees: TeamMember[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const filteredEmployees = useMemo(() => {
-        const sorted = [...employees].sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        const sorted = [...employees].sort((a,b) => {
+            const nameA = a.full_name || a.Full_Name || '';
+            const nameB = b.full_name || b.Full_Name || '';
+            return nameA.localeCompare(nameB);
+        });
         if (!searchTerm) return sorted;
-        return sorted.filter(e => e.full_name && e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
+        return sorted.filter(e => {
+            const name = (e.full_name || e.Full_Name || '').toLowerCase();
+            return name.includes(searchTerm.toLowerCase());
+        });
     }, [employees, searchTerm]);
 
     return (
@@ -38,8 +45,8 @@ const EmployeeSelect = ({ employees, value, onValueChange, disabled }: { employe
                 <SelectSearch placeholder="Search employee..." onChange={setSearchTerm} />
                 <ScrollArea className="h-64">
                     {filteredEmployees.map(emp => (
-                        <SelectItem key={emp.person_id} value={emp.full_name}>
-                            {emp.full_name}
+                        <SelectItem key={emp.person_id || emp.Person_Number} value={emp.full_name || emp.Full_Name || ''}>
+                            {emp.full_name || emp.Full_Name}
                         </SelectItem>
                     ))}
                     {filteredEmployees.length === 0 && (
@@ -102,35 +109,38 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
     try {
       const [empResponse, titleResponse] = await Promise.all([
         fetch(`/data/v1/consolidated_hr_fte_report_view`),
-        fetch(`/data/v1/mst_fte_updated_titles`),
+        fetch(`/data/v1/mst_fte_updated_titles_view`),
       ]);
 
       if (!empResponse.ok) {
         writeLog('TitleManagement', 'error', 'Failed to fetch employee list', { status: empResponse.status });
       }
 
-      // Handle cases where the dataset might return 400 or other errors
       let titleData: any[] = [];
       if (titleResponse.ok) {
         titleData = await titleResponse.json();
       } else {
-        writeLog('TitleManagement', 'warning', `Dataset 'mst_fte_updated_titles' returned ${titleResponse.status}.`, { statusText: titleResponse.statusText });
+        writeLog('TitleManagement', 'warning', `Dataset 'mst_fte_updated_titles_view' returned ${titleResponse.status}.`, { statusText: titleResponse.statusText });
       }
 
       const empData: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
       
-      const safeEmps = (Array.isArray(empData) ? empData : []).filter(e => e && e.full_name);
+      const safeEmps = (Array.isArray(empData) ? empData : []).filter(e => e && (e.full_name || e.Full_Name));
       
-      // Flexible key mapping for titles
+      // Map variations of Title column name
       const safeTitles = (Array.isArray(titleData) ? titleData : [])
         .map(t => {
             if (!t) return null;
-            const val = t['updated_titles'] || t['Updated_Titles'] || t['Updated Titles'] || t['updated titles'];
+            const val = t['updated_titles'] || t['Updated_Titles'] || t['Updated Titles'] || t['updated titles'] || t['Job_Title'] || t['Job Title'] || t['Title'];
             return val ? { updated_titles: String(val).trim() } : null;
         })
         .filter((t): t is UpdatedTitle => !!t);
       
-      setEmployees(safeEmps.sort((a,b) => (a.full_name || '').localeCompare(b.full_name || '')));
+      setEmployees(safeEmps.sort((a,b) => {
+          const nameA = a.full_name || a.Full_Name || '';
+          const nameB = b.full_name || b.Full_Name || '';
+          return nameA.localeCompare(nameB);
+      }));
       setTitles(safeTitles);
 
     } catch (error: any) {
@@ -138,7 +148,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       toast({
         variant: 'destructive',
         title: 'Data Fetch Error',
-        description: 'Could not retrieve data from the server. Check connectivity.'
+        description: 'Could not retrieve data from the server.'
       });
     } finally {
       setLoading(false);
@@ -161,7 +171,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       return;
     }
     
-    const selectedEmployee = employees.find(emp => emp.full_name === selectedEmployeeName);
+    const selectedEmployee = employees.find(emp => (emp.full_name || emp.Full_Name) === selectedEmployeeName);
     if (!selectedEmployee) {
       toast({
         variant: 'destructive',
@@ -181,7 +191,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
         },
         body: JSON.stringify({
           content: { 
-            employee_id: selectedEmployee.person_id, 
+            employee_id: selectedEmployee.person_id || selectedEmployee.Person_Number, 
             updated_title: selectedTitle 
           }
         }),
