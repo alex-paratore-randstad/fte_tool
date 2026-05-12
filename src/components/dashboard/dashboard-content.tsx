@@ -237,7 +237,7 @@ export function DashboardContent() {
     profileAssignments.forEach(f => {
         const emp = allEmployees.find(ae => ae && (ae.person_id === f.content.employee_id || ae.Person_Number === f.content.employee_id));
         if (emp) {
-            const base = parseFloat(emp.fte) || 0;
+            const base = parseFloat(emp.fte || emp.FTE || '0') || 0;
             profileCapacityMap.set(f.content.bulk_allocation_id, (profileCapacityMap.get(f.content.bulk_allocation_id) || 0) + base);
         }
     });
@@ -258,9 +258,9 @@ export function DashboardContent() {
         if (groupCapacity > 0) {
             const employee = safeEmployees.find(e => e && (e.person_id === empId || e.Person_Number === empId));
             if (employee) {
-                const baseFte = parseFloat(employee.fte) || 0;
+                const baseFte = parseFloat(employee.fte || employee.FTE || '0') || 0;
                 summaries.forEach(s => {
-                    const profileFteAmount = parseFloat(s?.content?.allocation_percentage) || 0;
+                    const profileFteAmount = parseFloat(s?.content?.allocation_percentage || '0') || 0;
                     const individualShare = (profileFteAmount / groupCapacity) * baseFte;
                     allocatedFteMap.set(empId, (allocatedFteMap.get(empId) || 0) + individualShare);
                 });
@@ -273,7 +273,7 @@ export function DashboardContent() {
     
     safeEmployees.forEach(e => {
         const empId = e.person_id || e.Person_Number;
-        const base = parseFloat(e.fte) || 0;
+        const base = parseFloat(e.fte || e.FTE || '0') || 0;
         const alloc = allocatedFteMap.get(empId) || 0;
         
         totalBaseFteSum += base;
@@ -386,7 +386,7 @@ export function DashboardContent() {
             (bulkFtes || []).forEach(f => {
                 const emp = localAllEmployees.find(ae => ae && (ae.person_id === f.content.employee_id || ae.Person_Number === f.content.employee_id));
                 if (emp) {
-                    const base = parseFloat(emp.fte) || 0;
+                    const base = parseFloat(emp.fte || emp.FTE || '0') || 0;
                     profileCapacityMap.set(f.content.bulk_allocation_id, (profileCapacityMap.get(f.content.bulk_allocation_id) || 0) + base);
                 }
             });
@@ -401,11 +401,11 @@ export function DashboardContent() {
 
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
                 const employee = localAllEmployees.find(e => e && (e.person_id === employee_id || e.Person_Number === employee_id));
-                const baseFte = employee ? (parseFloat(employee.fte) || 0) : 0;
+                const baseFte = employee ? (parseFloat(employee.fte || employee.FTE || '0') || 0) : 0;
 
                 if (!acc[allocation_monthyear]) acc[allocation_monthyear] = {};
                 summariesForFte.forEach(summary => {
-                    const profileFteAmount = parseFloat(summary?.content?.allocation_percentage) || 0;
+                    const profileFteAmount = parseFloat(summary?.content?.allocation_percentage || '0') || 0;
                     const clientName = summary?.content?.cost_center_name || 'Unknown';
                     const share = (profileFteAmount / groupCapacity) * baseFte;
                     acc[allocation_monthyear][clientName] = (acc[allocation_monthyear][clientName] || 0) + share;
@@ -434,7 +434,7 @@ export function DashboardContent() {
                 if (isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) return acc;
                 const monthLabel = `${monthsShort[monthIndex]} ${year}`;
                 const clientName = alloc?.content?.cost_center_name || 'Unknown';
-                const amount = parseFloat(alloc?.content?.allocation_amount) || 0;
+                const amount = parseFloat(alloc?.content?.allocation_amount || '0') || 0;
                 acc[monthLabel] = acc[monthLabel] || {};
                 acc[monthLabel][clientName] = (acc[monthLabel][clientName] || 0) + amount;
                 return acc;
@@ -446,14 +446,16 @@ export function DashboardContent() {
         }
         case 'targets': {
             const targetsByQuarter = (targets || []).reduce((acc, target) => {
-                const dateStr = target?.content?.targets_allocation_date;
+                const content = target?.content;
+                if (!content) return acc;
+                const dateStr = content.targets_allocation_date;
                 if (!dateStr) return acc;
-                if (!checkDeptMatch(undefined, target.content.targets_allocation_name)) return acc;
+                if (!checkDeptMatch(undefined, content.targets_allocation_name)) return acc;
                 const date = parseISO(dateStr);
                 if (!isValid(date)) return acc;
                 const quarter = `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`;
-                const clientName = target?.content?.targets_cost_center_name || 'Unknown';
-                const amount = parseInt(target?.content?.targets_allocation_amount, 10) || 0;
+                const clientName = content.targets_cost_center_name || 'Unknown';
+                const amount = parseFloat(content.targets_allocation_amount || '0') || 0;
                 
                 if (!acc[quarter]) acc[quarter] = {};
                 acc[quarter][clientName] = (acc[quarter][clientName] || 0) + amount;
@@ -479,7 +481,7 @@ export function DashboardContent() {
               });
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
                 const clientName = curr?.content?.cost_center_name || 'Unknown';
-                const amount = Number(curr?.content?.allocation_amount) || 0;
+                const amount = parseFloat(curr?.content?.allocation_amount || '0') || 0;
                 acc[clientName] = (acc[clientName] || 0) + amount;
                 return acc;
               }, {} as Record<string, number>);
@@ -520,6 +522,8 @@ export function DashboardContent() {
     return { title: baseTitle, data: baseData, description: descriptionText };
   }, [activeView, filteredEmployeesBase, stats.allocatedEmployees, stats.unallocatedEmployees, employeeFilters, hasMounted]);
 
+  const { title: detailTitle, data: detailData, description: detailDescription } = detailState;
+
   const handleCardClick = (view: ActiveView) => setActiveView(current => (current === view ? null : view));
   const handleEmployeeFilterChange = (filterName: keyof typeof employeeFilters, value: string) => setEmployeeFilters(prev => { const current = prev[filterName] || []; const next = current.includes(value) ? current.filter(v => v !== value) : [...current, value]; return { ...prev, [filterName]: next }; });
   const handleChartClientFilterChange = (value: string) => setChartClientFilter(prev => { const current = prev || []; return current.includes(value) ? current.filter(v => v !== value) : [...current, value]; });
@@ -528,13 +532,17 @@ export function DashboardContent() {
   const clearChartFilters = () => { setChartClientFilter([]); setChartDepartmentFilter([]); };
   const isPageLoading = loading || !today || !hasMounted;
 
+  const totalFteVal = isPageLoading ? 0 : (parseFloat(stats.totalFtes.toString()) || 0);
+  const allocatedFteVal = isPageLoading ? 0 : (parseFloat(stats.allocatedFtes.toString()) || 0);
+  const unallocatedFteVal = isPageLoading ? 0 : (parseFloat(stats.unallocatedFtes.toString()) || 0);
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Dashboard" />
       <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard title="Total FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.totalFtes.toFixed(2)} icon={Users} onClick={() => handleCardClick('total')} isActive={activeView === 'total'} />
-        <SummaryCard title="Allocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.allocatedFtes.toFixed(2)} icon={Briefcase} onClick={() => handleCardClick('allocated')} isActive={activeView === 'allocated'} />
-        <SummaryCard title="Unallocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : stats.unallocatedFtes.toFixed(2)} icon={UserMinus} onClick={() => handleCardClick('unallocated')} isActive={activeView === 'unallocated'} />
+        <SummaryCard title="Total FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : totalFteVal.toFixed(2)} icon={Users} onClick={() => handleCardClick('total')} isActive={activeView === 'total'} />
+        <SummaryCard title="Allocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : allocatedFteVal.toFixed(2)} icon={Briefcase} onClick={() => handleCardClick('allocated')} isActive={activeView === 'allocated'} />
+        <SummaryCard title="Unallocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : unallocatedFteVal.toFixed(2)} icon={UserMinus} onClick={() => handleCardClick('unallocated')} isActive={activeView === 'unallocated'} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card>
@@ -567,7 +575,7 @@ export function DashboardContent() {
                <div className="flex justify-between items-start gap-4">
                     <div>
                         <CardTitle>{isPageLoading ? <Skeleton className="h-6 w-1/3" /> : detailTitle}</CardTitle>
-                        <CardDescription>{isPageLoading ? <Skeleton className="h-4 w-2/3" /> : detailState.description}</CardDescription>
+                        <CardDescription>{isPageLoading ? <Skeleton className="h-4 w-2/3" /> : detailDescription}</CardDescription>
                     </div>
                     <Button variant="outline" size="sm" onClick={clearEmployeeFilters} disabled={isPageLoading}>Clear Filters</Button>
                 </div>
@@ -599,7 +607,7 @@ export function DashboardContent() {
                           <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                         </TableRow>
                       ))
-                    ) : (detailState.data || []).length > 0 ? detailState.data.map((employee, idx) => {
+                    ) : (detailData || []).length > 0 ? detailData.map((employee, idx) => {
                       const empId = employee.person_id || employee.Person_Number;
                       const allocatedAmount = stats.allocatedFteMap.get(empId) || 0;
                       
