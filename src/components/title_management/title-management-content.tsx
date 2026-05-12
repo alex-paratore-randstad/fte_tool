@@ -109,21 +109,26 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
         writeLog('TitleManagement', 'error', 'Failed to fetch employee list', { status: empResponse.status });
       }
 
-      // Handle 400 status code explicitly for title list
-      if (!titleResponse.ok) {
-        writeLog('TitleManagement', 'warning', 'Failed to fetch title list', { status: titleResponse.status, statusText: titleResponse.statusText });
-        if (titleResponse.status === 400) {
-            console.warn("Dataset 'mst_fte_updated_titles' returned 400. Check manifest.json and dataset sharing.");
-        }
+      // Handle cases where the dataset might return 400 or other errors
+      let titleData: any[] = [];
+      if (titleResponse.ok) {
+        titleData = await titleResponse.json();
+      } else {
+        writeLog('TitleManagement', 'warning', `Dataset 'mst_fte_updated_titles' returned ${titleResponse.status}.`, { statusText: titleResponse.statusText });
       }
 
       const empData: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
-      const titleData: any[] = titleResponse.ok ? await titleResponse.json() : [];
       
       const safeEmps = (Array.isArray(empData) ? empData : []).filter(e => e && e.full_name);
+      
+      // Flexible key mapping for titles
       const safeTitles = (Array.isArray(titleData) ? titleData : [])
-        .filter(t => t && (t['updated_titles'] || t['Updated_Titles']))
-        .map(t => ({ updated_titles: t['updated_titles'] || t['Updated_Titles'] }));
+        .map(t => {
+            if (!t) return null;
+            const val = t['updated_titles'] || t['Updated_Titles'] || t['Updated Titles'] || t['updated titles'];
+            return val ? { updated_titles: String(val).trim() } : null;
+        })
+        .filter((t): t is UpdatedTitle => !!t);
       
       setEmployees(safeEmps.sort((a,b) => (a.full_name || '').localeCompare(b.full_name || '')));
       setTitles(safeTitles);
