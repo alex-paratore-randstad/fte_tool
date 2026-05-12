@@ -454,7 +454,8 @@ export function DashboardContent() {
                 const quarter = `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`;
                 const clientName = target?.content?.targets_cost_center_name || 'Unknown';
                 const amount = parseInt(target?.content?.targets_allocation_amount || '0', 10) || 0;
-                acc[quarter] = acc[quarter] || {};
+                
+                if (!acc[quarter]) acc[quarter] = {};
                 acc[quarter][clientName] = (acc[quarter][clientName] || 0) + amount;
                 return acc;
             }, {} as Record<string, Record<string, number>>);

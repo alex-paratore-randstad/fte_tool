@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TeamMember } from '@/types';
 import { SelectSearch } from '../ui/select-search';
 import { ScrollArea } from '../ui/scroll-area';
+import { writeLog } from '@/lib/logger';
 
 type UpdatedTitle = {
   updated_titles: string;
@@ -23,8 +24,9 @@ type TitleManagementContentProps = {
 const EmployeeSelect = ({ employees, value, onValueChange, disabled }: { employees: TeamMember[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const filteredEmployees = useMemo(() => {
-        if (!searchTerm) return employees;
-        return employees.filter(e => e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
+        const sorted = [...employees].sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        if (!searchTerm) return sorted;
+        return sorted.filter(e => e.full_name && e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [employees, searchTerm]);
 
     return (
@@ -54,9 +56,9 @@ const EmployeeSelect = ({ employees, value, onValueChange, disabled }: { employe
 const TitleSelect = ({ titles, value, onValueChange, disabled }: { titles: UpdatedTitle[], value: string, onValueChange: (value: string) => void, disabled?: boolean }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const filteredTitles = useMemo(() => {
-        const sortedTitles = [...titles].sort((a,b) => a.updated_titles.localeCompare(b.updated_titles));
+        const sortedTitles = [...titles].sort((a,b) => (a.updated_titles || '').localeCompare(b.updated_titles || ''));
         if (!searchTerm) return sortedTitles;
-        return sortedTitles.filter(t => t.updated_titles.toLowerCase().includes(searchTerm.toLowerCase()));
+        return sortedTitles.filter(t => t.updated_titles && t.updated_titles.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [titles, searchTerm]);
 
     return (
@@ -104,24 +106,31 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       ]);
 
       if (!empResponse.ok) {
-        throw new Error('Failed to fetch employee list.');
+        writeLog('TitleManagement', 'error', 'Failed to fetch employee list', { status: empResponse.status });
+        throw new Error(`Failed to fetch employee list (Status: ${empResponse.status})`);
       }
       if (!titleResponse.ok) {
-        throw new Error('Failed to fetch title list.');
+        writeLog('TitleManagement', 'error', 'Failed to fetch title list', { status: titleResponse.status });
+        throw new Error(`Failed to fetch title list (Status: ${titleResponse.status})`);
       }
 
       const empData: TeamMember[] = await empResponse.json();
       const titleData: any[] = await titleResponse.json();
       
-      setEmployees(empData.filter(e => e && e.full_name).sort((a,b) => a.full_name.localeCompare(b.full_name)));
-      setTitles(titleData.filter(t => t && t['updated_titles']));
+      const safeEmps = (Array.isArray(empData) ? empData : []).filter(e => e && e.full_name);
+      const safeTitles = (Array.isArray(titleData) ? titleData : [])
+        .filter(t => t && (t['updated_titles'] || t['Updated_Titles']))
+        .map(t => ({ updated_titles: t['updated_titles'] || t['Updated_Titles'] }));
+      
+      setEmployees(safeEmps.sort((a,b) => (a.full_name || '').localeCompare(b.full_name || '')));
+      setTitles(safeTitles);
 
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast({
         variant: 'destructive',
-        title: 'Failed to fetch data',
-        description: 'Could not retrieve data from the server.'
+        title: 'Data Fetch Error',
+        description: error.message || 'Could not retrieve data from the server.'
       });
     } finally {
       setLoading(false);
@@ -171,23 +180,22 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       });
 
        if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`Submission failed with status: ${response.status}`);
       }
 
       toast({
         title: 'Success!',
         description: 'New title has been assigned.',
       });
-      // Reset form
       setSelectedEmployeeName('');
       setSelectedTitle('');
-      onSaveSuccess(); // Trigger refresh
-    } catch (error) {
+      onSaveSuccess();
+    } catch (error: any) {
       console.error('Error submitting data:', error);
       toast({
         variant: 'destructive',
         title: 'Submission Failed',
-        description: 'Could not assign the new title.'
+        description: error.message || 'Could not assign the new title.'
       });
     } finally {
       setIsSubmitting(false);

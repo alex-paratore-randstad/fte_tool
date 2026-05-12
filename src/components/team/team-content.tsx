@@ -237,7 +237,7 @@ export function TeamContent() {
       <CardHeader>
         <CardTitle>Team Roster</CardTitle>
         <CardDescription>
-          Current roster with all requested fields. Optimized for single-page viewing.
+          Current roster with all requested fields. Sorted by name and synchronized with filters.
         </CardDescription>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-4">
             <MultiSelectFilter placeholder="Filter by Name..." options={filterOptions.employees} selected={filters.employee} onValueChange={value => handleFilterChange('employee', value)} disabled={loading} />

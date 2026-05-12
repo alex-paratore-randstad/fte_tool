@@ -42,7 +42,7 @@ type AllocationRow = {
   clientId: string;
   clientName: string;
   weeklyFtes: { [weekKey: string]: number };
-  docIds: { [weekKey: string]: string }; // Tracks DB document IDs for updates/deletes
+  docIds: { [weekKey: string]: string }; 
 };
 
 type EmployeeAllocation = {
@@ -658,12 +658,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const currentKeys = weeks.filter(w => isWeekEditable(w.startDate)).map(w => formatDateKey(w.startDate));
     const validKeysSet = new Set(currentKeys);
 
-    // 1. Process deletions for trashed rows
     pendingDeletions.forEach(id => {
         operations.push(fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${id}`, { method: 'DELETE' }));
     });
 
-    // 2. Process existing grid data
     activeAllocations.forEach(ea => {
       if (!ea?.employee) return;
       ea.allocations.forEach(alloc => {
@@ -687,14 +685,12 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 }
                 
                 if (existingDocId) {
-                    // Update existing
                     operations.push(fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${existingDocId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ content })
                     }));
                 } else {
-                    // Create new
                     operations.push(fetch('/domo/datastores/v1/collections/weekly_allocation/documents/', { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'application/json' }, 
@@ -702,7 +698,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     }));
                 }
             } else if (existingDocId) {
-                // If FTE is 0 but record exists, delete it
                 operations.push(fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${existingDocId}`, { method: 'DELETE' }));
             }
           }
@@ -751,8 +746,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 )}
               </div>
               <CardDescription>
-                Edits permitted for current and previous fiscal months only. 
-                Historical periods are locked for ALL users.
+                Edits permitted for current and previous fiscal months only. Sorted by first name.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
