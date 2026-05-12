@@ -107,15 +107,18 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
 
       if (!empResponse.ok) {
         writeLog('TitleManagement', 'error', 'Failed to fetch employee list', { status: empResponse.status });
-        throw new Error(`Failed to fetch employee list (Status: ${empResponse.status})`);
-      }
-      if (!titleResponse.ok) {
-        writeLog('TitleManagement', 'error', 'Failed to fetch title list', { status: titleResponse.status });
-        throw new Error(`Failed to fetch title list (Status: ${titleResponse.status})`);
       }
 
-      const empData: TeamMember[] = await empResponse.json();
-      const titleData: any[] = await titleResponse.json();
+      // Handle 400 status code explicitly for title list
+      if (!titleResponse.ok) {
+        writeLog('TitleManagement', 'warning', 'Failed to fetch title list', { status: titleResponse.status, statusText: titleResponse.statusText });
+        if (titleResponse.status === 400) {
+            console.warn("Dataset 'mst_fte_updated_titles' returned 400. Check manifest.json and dataset sharing.");
+        }
+      }
+
+      const empData: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
+      const titleData: any[] = titleResponse.ok ? await titleResponse.json() : [];
       
       const safeEmps = (Array.isArray(empData) ? empData : []).filter(e => e && e.full_name);
       const safeTitles = (Array.isArray(titleData) ? titleData : [])
@@ -126,11 +129,11 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       setTitles(safeTitles);
 
     } catch (error: any) {
-      console.error('Error fetching data:', error);
+      writeLog('TitleManagement', 'error', 'Critical error in title management fetch', error);
       toast({
         variant: 'destructive',
         title: 'Data Fetch Error',
-        description: error.message || 'Could not retrieve data from the server.'
+        description: 'Could not retrieve data from the server. Check connectivity.'
       });
     } finally {
       setLoading(false);
@@ -191,7 +194,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       setSelectedTitle('');
       onSaveSuccess();
     } catch (error: any) {
-      console.error('Error submitting data:', error);
+      writeLog('TitleManagement', 'error', 'Failed to save title update', error);
       toast({
         variant: 'destructive',
         title: 'Submission Failed',

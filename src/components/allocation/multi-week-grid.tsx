@@ -250,12 +250,16 @@ const ManagerSelect = ({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
+  const sortedManagers = useMemo(() => {
+      return [...(managers || [])].sort((a,b) => a.name.localeCompare(b.name));
+  }, [managers]);
+
   const filteredManagers = useMemo(() => {
-    const list = managers || [];
+    const list = sortedManagers;
     if (!search) return list;
     const s = search.toLowerCase();
     return list.filter(m => m.name.toLowerCase().includes(s));
-  }, [search, managers]);
+  }, [search, sortedManagers]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -375,6 +379,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const currentMonthValue = getMonthVal(todayFiscal);
     const targetMonthValue = getMonthVal(weekFiscal);
     
+    // Strictly lock to current and immediate previous fiscal months
     return targetMonthValue >= (currentMonthValue - 1);
   }, [todayRef]);
 
@@ -706,7 +711,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     });
 
     if (invalid) { setIsSaving(false); return; }
-    if (operations.length === 0) { toast({ title: 'No changes to save.' }); setIsSaving(false); return; }
+    if (operations.length === 0 && pendingDeletions.length === 0) { toast({ title: 'No changes to save.' }); setIsSaving(false); return; }
     
     try {
         const results = await Promise.all(operations);

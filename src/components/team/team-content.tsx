@@ -158,12 +158,13 @@ export function TeamContent() {
         const rawData: any[] = await response.json();
         
         const allData = Array.isArray(rawData) ? rawData : [];
-        setTeamMembers(allData);
+        const sortedData = allData.sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        setTeamMembers(sortedData);
 
         const getUniqueSorted = (key: keyof TeamMember) =>
             Array.from(
                 new Set(
-                    allData
+                    sortedData
                         .map(item => item && item[key])
                         .filter(val => typeof val === 'string' && val) as string[]
                 )
