@@ -46,11 +46,22 @@ const navGroups: NavGroup[] = [
       { href: '/cost-centers', label: 'Client Management', roles: ['admin'] },
       { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
     ]
+  },
+  {
+    title: 'User Resources',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { 
+        href: 'https://docs.google.com/presentation/d/1wtHy8p1X_fJkA6zQcadK330emwfL9SGIzNtnWYu3I4w/edit', 
+        label: 'Knowledge Base' 
+      },
+    ]
   }
 ];
 
 const getHref = (href: string) => {
     if (!href) return '/index.html';
+    if (href.startsWith('http')) return href;
     const cleanHref = typeof href === 'string' ? href : '/index.html';
     if (cleanHref === '/') return '/index.html';
     const base = cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`;
@@ -69,6 +80,7 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
 
   const isActive = useCallback((href: string) => {
     if (!pathname) return false;
+    if (href.startsWith('http')) return false;
     
     const normalize = (p: any) => {
         if (!p || typeof p !== 'string') return '';
@@ -153,7 +165,13 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                                   <AccordionContent className="pl-4 pb-0">
                                       <div className="flex flex-col gap-1">
                                           {(group.items || []).filter(item => item && userHasAccess(item.roles)).map(item => (
-                                              <Link key={item.href} href={getHref(item.href)} className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
+                                              <Link 
+                                                key={item.href} 
+                                                href={getHref(item.href)} 
+                                                target={item.href.startsWith('http') ? "_blank" : undefined}
+                                                rel={item.href.startsWith('http') ? "noopener noreferrer" : undefined}
+                                                className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}
+                                              >
                                                   {item.label}
                                               </Link>
                                           ))}

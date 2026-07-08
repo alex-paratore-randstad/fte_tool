@@ -42,11 +42,22 @@ const navGroups: NavGroup[] = [
       { href: '/cost-centers', label: 'Client Management', roles: ['admin'] },
       { href: '/title_management', label: 'Title Management', roles: ['admin', 'manager'] },
     ]
+  },
+  {
+    title: 'User Resources',
+    roles: ['admin', 'manager', 'vp'],
+    items: [
+      { 
+        href: 'https://docs.google.com/presentation/d/1wtHy8p1X_fJkA6zQcadK330emwfL9SGIzNtnWYu3I4w/edit', 
+        label: 'Knowledge Base' 
+      },
+    ]
   }
 ];
 
 const getHref = (href: string) => {
     if (!href) return '/index.html';
+    if (href.startsWith('http')) return href;
     const cleanHref = typeof href === 'string' ? href : '/index.html';
     if (cleanHref === '/') return '/index.html';
     const base = cleanHref.endsWith('/') ? cleanHref : `${cleanHref}/`;
@@ -59,6 +70,7 @@ export function TopNav() {
 
   const isActive = useCallback((href: string) => {
     if (!pathname) return false;
+    if (href.startsWith('http')) return false;
     
     const normalize = (p: any) => {
         if (!p || typeof p !== 'string') return '';
@@ -125,7 +137,12 @@ export function TopNav() {
               <DropdownMenuContent align="start">
                 {(group.items || []).filter(item => item && userHasAccess(item.roles)).map(item => (
                   <DropdownMenuItem key={item.href} asChild>
-                    <Link href={getHref(item.href)} className={cn(isActive(item.href) && 'font-semibold')}>
+                    <Link 
+                        href={getHref(item.href)} 
+                        className={cn(isActive(item.href) && 'font-semibold')}
+                        target={item.href.startsWith('http') ? "_blank" : undefined}
+                        rel={item.href.startsWith('http') ? "noopener noreferrer" : undefined}
+                    >
                       {item.label}
                     </Link>
                   </DropdownMenuItem>
