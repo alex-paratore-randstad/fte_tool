@@ -132,14 +132,23 @@ export function TopNav() {
                 <DropdownMenuContent align="start">
                     {(group.items || []).filter(item => item && userHasAccess(item.roles)).map(item => (
                         <DropdownMenuItem key={item.href} asChild>
-                            <Link 
-                                href={getHref(item.href)} 
-                                className={cn(isActive(item.href) && "font-semibold")}
-                                target={item.href.startsWith('http') ? "_blank" : undefined}
-                                rel={item.href.startsWith('http') ? "noopener noreferrer" : undefined}
-                            >
-                              {item.label}
-                            </Link>
+                            {item.href.startsWith('http') ? (
+                              <a 
+                                href={item.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
+                              >
+                                {item.label}
+                              </a>
+                            ) : (
+                              <Link 
+                                  href={getHref(item.href)} 
+                                  className={cn(isActive(item.href) && "font-semibold")}
+                              >
+                                {item.label}
+                              </Link>
+                            )}
                         </DropdownMenuItem>
                     ))}
                 </DropdownMenuContent>

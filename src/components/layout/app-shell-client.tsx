@@ -165,15 +165,25 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                                   <AccordionContent className="pl-4 pb-0">
                                       <div className="flex flex-col gap-1">
                                           {(group.items || []).filter(item => item && userHasAccess(item.roles)).map(item => (
-                                              <Link 
-                                                key={item.href} 
-                                                href={getHref(item.href)} 
-                                                target={item.href.startsWith('http') ? "_blank" : undefined}
-                                                rel={item.href.startsWith('http') ? "noopener noreferrer" : undefined}
-                                                className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}
-                                              >
+                                              item.href.startsWith('http') ? (
+                                                <a 
+                                                  key={item.href}
+                                                  href={item.href}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="block rounded-lg p-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                                                >
                                                   {item.label}
-                                              </Link>
+                                                </a>
+                                              ) : (
+                                                <Link 
+                                                  key={item.href} 
+                                                  href={getHref(item.href)} 
+                                                  className={cn("block rounded-lg p-3 text-sm", isActive(item.href) ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}
+                                                >
+                                                    {item.label}
+                                                </Link>
+                                              )
                                           ))}
                                       </div>
                                   </AccordionContent>

@@ -78,11 +78,14 @@ const MultiSelectFilter = ({
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command shouldFilter={false}>
-          <CommandInput 
-            placeholder="Search..." 
-            value={search}
-            onValueChange={setSearch}
-          />
+          <div className="flex items-center border-b px-3">
+            <input
+              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder={`Search ${placeholder.toLowerCase()}...`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <CommandList className="max-h-64 overflow-y-auto">
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
@@ -201,7 +204,7 @@ export function DashboardContent() {
 
   const stats = useMemo(() => {
     if (!today || !hasMounted || loading) {
-      return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, allocatedEmployees: [], unallocatedEmployees: [], allocatedFteMap: new Map() };
+      return { totalFtes: 0, allocatedFtes: 0, unallocatedFtes: 0, allocatedEmployees: [], unallocatedEmployees: [], allocatedFteMap: new Map<string, number>() };
     }
 
     const safeEmployees = filteredEmployeesBase;
@@ -226,7 +229,8 @@ export function DashboardContent() {
         
         if (empId) {
             const currentAmount = allocatedFteMap.get(empId) || 0;
-            allocatedFteMap.set(empId, currentAmount + (parseFloat(a.content.allocation_amount) || 0));
+            const nextAmount = currentAmount + (parseFloat(a.content.allocation_amount || '0') || 0);
+            allocatedFteMap.set(empId, Number.isNaN(nextAmount) ? currentAmount : nextAmount);
         }
       });
 
@@ -238,7 +242,8 @@ export function DashboardContent() {
         const emp = allEmployees.find(ae => ae && (ae.person_id === f.content.employee_id || ae.Person_Number === f.content.employee_id));
         if (emp) {
             const base = parseFloat(emp.fte || emp.FTE || '0') || 0;
-            profileCapacityMap.set(f.content.bulk_allocation_id, (profileCapacityMap.get(f.content.bulk_allocation_id) || 0) + base);
+            const pid = f.content.bulk_allocation_id;
+            if (pid) profileCapacityMap.set(pid, (profileCapacityMap.get(pid) || 0) + (Number.isNaN(base) ? 0 : base));
         }
     });
 
@@ -252,6 +257,8 @@ export function DashboardContent() {
     profileAssignments.forEach(f => {
         const empId = f.content.employee_id;
         const profileId = f.content.bulk_allocation_id;
+        if (!empId || !profileId) return;
+
         const summaries = profileSummariesByProfileId[profileId] || [];
         const groupCapacity = profileCapacityMap.get(profileId) || 0;
         
@@ -259,10 +266,14 @@ export function DashboardContent() {
             const employee = safeEmployees.find(e => e && (e.person_id === empId || e.Person_Number === empId));
             if (employee) {
                 const baseFte = parseFloat(employee.fte || employee.FTE || '0') || 0;
+                if (Number.isNaN(baseFte)) return;
+
                 summaries.forEach(s => {
                     const profileFteAmount = parseFloat(s?.content?.allocation_percentage || '0') || 0;
+                    if (Number.isNaN(profileFteAmount)) return;
                     const individualShare = (profileFteAmount / groupCapacity) * baseFte;
-                    allocatedFteMap.set(empId, (allocatedFteMap.get(empId) || 0) + individualShare);
+                    const current = allocatedFteMap.get(empId) || 0;
+                    allocatedFteMap.set(empId, current + individualShare);
                 });
             }
         }
@@ -276,8 +287,8 @@ export function DashboardContent() {
         const base = parseFloat(e.fte || e.FTE || '0') || 0;
         const alloc = allocatedFteMap.get(empId) || 0;
         
-        totalBaseFteSum += base;
-        totalAllocatedFteSum += alloc;
+        totalBaseFteSum += (Number.isNaN(base) ? 0 : base);
+        totalAllocatedFteSum += (Number.isNaN(alloc) ? 0 : alloc);
     });
 
     const allocatedEmps = safeEmployees.filter(e => (allocatedFteMap.get(e.person_id || e.Person_Number) || 0) > 0.005);
@@ -316,9 +327,9 @@ export function DashboardContent() {
   const allChartClients = useMemo<string[]>(() => {
     if (loading || !hasMounted) return [];
     const clientsSet = new Set<string>();
-    (weeklyAllocations || []).forEach(a => { if (a?.content?.cost_center_name) clientsSet.add(a.content.cost_center_name); });
-    (bulkSummaries || []).forEach(s => { if (s?.content?.cost_center_name) clientsSet.add(s.content.cost_center_name); });
-    (targets || []).forEach(t => { if (t?.content?.targets_cost_center_name) clientsSet.add(t.content.targets_cost_center_name); });
+    (weeklyAllocations || []).forEach(a => { if (a?.content?.cost_center_name) clientsSet.add(String(a.content.cost_center_name)); });
+    (bulkSummaries || []).forEach(s => { if (s?.content?.cost_center_name) clientsSet.add(String(s.content.cost_center_name)); });
+    (targets || []).forEach(t => { if (t?.content?.targets_cost_center_name) clientsSet.add(String(t.content.targets_cost_center_name)); });
     
     return Array.from(clientsSet)
       .filter(c => typeof c === 'string' && c)
@@ -387,7 +398,8 @@ export function DashboardContent() {
                 const emp = localAllEmployees.find(ae => ae && (ae.person_id === f.content.employee_id || ae.Person_Number === f.content.employee_id));
                 if (emp) {
                     const base = parseFloat(emp.fte || emp.FTE || '0') || 0;
-                    profileCapacityMap.set(f.content.bulk_allocation_id, (profileCapacityMap.get(f.content.bulk_allocation_id) || 0) + base);
+                    const pid = f.content.bulk_allocation_id;
+                    if (pid) profileCapacityMap.set(pid, (profileCapacityMap.get(pid) || 0) + (Number.isNaN(base) ? 0 : base));
                 }
             });
 
@@ -402,10 +414,12 @@ export function DashboardContent() {
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
                 const employee = localAllEmployees.find(e => e && (e.person_id === employee_id || e.Person_Number === employee_id));
                 const baseFte = employee ? (parseFloat(employee.fte || employee.FTE || '0') || 0) : 0;
+                if (Number.isNaN(baseFte)) return acc;
 
                 if (!acc[allocation_monthyear]) acc[allocation_monthyear] = {};
                 summariesForFte.forEach(summary => {
                     const profileFteAmount = parseFloat(summary?.content?.allocation_percentage || '0') || 0;
+                    if (Number.isNaN(profileFteAmount)) return;
                     const clientName = summary?.content?.cost_center_name || 'Unknown';
                     const share = (profileFteAmount / groupCapacity) * baseFte;
                     acc[allocation_monthyear][clientName] = (acc[allocation_monthyear][clientName] || 0) + share;
@@ -431,12 +445,12 @@ export function DashboardContent() {
                 if (dateParts.length !== 3) return acc;
                 const year = dateParts[0];
                 const monthIndex = parseInt(dateParts[1], 10) - 1;
-                if (isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) return acc;
+                if (Number.isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) return acc;
                 const monthLabel = `${monthsShort[monthIndex]} ${year}`;
                 const clientName = alloc?.content?.cost_center_name || 'Unknown';
                 const amount = parseFloat(alloc?.content?.allocation_amount || '0') || 0;
                 acc[monthLabel] = acc[monthLabel] || {};
-                acc[monthLabel][clientName] = (acc[monthLabel][clientName] || 0) + amount;
+                acc[monthLabel][clientName] = (acc[monthLabel][clientName] || 0) + (Number.isNaN(amount) ? 0 : amount);
                 return acc;
             }, {} as Record<string, Record<string, number>>);
              initialChartData = Object.entries(freshserviceDataByMonth).map(([month, totals]) => ({ name: month, ...totals }));
@@ -458,7 +472,7 @@ export function DashboardContent() {
                 const amount = parseFloat(content.targets_allocation_amount || '0') || 0;
                 
                 if (!acc[quarter]) acc[quarter] = {};
-                acc[quarter][clientName] = (acc[quarter][clientName] || 0) + amount;
+                acc[quarter][clientName] = (acc[quarter][clientName] || 0) + (Number.isNaN(amount) ? 0 : amount);
                 return acc;
             }, {} as Record<string, Record<string, number>>);
             initialChartData = Object.entries(targetsByQuarter).map(([quarter, totals]) => ({ name: quarter, ...totals }));
@@ -471,7 +485,7 @@ export function DashboardContent() {
         default: {
             const isTotal = chartView === 'total';
             const weeksCount = isTotal ? 8 : 6;
-            const allWeeklyClients = Array.from(new Set((weeklyAllocations || []).map(a => a?.content?.cost_center_name).filter(Boolean)));
+            const allWeeklyClients = Array.from(new Set((weeklyAllocations || []).map(a => String(a?.content?.cost_center_name)).filter(c => c && c !== 'undefined')));
             const lastPeriod = Array.from({ length: weeksCount }, (_, i) => startOfWeek(subWeeks(today, (weeksCount - 1) - i), { weekStartsOn: 1 }));
             initialChartData = lastPeriod.map(weekStart => {
               const weekKey = format(weekStart, 'yyyy-MM-dd');
@@ -482,7 +496,7 @@ export function DashboardContent() {
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
                 const clientName = curr?.content?.cost_center_name || 'Unknown';
                 const amount = parseFloat(curr?.content?.allocation_amount || '0') || 0;
-                acc[clientName] = (acc[clientName] || 0) + amount;
+                acc[clientName] = (acc[clientName] || 0) + (Number.isNaN(amount) ? 0 : amount);
                 return acc;
               }, {} as Record<string, number>);
               const completeWeeklyData: Record<string, any> = { name: weekKey };
@@ -538,9 +552,9 @@ export function DashboardContent() {
     <div className="flex flex-col gap-8">
       <PageHeader title="Dashboard" />
       <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard title="Total FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : totalFteVal.toFixed(2)} icon={Users} onClick={() => handleCardClick('total')} isActive={activeView === 'total'} />
-        <SummaryCard title="Allocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : allocatedFteVal.toFixed(2)} icon={Briefcase} onClick={() => handleCardClick('allocated')} isActive={activeView === 'allocated'} />
-        <SummaryCard title="Unallocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : unallocatedFteVal.toFixed(2)} icon={UserMinus} onClick={() => handleCardClick('unallocated')} isActive={activeView === 'unallocated'} />
+        <SummaryCard title="Total FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : (Number.isNaN(totalFteVal) ? '0.00' : totalFteVal.toFixed(2))} icon={Users} onClick={() => handleCardClick('total')} isActive={activeView === 'total'} />
+        <SummaryCard title="Allocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : (Number.isNaN(allocatedFteVal) ? '0.00' : allocatedFteVal.toFixed(2))} icon={Briefcase} onClick={() => handleCardClick('allocated')} isActive={activeView === 'allocated'} />
+        <SummaryCard title="Unallocated FTEs" value={isPageLoading ? <Skeleton className="h-8 w-1/2" /> : (Number.isNaN(unallocatedFteVal) ? '0.00' : unallocatedFteVal.toFixed(2))} icon={UserMinus} onClick={() => handleCardClick('unallocated')} isActive={activeView === 'unallocated'} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card>
@@ -614,7 +628,7 @@ export function DashboardContent() {
                           <TableCell>{employee.full_name || employee.Full_Name}</TableCell>
                           <TableCell>{employee.title || employee.Market_Facing_Title}</TableCell>
                           <TableCell>{employee.manager || employee.First_Reviewer_Name}</TableCell>
-                          <TableCell className="text-right font-mono">{allocatedAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono">{Number.isNaN(allocatedAmount) ? '0.00' : allocatedAmount.toFixed(2)}</TableCell>
                         </TableRow>
                       );
                     }) : (

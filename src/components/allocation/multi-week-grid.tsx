@@ -596,12 +596,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   };
 
   const handleRemoveEmployee = (employeeId: string) => {
-      const empAlloc = activeAllocations.find(ea => (ea.employee?.person_id || ea.employee?.Person_Number) === employeeId);
+      const empId = String(employeeId);
+      const empAlloc = activeAllocations.find(ea => String(ea.employee?.person_id || ea.employee?.Person_Number) === empId);
       if (empAlloc) {
           const ids = empAlloc.allocations.flatMap(a => Object.values(a.docIds)).filter(Boolean);
           setPendingDeletions(prev => [...prev, ...ids]);
       }
-      setActiveAllocations(prev => prev.filter(a => (a.employee?.person_id || a.employee?.Person_Number) !== employeeId));
+      setActiveAllocations(prev => prev.filter(a => String(a.employee?.person_id || a.employee?.Person_Number) !== empId));
       setSelectedManager('');
   };
 
@@ -651,13 +652,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   };
 
   const handleRemoveAllocationRow = (employeeId: string, allocId: string) => {
-    const empAlloc = activeAllocations.find(ea => (ea.employee?.person_id || ea.employee?.Person_Number) === employeeId);
+    const empId = String(employeeId);
+    const empAlloc = activeAllocations.find(ea => String(ea.employee?.person_id || ea.employee?.Person_Number) === empId);
     const rowToRemove = empAlloc?.allocations.find(a => a.id === allocId);
     if (rowToRemove) {
         const ids = Object.values(rowToRemove.docIds).filter(Boolean);
         setPendingDeletions(prev => [...prev, ...ids]);
     }
-    setActiveAllocations(prev => (prev || []).map(ea => (ea.employee?.person_id || ea.employee?.Person_Number) === employeeId ? { ...ea, allocations: ea.allocations.filter(a => a.id !== allocId) } : ea));
+    setActiveAllocations(prev => (prev || []).map(ea => String(ea.employee?.person_id || ea.employee?.Person_Number) === empId ? { ...ea, allocations: ea.allocations.filter(a => a.id !== allocId) } : ea));
   };
 
   const handleSave = async () => {
@@ -687,7 +689,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 employee_id: empId, 
                 cost_center_name: alloc.clientName, 
                 cost_center_number: alloc.clientId || alloc.clientName, 
-                allocation_amount: fte.toString() 
+                allocation_amount: (Number.isNaN(fte) ? '0' : fte.toString())
             };
 
             if (fte > 0) {
@@ -836,7 +838,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                                   <Tooltip>
                                       <TooltipTrigger asChild>
                                           <span className={cn("text-muted-foreground", isPTW && "text-warning", isOver && "text-destructive")}>
-                                              {total > 0 ? total.toFixed(2) : '-'}
+                                              {total > 0 ? (Number.isNaN(total) ? '0.00' : total.toFixed(2)) : '-'}
                                           </span>
                                       </TooltipTrigger>
                                       {msg && <TooltipContent><p>{msg}</p></TooltipContent>}
@@ -849,7 +851,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                       {(allocations || []).map((alloc) => {
                         const weekKey0 = (weeks?.length || 0) > 0 ? formatDateKey(weeks[0].startDate) : '';
                         const bulkFteValue = (weekKey0 && alloc.weeklyFtes[weekKey0]);
-                        const displayBulkFte = (parseFloat(bulkFteValue?.toString() || '0') || 0).toFixed(2);
+                        const displayBulkFteNum = parseFloat(bulkFteValue?.toString() || '0') || 0;
+                        const displayBulkFte = Number.isNaN(displayBulkFteNum) ? '0.00' : displayBulkFteNum.toFixed(2);
                         
                         return (
                         <TableRow key={alloc.id}>

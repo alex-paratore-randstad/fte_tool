@@ -127,7 +127,6 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       
       const safeEmps = (Array.isArray(empData) ? empData : []).filter(e => e && (e.full_name || e.Full_Name));
       
-      // Map variations of Title column name
       const safeTitles = (Array.isArray(titleData) ? titleData : [])
         .map(t => {
             if (!t) return null;
