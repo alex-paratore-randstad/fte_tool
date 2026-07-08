@@ -379,6 +379,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const currentMonthValue = getMonthVal(todayFiscal);
     const targetMonthValue = getMonthVal(weekFiscal);
     
+    // Only current and previous fiscal months are editable
     return targetMonthValue >= (currentMonthValue - 1);
   }, [todayRef]);
 
@@ -670,6 +671,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const currentKeys = weeks.filter(w => isWeekEditable(w.startDate)).map(w => formatDateKey(w.startDate));
     const validKeysSet = new Set(currentKeys);
 
+    // Execute pending deletions first
     pendingDeletions.forEach(id => {
         operations.push(fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${id}`, { method: 'DELETE' }));
     });
@@ -713,6 +715,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     }));
                 }
             } else if (existingDocId) {
+                // If FTE set to zero, treat as deletion
                 operations.push(fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${existingDocId}`, { method: 'DELETE' }));
             }
           }
