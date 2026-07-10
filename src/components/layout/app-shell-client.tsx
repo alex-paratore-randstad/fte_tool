@@ -52,7 +52,7 @@ const navGroups: NavGroup[] = [
     roles: ['admin', 'manager', 'vp'],
     items: [
       { 
-        href: 'https://docs.google.com/presentation/d/1wtHy8p1X_fJkA6zQcadK330emwfL9SGIzNtnWYu3I4w/edit', 
+        href: 'https://docs.google.com/presentation/d/1wtHy8p1X_fJkA6zQcadK330emwfL9SGIzNtnWYu3I4w/edit?usp=sharing', 
         label: 'Knowledge Base' 
       },
     ]
@@ -207,3 +207,4 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+

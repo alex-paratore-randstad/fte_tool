@@ -891,3 +891,4 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     </TooltipProvider>
   );
 }
+

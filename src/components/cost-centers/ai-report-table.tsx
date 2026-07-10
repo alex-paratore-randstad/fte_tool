@@ -243,3 +243,4 @@ export function AiReportTable({ reportData, loading }: AiReportTableProps) {
     </Card>
   );
 }
+

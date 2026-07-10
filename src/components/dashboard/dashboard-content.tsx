@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Users, Briefcase, UserMinus, ChevronsUpDown, AlertTriangle } from 'lucide-react';
+import { Users, Briefcase, UserMinus, ChevronsUpDown } from 'lucide-react';
 import SummaryCard from '@/components/dashboard/summary-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -218,7 +218,7 @@ export function DashboardContent() {
     const allocatedFteMap = new Map<string, number>();
     
     currentWeekAllocations
-      .filter(a => a?.content && (parseFloat(a.content.allocation_amount) || 0) > 0)
+      .filter(a => a?.content && (parseFloat(a.content.allocation_amount || '0') || 0) > 0)
       .forEach(a => {
         let empId = a?.content?.employee_id || '';
         if (!empId && a?.content?.allocation_name) {
@@ -242,7 +242,7 @@ export function DashboardContent() {
         if (emp) {
             const base = parseFloat(emp.fte || emp.FTE || '0') || 0;
             const pid = f.content.bulk_allocation_id;
-            if (pid) profileCapacityMap.set(pid, (profileCapacityMap.get(pid) || 0) + (Number.isNaN(base) ? 0 : base));
+            if (pid) profileCapacityMap.set(pid, (profileCapacityMap.get(pid) || 0) + (isFinite(base) ? base : 0));
         }
     });
 
@@ -265,12 +265,15 @@ export function DashboardContent() {
             const employee = safeEmployees.find(e => e && (e.person_id === empId || e.Person_Number === empId));
             if (employee) {
                 const baseFte = parseFloat(employee.fte || employee.FTE || '0') || 0;
-                if (Number.isNaN(baseFte)) return;
+                if (!isFinite(baseFte)) return;
 
                 summaries.forEach(s => {
                     const profileFteAmount = parseFloat(s?.content?.allocation_percentage || '0') || 0;
-                    if (Number.isNaN(profileFteAmount)) return;
+                    if (!isFinite(profileFteAmount)) return;
+                    
                     const individualShare = (profileFteAmount / groupCapacity) * baseFte;
+                    if (!isFinite(individualShare)) return;
+
                     const current = allocatedFteMap.get(empId) || 0;
                     allocatedFteMap.set(empId, current + (Number.isNaN(individualShare) ? 0 : individualShare));
                 });
@@ -286,8 +289,8 @@ export function DashboardContent() {
         const base = parseFloat(e.fte || e.FTE || '0') || 0;
         const alloc = allocatedFteMap.get(empId) || 0;
         
-        totalBaseFteSum += (Number.isNaN(base) ? 0 : base);
-        totalAllocatedFteSum += (Number.isNaN(alloc) ? 0 : alloc);
+        totalBaseFteSum += (isFinite(base) ? base : 0);
+        totalAllocatedFteSum += (isFinite(alloc) ? alloc : 0);
     });
 
     const allocatedEmps = safeEmployees.filter(e => (allocatedFteMap.get(e.person_id || e.Person_Number) || 0) > 0.005);
@@ -328,7 +331,7 @@ export function DashboardContent() {
     const clientsSet = new Set<string>();
     (weeklyAllocations || []).forEach(a => { if (a?.content?.cost_center_name) clientsSet.add(String(a.content.cost_center_name)); });
     (bulkSummaries || []).forEach(s => { if (s?.content?.cost_center_name) clientsSet.add(String(s.content.cost_center_name)); });
-    (targets || []).forEach(t => { if (t?.content?.targets_cost_center_name) clientsSet.add(String(t.content.targets_cost_center_name)); });
+    (targets || []).forEach(t => { if (t?.content?.targets_allocation_name) clientsSet.add(String(t.content.targets_cost_center_name)); });
     
     return Array.from(clientsSet)
       .filter(c => typeof c === 'string' && c)
@@ -398,7 +401,7 @@ export function DashboardContent() {
                 if (emp) {
                     const base = parseFloat(emp.fte || emp.FTE || '0') || 0;
                     const pid = f.content.bulk_allocation_id;
-                    if (pid) profileCapacityMap.set(pid, (profileCapacityMap.get(pid) || 0) + (Number.isNaN(base) ? 0 : base));
+                    if (pid) profileCapacityMap.set(pid, (profileCapacityMap.get(pid) || 0) + (isFinite(base) ? base : 0));
                 }
             });
 
@@ -413,15 +416,17 @@ export function DashboardContent() {
                 const summariesForFte = bulkSummariesByProfileId[bulk_allocation_id] || [];
                 const employee = localAllEmployees.find(e => e && (e.person_id === employee_id || e.Person_Number === employee_id));
                 const baseFte = employee ? (parseFloat(employee.fte || employee.FTE || '0') || 0) : 0;
-                if (Number.isNaN(baseFte)) return acc;
+                if (!isFinite(baseFte)) return acc;
 
                 if (!acc[allocation_monthyear]) acc[allocation_monthyear] = {};
                 summariesForFte.forEach(summary => {
                     const profileFteAmount = parseFloat(summary?.content?.allocation_percentage || '0') || 0;
-                    if (Number.isNaN(profileFteAmount)) return;
+                    if (!isFinite(profileFteAmount)) return;
                     const clientName = summary?.content?.cost_center_name || 'Unknown';
                     const share = (profileFteAmount / groupCapacity) * baseFte;
-                    acc[allocation_monthyear][clientName] = (acc[allocation_monthyear][clientName] || 0) + (Number.isNaN(share) ? 0 : share);
+                    if (isFinite(share)) {
+                        acc[allocation_monthyear][clientName] = (acc[allocation_monthyear][clientName] || 0) + share;
+                    }
                 });
                 return acc;
             }, {} as Record<string, Record<string, number>>);
@@ -448,8 +453,10 @@ export function DashboardContent() {
                 const monthLabel = `${monthsShort[monthIndex]} ${year}`;
                 const clientName = alloc?.content?.cost_center_name || 'Unknown';
                 const amount = parseFloat(alloc?.content?.allocation_amount || '0') || 0;
-                acc[monthLabel] = acc[monthLabel] || {};
-                acc[monthLabel][clientName] = (acc[monthLabel][clientName] || 0) + (Number.isNaN(amount) ? 0 : amount);
+                if (isFinite(amount)) {
+                    acc[monthLabel] = acc[monthLabel] || {};
+                    acc[monthLabel][clientName] = (acc[monthLabel][clientName] || 0) + amount;
+                }
                 return acc;
             }, {} as Record<string, Record<string, number>>);
              initialChartData = Object.entries(freshserviceDataByMonth).map(([month, totals]) => ({ name: month, ...totals }));
@@ -470,8 +477,10 @@ export function DashboardContent() {
                 const clientName = content.targets_cost_center_name || 'Unknown';
                 const amount = parseFloat(content.targets_allocation_amount || '0') || 0;
                 
-                if (!acc[quarter]) acc[quarter] = {};
-                acc[quarter][clientName] = (acc[quarter][quarter] || 0) + (Number.isNaN(amount) ? 0 : amount);
+                if (isFinite(amount)) {
+                    if (!acc[quarter]) acc[quarter] = {};
+                    acc[quarter][clientName] = (acc[quarter][clientName] || 0) + amount;
+                }
                 return acc;
             }, {} as Record<string, Record<string, number>>);
             initialChartData = Object.entries(targetsByQuarter).map(([quarter, totals]) => ({ name: quarter, ...totals }));
@@ -495,7 +504,9 @@ export function DashboardContent() {
               const weeklyTotals = allocationsForWeek.reduce((acc, curr) => {
                 const clientName = curr?.content?.cost_center_name || 'Unknown';
                 const amount = parseFloat(curr?.content?.allocation_amount || '0') || 0;
-                acc[clientName] = (acc[clientName] || 0) + (Number.isNaN(amount) ? 0 : amount);
+                if (isFinite(amount)) {
+                    acc[clientName] = (acc[clientName] || 0) + amount;
+                }
                 return acc;
               }, {} as Record<string, number>);
               const completeWeeklyData: Record<string, any> = { name: weekKey };
@@ -644,3 +655,4 @@ export function DashboardContent() {
     </div>
   );
 }
+
