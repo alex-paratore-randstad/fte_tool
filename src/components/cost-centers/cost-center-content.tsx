@@ -15,10 +15,10 @@ export function CostCenterContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/data/v1/ai_report`);
+        const response = await fetch(`/data/v1/fte_tool_cost_center_guidance_view`);
 
         if (!response.ok) {
-          console.warn("Failed to fetch AI report data.");
+          console.warn("Failed to fetch client guidance data.");
         }
         
         const aiResult: AiReportData[] = response.ok ? await response.json() : [];

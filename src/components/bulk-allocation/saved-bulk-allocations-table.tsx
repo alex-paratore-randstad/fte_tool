@@ -129,9 +129,9 @@ const EmployeeSelect = ({
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const filtered = useMemo(() => {
-        const sorted = [...(employees || [])].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        const sorted = [...(employees || [])].sort((a, b) => (a.full_name || a.Full_Name || '').localeCompare(b.full_name || b.Full_Name || ''));
         if (!searchTerm) return sorted;
-        return sorted.filter(e => e.full_name?.toLowerCase().includes(searchTerm.toLowerCase()));
+        return sorted.filter(e => (e.full_name || e.Full_Name || '').toLowerCase().includes(searchTerm.toLowerCase()));
     }, [employees, searchTerm]);
 
     return (
@@ -142,7 +142,7 @@ const EmployeeSelect = ({
             <SelectContent>
                 <SelectSearch placeholder="Search name..." onChange={setSearchTerm} />
                 <ScrollArea className="h-64">
-                    {filtered.map(e => <SelectItem key={e.person_id} value={e.person_id}>{e.full_name}</SelectItem>)}
+                    {filtered.map(e => <SelectItem key={e.person_id || e.Person_Number} value={e.person_id || e.Person_Number}>{e.full_name || e.Full_Name}</SelectItem>)}
                 </ScrollArea>
             </SelectContent>
         </Select>
@@ -168,7 +168,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
         fetch('/domo/datastores/v1/collections/bulk_allocation_fte/documents/'),
         fetch('/domo/datastores/v1/collections/bulk_allocation_summary/documents/'),
         fetch(`/data/v1/consolidated_hr_fte_report_view`),
-        fetch(`/data/v1/ai_report`),
+        fetch(`/data/v1/fte_tool_cost_center_guidance_view`),
       ]);
 
       const rawFtes = fteResponse.ok ? await fteResponse.json() : [];
@@ -176,7 +176,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       const emps: TeamMember[] = metaEmpResponse.ok ? await metaEmpResponse.json() : [];
       const clients: AiReportData[] = metaClientResponse.ok ? await metaClientResponse.json() : [];
 
-      setAllEmployees(Array.isArray(emps) ? emps.filter(e => e && e.full_name) : []);
+      setAllEmployees(Array.isArray(emps) ? emps.filter(e => e && (e.full_name || e.Full_Name)) : []);
       const staticClients: AiReportData[] = [
         { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '', Region: '', Country: '' },
         { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '', Region: '', Country: '' },
@@ -297,7 +297,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
   };
 
   const handleAddEmployee = (allocId: string, employeeId: string) => {
-    const employee = allEmployees.find(e => e.person_id === employeeId);
+    const employee = allEmployees.find(e => (e.person_id === employeeId || e.Person_Number === employeeId));
     if (!employee) return;
 
     setEditableAllocations(prev => prev.map(alloc => {
@@ -309,7 +309,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
             const newEntry: EmployeeEntry = {
                 id: `new-${uuidv4()}`,
                 employeeId: employeeId,
-                name: employee.full_name,
+                name: (employee.full_name || employee.Full_Name),
                 isNew: true
             };
             return { ...alloc, employees: [...(alloc.employees || []), newEntry] };
@@ -340,8 +340,8 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
     }
 
     const totalEmployeeFte = (editableAlloc.employees || []).reduce((sum, e) => {
-        const emp = allEmployees.find(ae => ae.person_id === e.employeeId);
-        return sum + (parseFloat(emp?.fte || '0') || 0);
+        const emp = allEmployees.find(ae => (ae.person_id === e.employeeId || ae.Person_Number === e.employeeId));
+        return sum + (parseFloat(emp?.fte || emp?.FTE || '0') || 0);
     }, 0);
 
     const totalAllocation = (editableAlloc.summaries || []).reduce((sum, s) => sum + s.percentage, 0);
@@ -495,14 +495,14 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
             {editableAllocations.map(alloc => {
                 const totalAllocation = (alloc.summaries || []).reduce((sum, s) => sum + s.percentage, 0);
                 const totalEmployeeFte = (alloc.employees || []).reduce((sum, e) => {
-                    const emp = allEmployees.find(ae => ae.person_id === e.employeeId);
-                    return sum + (parseFloat(emp?.fte || '0') || 0);
+                    const emp = allEmployees.find(ae => (ae.person_id === e.employeeId || ae.Person_Number === e.employeeId));
+                    return sum + (parseFloat(emp?.fte || emp?.FTE || '0') || 0);
                 }, 0);
                 const isProfileSaving = isSaving[alloc.id];
                 const isProfileDeleting = isDeleting[alloc.id];
                 const displayId = alloc.id ? alloc.id.substring(0, 8) : 'unknown';
                 
-                const clientSummary = (alloc.summaries || []).map(s => `${s.name} (${(Number(s.percentage) || 0).toFixed(2)})`).join(', ');
+                const clientSummary = (alloc.summaries || []).map(s => `${s.name} (${(parseFloat(s.percentage?.toString()) || 0).toFixed(2)})`).join(', ');
                 
               return (
               <AccordionItem value={alloc.id} key={alloc.id}>
@@ -577,7 +577,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                             <TableCell className="text-right">
                                               <Input 
                                                 type="number" min="0" step="0.05"
-                                                value={(Number(s.percentage) || 0).toFixed(2)}
+                                                value={(parseFloat(s.percentage?.toString()) || 0).toFixed(2)}
                                                 onChange={(e) => handlePercentageChange(alloc.id, s.id, e.target.value)}
                                                 className="w-20 text-center ml-auto"
                                                 disabled={isProfileSaving || isProfileDeleting}
@@ -613,7 +613,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                                 </div>
                                 <Alert variant={Math.abs(totalAllocation - totalEmployeeFte) > 0.05 ? 'destructive' : 'default'}>
                                     <AlertDescription>
-                                    Total Group FTE: <span className="font-bold">{totalAllocation.toFixed(2)}</span> / {totalEmployeeFte.toFixed(2)} FTE
+                                    Total Group FTE: <span className="font-bold">{(parseFloat(totalAllocation?.toString()) || 0).toFixed(2)}</span> / {(parseFloat(totalEmployeeFte?.toString()) || 0).toFixed(2)} FTE
                                     </AlertDescription>
                                 </Alert>
                                 <div className="border-t pt-4 mt-2">

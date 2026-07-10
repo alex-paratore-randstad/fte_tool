@@ -171,11 +171,11 @@ const EmployeeSelect = ({
   const filteredEmployees = useMemo(() => {
     if (!search) return employees || [];
     const s = search.toLowerCase();
-    return (employees || []).filter(e => e.full_name.toLowerCase().includes(s));
+    return (employees || []).filter(e => (e.full_name || e.Full_Name || '').toLowerCase().includes(s));
   }, [search, employees]);
 
   const selectedEmployee = useMemo(() => {
-    return (employees || []).find(e => e && e.person_id === value);
+    return (employees || []).find(e => e && (e.person_id === value || e.Person_Number === value));
   }, [employees, value]);
 
   return (
@@ -189,7 +189,7 @@ const EmployeeSelect = ({
           disabled={disabled}
         >
           <span className="truncate">
-            {selectedEmployee ? selectedEmployee.full_name : "Load Employee..."}
+            {selectedEmployee ? (selectedEmployee.full_name || selectedEmployee.Full_Name) : "Load Employee..."}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -206,10 +206,10 @@ const EmployeeSelect = ({
             <CommandGroup>
               {filteredEmployees.map((e) => (
                 <CommandItem
-                  key={e.person_id}
-                  value={e.full_name}
+                  key={e.person_id || e.Person_Number}
+                  value={e.full_name || e.Full_Name}
                   onSelect={() => {
-                    onValueChange(e.person_id);
+                    onValueChange(e.person_id || e.Person_Number);
                     setOpen(false);
                     setSearch('');
                   }}
@@ -217,10 +217,10 @@ const EmployeeSelect = ({
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === e.person_id ? "opacity-100" : "opacity-0"
+                      value === (e.person_id || e.Person_Number) ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  <span>{e.full_name}</span>
+                  <span>{e.full_name || e.Full_Name}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -338,7 +338,8 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
 
         setActiveTargets(prev => (prev || []).map(empTarget => {
             if (!empTarget?.employee) return empTarget;
-            const employeeIdString = `[${empTarget.employee.person_id}]`;
+            const empId = empTarget.employee.person_id || empTarget.employee.Person_Number;
+            const employeeIdString = `[${empId}]`;
             const employeeTargets = safeTargets.filter(t => t.content.targets_allocation_name?.startsWith(employeeIdString));
             
             if (employeeTargets.length === 0) {
@@ -384,15 +385,15 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     try {
       const [empResponse, clientResponse] = await Promise.all([
         fetch(`/data/v1/consolidated_hr_fte_report_view`),
-        fetch(`/data/v1/ai_report`),
+        fetch(`/data/v1/fte_tool_cost_center_guidance_view`),
       ]);
 
       const rawEmps = empResponse.ok ? await empResponse.json() : [];
       const rawClients = clientResponse.ok ? await clientResponse.json() : [];
 
       const empData: TeamMember[] = (Array.isArray(rawEmps) ? rawEmps : [])
-        .filter((e: TeamMember) => e && e.full_name && e.person_id)
-        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        .filter((e: TeamMember) => e && (e.full_name || e.Full_Name) && (e.person_id || e.Person_Number))
+        .sort((a, b) => (a.full_name || a.Full_Name || '').localeCompare(b.full_name || b.Full_Name || ''));
 
       const clientData: AiReportData[] = (Array.isArray(rawClients) ? rawClients : [])
         .filter((c: AiReportData) => c && c.Code && c.DisplayName);
@@ -403,7 +404,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       const uniqueManagerNames = Array.from(
         new Set(
           empData
-            .map(e => e?.manager)
+            .map(e => e?.manager || e?.First_Reviewer_Name)
             .filter(m => typeof m === 'string' && m)
         )
       ).sort().map(name => ({ id: name as string, name: name as string }));
@@ -422,21 +423,25 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   }, [fetchBaseData, userLoading]);
 
   const availableEmployees = useMemo(() => {
-    const activeEmployeeIds = new Set((activeTargets || []).map(a => a?.employee?.person_id).filter(Boolean));
-    return (allEmployees || []).filter(e => e?.person_id && !activeEmployeeIds.has(e.person_id));
+    const activeEmployeeIds = new Set((activeTargets || []).map(a => a?.employee?.person_id || a?.employee?.Person_Number).filter(Boolean));
+    return (allEmployees || []).filter(e => {
+        const id = e?.person_id || e?.Person_Number;
+        return id && !activeEmployeeIds.has(id);
+    });
   }, [allEmployees, activeTargets]);
 
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId || !currentYear) return;
     setSelectedEmployeeToAdd(employeeId);
     setSelectedManager('');
-    const employeeToAdd = (allEmployees || []).find(e => e && e.person_id === employeeId);
+    const employeeToAdd = (allEmployees || []).find(e => e && (e.person_id === employeeId || e.Person_Number === employeeId));
     if (employeeToAdd) {
-      if ((activeTargets || []).some(a => a?.employee?.person_id === employeeId)) {
+      const id = employeeToAdd.person_id || employeeToAdd.Person_Number;
+      if ((activeTargets || []).some(a => (a.employee?.person_id || a.employee?.Person_Number) === id)) {
           toast({ variant: 'destructive', title: 'Employee already in grid' }); return;
       }
       
-      const employeeIdString = `[${employeeToAdd.person_id}]`;
+      const employeeIdString = `[${id}]`;
       const employeeTargets = (yearDataCache || []).filter(t => t.content.targets_allocation_name?.startsWith(employeeIdString));
       
       let rows: TargetRow[] = [];
@@ -475,7 +480,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     }
     setSelectedManager(managerName);
     setSelectedEmployeeToAdd('');
-    const teamMembers = (allEmployees || []).filter(e => e && e.manager === managerName);
+    const teamMembers = (allEmployees || []).filter(e => e && (e.manager === managerName || e.First_Reviewer_Name === managerName));
     if (teamMembers.length === 0) { 
         toast({ title: 'No employees found for this manager.' }); 
         setActiveTargets([]);
@@ -483,7 +488,8 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     }
     
     const newEmployeeTargets = teamMembers.map(employee => {
-        const employeeIdString = `[${employee.person_id}]`;
+        const empId = employee.person_id || employee.Person_Number;
+        const employeeIdString = `[${empId}]`;
         const employeeTargets = (yearDataCache || []).filter(t => t.content.targets_allocation_name?.startsWith(employeeIdString));
         
         let rows: TargetRow[] = [];
@@ -515,13 +521,14 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   };
 
   const handleRemoveEmployee = (employeeId: string) => {
-      setActiveTargets(prev => prev.filter(a => a.employee.person_id !== employeeId));
+      const empId = String(employeeId);
+      setActiveTargets(prev => prev.filter(a => String(a.employee?.person_id || a.employee?.Person_Number) !== empId));
       setSelectedManager('');
   };
   
   const handleTargetChange = (employeeId: string, rowId: string, quarter: string, value: string) => {
     const newTarget = parseInt(value, 10) || 0;
-    setActiveTargets(prev => prev.map(emp => (emp.employee.person_id === employeeId ? {
+    setActiveTargets(prev => prev.map(emp => (String(emp.employee.person_id || emp.employee.Person_Number) === String(employeeId) ? {
       ...emp, targets: emp.targets.map(row => (row.id === rowId ? {
         ...row, quarterlyTargets: { ...row.quarterlyTargets, [quarter]: newTarget }
       } : row))
@@ -529,7 +536,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   };
   
   const handleClientChange = (employeeId: string, rowId: string, newClientName: string) => {
-     setActiveTargets(prev => prev.map(emp => (emp.employee.person_id === employeeId ? {
+     setActiveTargets(prev => prev.map(emp => (String(emp.employee.person_id || emp.employee.Person_Number) === String(employeeId) ? {
         ...emp, targets: emp.targets.map(row => (row.id === rowId ? {
             ...row, clientName: newClientName, clientId: (clients.find(c => c.DisplayName === newClientName)?.Code || '').trim()
         } : row))
@@ -537,13 +544,13 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
   };
 
   const handleAddTargetRow = (employeeId: string) => {
-    setActiveTargets(prev => prev.map(emp => (emp.employee.person_id === employeeId ? {
+    setActiveTargets(prev => prev.map(emp => (String(emp.employee.person_id || emp.employee.Person_Number) === String(employeeId) ? {
       ...emp, targets: [...emp.targets, { id: uuidv4(), clientId: '', clientName: '', quarterlyTargets: {} }]
     } : emp)));
   };
 
   const handleRemoveTargetRow = (employeeId: string, rowId: string) => {
-    setActiveTargets(prev => prev.map(emp => (emp.employee.person_id === employeeId ? {
+    setActiveTargets(prev => prev.map(emp => (String(emp.employee.person_id || emp.employee.Person_Number) === String(employeeId) ? {
       ...emp, targets: emp.targets.filter(r => r.id !== rowId)
     } : emp)));
   };
@@ -559,12 +566,12 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
           if (target > 0) {
              if (!row.clientId || !row.clientName) {
                 hasInvalidTarget = true;
-                toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${emp.employee.full_name}.` });
+                toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${emp.employee.full_name || emp.employee.Full_Name}.` });
                 return;
             }
             submissions.push({ content: {
                 targets_allocation_date: getQuarterStartDate(currentYear, quarter),
-                targets_allocation_name: `[${emp.employee.person_id}] ${emp.employee.full_name}`,
+                targets_allocation_name: `[${emp.employee.person_id || emp.employee.Person_Number}] ${emp.employee.full_name || emp.employee.Full_Name}`,
                 targets_cost_center_name: row.clientName,
                 targets_cost_center_number: row.clientId,
                 targets_allocation_amount: target.toString(),
@@ -636,35 +643,35 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
               ) : (activeTargets?.length || 0) === 0 ? (
                   <TableRow><TableCell colSpan={7} className="text-center h-24 text-muted-foreground">Select an employee or load a team to begin.</TableCell></TableRow>
               ) : activeTargets.map(({ employee, targets }) => (
-                    <Fragment key={employee.person_id}>
+                    <Fragment key={employee.person_id || employee.Person_Number}>
                       <TableRow className="bg-muted/50 hover:bg-muted">
                         <TableCell className="font-semibold sticky left-0 bg-muted/50 z-10">
-                          {employee.full_name}
-                          <div className="text-xs text-muted-foreground font-normal">{employee.title}</div>
+                          {employee.full_name || employee.Full_Name}
+                          <div className="text-xs text-muted-foreground font-normal">{employee.title || employee.Market_Facing_Title}</div>
                         </TableCell>
                         <TableCell></TableCell>
-                        {quarters.map(q => <TableCell key={q} className="text-center font-semibold text-muted-foreground">{(targets || []).reduce((sum, row) => sum + (row.quarterlyTargets[q] || 0), 0) || '-'}</TableCell>)}
-                        <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.person_id)} disabled={isSaving}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                        {quarters.map(q => <TableCell key={q} className="text-center font-semibold text-muted-foreground">{(targets || []).reduce((sum, row) => sum + (parseInt(row.quarterlyTargets[q]?.toString()) || 0), 0) || '-'}</TableCell>)}
+                        <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveEmployee(employee.person_id || employee.Person_Number)} disabled={isSaving}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                       </TableRow>
                       {(targets || []).map(row => (
                         <TableRow key={row.id}>
                           <TableCell className="sticky left-0 bg-card z-10"></TableCell>
-                          <TableCell><ClientSelect clients={clients} value={row.clientName} onValueChange={name => handleClientChange(employee.person_id, row.id, name)} disabled={isSaving}/></TableCell>
+                          <TableCell><ClientSelect clients={clients} value={row.clientName} onValueChange={name => handleClientChange(employee.person_id || employee.Person_Number, row.id, name)} disabled={isSaving}/></TableCell>
                           {quarters.map(q => (
                               <TableCell key={q} className="text-center">
                                 <Input type="number" step="1" min="0" placeholder="0" className="w-20 text-center mx-auto"
                                   value={row.quarterlyTargets[q] || ''}
-                                  onChange={e => handleTargetChange(employee.person_id, row.id, q, e.target.value)}
+                                  onChange={e => handleTargetChange(employee.person_id || employee.Person_Number, row.id, q, e.target.value)}
                                   disabled={isSaving}
                                 />
                               </TableCell>
                           ))}
-                          <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveTargetRow(employee.person_id, row.id)} disabled={targets.length <= 1 || isSaving}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                          <TableCell className='text-right'><Button variant="ghost" size="icon" onClick={() => handleRemoveTargetRow(employee.person_id || employee.Person_Number, row.id)} disabled={targets.length <= 1 || isSaving}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                         </TableRow>
                       ))}
                       <TableRow>
                         <TableCell className="sticky left-0 bg-card z-10 py-2" colSpan={2}>
-                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddTargetRow(employee.person_id)} disabled={isSaving}><PlusCircle className="mr-2 h-4 w-4" /> Add Target Row</Button>
+                          <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleAddTargetRow(employee.person_id || employee.Person_Number)} disabled={isSaving}><PlusCircle className="mr-2 h-4 w-4" /> Add Target Row</Button>
                         </TableCell>
                         <TableCell colSpan={5}></TableCell>
                       </TableRow>

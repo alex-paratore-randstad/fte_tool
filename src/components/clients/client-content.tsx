@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,18 +17,16 @@ export function ClientContent() {
       setLoading(true);
       try {
         const [aiResponse, ticketsResponse] = await Promise.all([
-          fetch(`/data/v1/ai_report`),
+          fetch(`/data/v1/fte_tool_cost_center_guidance_view`),
           fetch('/data/v1/fte_tickets_grouped_monthly_view')
         ]);
 
-        // Process AI Report data
         if (!aiResponse.ok) {
-          console.warn("Failed to fetch AI report data.");
+          console.warn("Failed to fetch client guidance data.");
         }
         const aiResult: AiReportData[] = aiResponse.ok ? await aiResponse.json() : [];
         setAiReportData(aiResult);
         
-        // Process Ticket Groupings data
         if (!ticketsResponse.ok) {
             throw new Error('Failed to fetch ticket data');
         }

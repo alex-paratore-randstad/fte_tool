@@ -464,7 +464,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     try {
       const [empResponse, clientResponse] = await Promise.all([
         fetch(`/data/v1/consolidated_hr_fte_report_view`),
-        fetch(`/data/v1/ai_report`),
+        fetch(`/data/v1/fte_tool_cost_center_guidance_view`),
       ]);
       const rawEmpData = empResponse.ok ? await empResponse.json() : [];
       const rawClientData = clientResponse.ok ? await clientResponse.json() : [];

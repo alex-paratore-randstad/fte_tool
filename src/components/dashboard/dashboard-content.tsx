@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Users, Briefcase, UserMinus, ChevronsUpDown } from 'lucide-react';
+import { Users, Briefcase, UserMinus, ChevronsUpDown, AlertTriangle } from 'lucide-react';
 import SummaryCard from '@/components/dashboard/summary-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -217,7 +217,6 @@ export function DashboardContent() {
 
     const allocatedFteMap = new Map<string, number>();
     
-    // 1. Process Weekly Allocations
     currentWeekAllocations
       .filter(a => a?.content && (parseFloat(a.content.allocation_amount) || 0) > 0)
       .forEach(a => {
@@ -234,7 +233,6 @@ export function DashboardContent() {
         }
       });
 
-    // 2. Process Bulk Allocations
     const profileCapacityMap = new Map<string, number>();
     const profileAssignments = (bulkFtes || []).filter(f => f?.content?.allocation_monthyear === currentMonthYear);
     
