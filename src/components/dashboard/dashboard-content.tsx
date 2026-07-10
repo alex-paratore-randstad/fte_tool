@@ -237,7 +237,8 @@ export function DashboardContent() {
     const profileAssignments = (bulkFtes || []).filter(f => f?.content?.allocation_monthyear === currentMonthYear);
     
     profileAssignments.forEach(f => {
-        const emp = allEmployees.find(ae => ae && (ae.person_id === f.content.employee_id || ae.Person_Number === f.content.employee_id));
+        const empId = f.content.employee_id;
+        const emp = allEmployees.find(ae => ae && (ae.person_id === empId || ae.Person_Number === empId));
         if (emp) {
             const base = parseFloat(emp.fte || emp.FTE || '0') || 0;
             const pid = f.content.bulk_allocation_id;
@@ -271,7 +272,7 @@ export function DashboardContent() {
                     if (Number.isNaN(profileFteAmount)) return;
                     const individualShare = (profileFteAmount / groupCapacity) * baseFte;
                     const current = allocatedFteMap.get(empId) || 0;
-                    allocatedFteMap.set(empId, current + individualShare);
+                    allocatedFteMap.set(empId, current + (Number.isNaN(individualShare) ? 0 : individualShare));
                 });
             }
         }
@@ -420,7 +421,7 @@ export function DashboardContent() {
                     if (Number.isNaN(profileFteAmount)) return;
                     const clientName = summary?.content?.cost_center_name || 'Unknown';
                     const share = (profileFteAmount / groupCapacity) * baseFte;
-                    acc[allocation_monthyear][clientName] = (acc[allocation_monthyear][clientName] || 0) + share;
+                    acc[allocation_monthyear][clientName] = (acc[allocation_monthyear][clientName] || 0) + (Number.isNaN(share) ? 0 : share);
                 });
                 return acc;
             }, {} as Record<string, Record<string, number>>);
@@ -470,7 +471,7 @@ export function DashboardContent() {
                 const amount = parseFloat(content.targets_allocation_amount || '0') || 0;
                 
                 if (!acc[quarter]) acc[quarter] = {};
-                acc[quarter][clientName] = (acc[quarter][clientName] || 0) + (Number.isNaN(amount) ? 0 : amount);
+                acc[quarter][clientName] = (acc[quarter][quarter] || 0) + (Number.isNaN(amount) ? 0 : amount);
                 return acc;
             }, {} as Record<string, Record<string, number>>);
             initialChartData = Object.entries(targetsByQuarter).map(([quarter, totals]) => ({ name: quarter, ...totals }));

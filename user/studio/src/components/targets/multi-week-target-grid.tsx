@@ -77,9 +77,9 @@ const ClientSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredClients = useMemo(() => {
-    const sorted = [...clients].sort((a, b) => a.DisplayName.localeCompare(b.DisplayName));
+    const sorted = [...clients].sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
     if (!searchTerm) return sorted;
-    return sorted.filter(cc => cc.DisplayName.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sorted.filter(cc => (cc.DisplayName || '').toLowerCase().includes(searchTerm.toLowerCase()));
   }, [clients, searchTerm]);
 
   return (
@@ -88,7 +88,7 @@ const ClientSelect = ({
       <SelectContent>
         <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
         <ScrollArea className="h-64">
-          {filteredClients.map(cc => <SelectItem key={cc.Code} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
+          {filteredClients.map(cc => <SelectItem key={cc.Code || uuidv4()} value={cc.DisplayName}>{cc.DisplayName}</SelectItem>)}
            {filteredClients.length === 0 && (
             <div className="p-4 text-sm text-center text-muted-foreground">
                 No clients found.
@@ -114,9 +114,9 @@ const EmployeeSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredEmployees = useMemo(() => {
-    const sortedEmployees = employees.sort((a,b) => a.full_name.localeCompare(b.full_name));
+    const sortedEmployees = [...employees].sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
     if (!searchTerm) return sortedEmployees;
-    return sortedEmployees.filter(e => e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedEmployees.filter(e => (e.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()));
   }, [employees, searchTerm]);
   
   return (
@@ -155,9 +155,9 @@ const ManagerSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
-    const sortedManagers = managers.sort((a,b) => a.name.localeCompare(b.name));
+    const sortedManagers = [...managers].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
     if (!searchTerm) return sortedManagers;
-    return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedManagers.filter(m => (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
 
   return (
@@ -206,32 +206,16 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     try {
       const [empResponse, clientResponse] = await Promise.all([
         fetch(`/data/v1/consolidated_hr_fte_report_view`),
-        fetch(`/data/v1/ai_report`),
+        fetch(`/data/v1/fte_tool_cost_center_guidance_view`),
       ]);
 
       if (!empResponse.ok) writeLog('QuarterlyTargetGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
       if (!clientResponse.ok) writeLog('QuarterlyTargetGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
       
       const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a, b) => a.full_name.localeCompare(b.full_name)) : [];
-      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
+      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.DisplayName) : [];
       
-      const tempWorker: TeamMember = {
-        person_id: 'TEMP_WORKER',
-        full_name: 'Temp Worker',
-        title: 'Temporary Staff',
-        employment_type: 'Temporary',
-        status: 'Active',
-        department: 'Temporary',
-        manager_id: 'N/A',
-        manager: 'N/A',
-        manager_email: 'N/A',
-        person_email: 'N/A',
-        start_date: '',
-        end_date: '',
-        country: '',
-        fte: '1.0'
-      };
-      setAllEmployees([tempWorker, ...empData]);
+      setAllEmployees(empData);
       setClients([...clientData]);
       
       const managerMap = new Map<string, string>();
@@ -472,5 +456,3 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
     </Card>
   );
 }
-
-    

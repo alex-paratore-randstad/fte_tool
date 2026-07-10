@@ -396,7 +396,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
         .sort((a, b) => (a.full_name || a.Full_Name || '').localeCompare(b.full_name || b.Full_Name || ''));
 
       const clientData: AiReportData[] = (Array.isArray(rawClients) ? rawClients : [])
-        .filter((c: AiReportData) => c && c.Code && c.DisplayName);
+        .filter((c: AiReportData) => c && c.DisplayName);
       
       setAllEmployees(empData);
       setClients([...clientData]);

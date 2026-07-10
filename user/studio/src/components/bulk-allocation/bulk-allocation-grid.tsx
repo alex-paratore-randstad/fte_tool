@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -77,12 +78,12 @@ const ClientSelect = ({
       if (aIsSpecial && bIsSpecial) {
           return a.DisplayName === 'Unallocated' ? -1 : 1;
       }
-      return a.DisplayName.localeCompare(b.DisplayName);
+      return (a.DisplayName || '').localeCompare(b.DisplayName || '');
     });
 
     if (!searchTerm) return sorted;
     return sorted.filter(client =>
-      client.DisplayName.toLowerCase().includes(searchTerm.toLowerCase())
+      (client.DisplayName || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [clients, searchTerm]);
 
@@ -94,7 +95,7 @@ const ClientSelect = ({
       <SelectContent>
           <SelectSearch placeholder="Search client..." onChange={setSearchTerm} />
           <ScrollArea className="h-64">
-            {filteredClients.map(client => <SelectItem key={client.Code} value={client.DisplayName}>{client.DisplayName}</SelectItem>)}
+            {filteredClients.map(client => <SelectItem key={client.Code || uuidv4()} value={client.DisplayName}>{client.DisplayName}</SelectItem>)}
             {filteredClients.length === 0 && (
                 <div className="p-4 text-sm text-center text-muted-foreground">
                     No clients found.
@@ -118,9 +119,9 @@ const ManagerSelect = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredManagers = useMemo(() => {
-    const sortedManagers = [...managers].sort((a,b) => a.name.localeCompare(b.name));
+    const sortedManagers = [...managers].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
     if (!searchTerm) return sortedManagers;
-    return sortedManagers.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return sortedManagers.filter(m => (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
   }, [managers, searchTerm]);
 
   return (
@@ -178,32 +179,16 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     try {
       const [empResponse, clientResponse] = await Promise.all([
         fetch(`/data/v1/consolidated_hr_fte_report_view`),
-        fetch(`/data/v1/ai_report`),
+        fetch(`/data/v1/fte_tool_cost_center_guidance_view`),
       ]);
 
       if (!empResponse.ok) writeLog('BulkAllocationGrid', 'warning', 'Could not fetch employee data', { status: empResponse.status });
       if (!clientResponse.ok) writeLog('BulkAllocationGrid', 'warning', 'Could not fetch client data', { status: clientResponse.status });
       
       const empData: TeamMember[] = empResponse.ok ? (await empResponse.json()).filter((e: TeamMember) => e.full_name).sort((a,b) => a.full_name.localeCompare(b.full_name)) : [];
-      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.Code && c.DisplayName) : [];
+      const clientData: AiReportData[] = clientResponse.ok ? (await clientResponse.json()).filter((c: AiReportData) => c.DisplayName) : [];
       
-      const tempWorker: TeamMember = {
-        person_id: 'TEMP_WORKER',
-        full_name: 'Temp Worker',
-        title: 'Temporary Staff',
-        employment_type: 'Temporary',
-        status: 'Active',
-        department: 'Temporary',
-        manager_id: 'N/A',
-        manager: 'N/A',
-        manager_email: 'N/A',
-        person_email: 'N/A',
-        start_date: '',
-        end_date: '',
-        country: '',
-        fte: '1.0'
-      };
-      setAllEmployees([tempWorker, ...empData]);
+      setAllEmployees(empData);
       
       const staticClients: AiReportData[] = [
         { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },

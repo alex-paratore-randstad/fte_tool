@@ -130,8 +130,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
       const safeTitles = (Array.isArray(titleData) ? titleData : [])
         .map(t => {
             if (!t) return null;
-            // Use manifest column alias logic
-            const val = t['updated_titles'] || t['Updated_Titles'] || t['Updated Titles'] || t['updated titles'] || t['Job_Title'] || t['Job Title'] || t['Title'];
+            const val = t['updated_titles'] || t['Updated_Titles'] || t['Updated Titles'] || t['updated titles'] || t['Job_Title'] || t['Job Title'] || t['Title'] || t['Target_Title'] || t['target_title'];
             return val ? { updated_titles: String(val).trim() } : null;
         })
         .filter((t): t is UpdatedTitle => !!t);

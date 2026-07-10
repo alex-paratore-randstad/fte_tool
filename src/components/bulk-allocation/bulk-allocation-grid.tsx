@@ -278,7 +278,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         .sort((a,b) => (a.full_name || a.Full_Name || '').localeCompare(b.full_name || b.Full_Name || ''));
       
       const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : [])
-        .filter((c: AiReportData) => c && c.Code && c.DisplayName);
+        .filter((c: AiReportData) => c && c.DisplayName);
       
       setAllEmployees(empData);
       
@@ -488,7 +488,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
         body: JSON.stringify({
           content: {
             bulk_allocation_id: bulkAllocationId,
-            cost_center_number: client?.Code || 'Unknown',
+            cost_center_number: client?.Code || row.clientName || 'Unknown',
             cost_center_name: row.clientName,
             allocation_percentage: row.fte.toString(), 
             bulk_allocation_date: allocationDate,

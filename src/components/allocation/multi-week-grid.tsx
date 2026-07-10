@@ -356,7 +356,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const weekFiscal = getFiscalDataForDate(weekStartDate);
     const todayFiscal = getFiscalDataForDate(todayRef);
     
-    if (!weekFiscal || !todayFiscal) return false;
+    if (!todayFiscal || !weekFiscal) return false;
 
     const monthMap: Record<string, number> = {
       'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6,
@@ -473,7 +473,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         .filter(e => e && (e.full_name || e.Full_Name) && (e.person_id || e.Person_Number))
         .sort((a, b) => (a.full_name || a.Full_Name || '').localeCompare(b.full_name || b.Full_Name || ''));
         
-      const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : []).filter(c => c && c.Code && c.DisplayName);
+      const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : []).filter(c => c && c.DisplayName);
       setAllEmployees(empData);
       const staticClients: AiReportData[] = [
         { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
@@ -580,7 +580,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 const cAllocs = empAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === name);
                 const master = (clients || []).find(c => c && String(c.DisplayName || '').trim() === name);
                 const weeklyFtes: { [key: string]: number } = {};
-                const docIds: { [key: string]: string } = {};
+                const docIds: { [key: string]: number } = {};
                 cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { 
                     if (a?.content) {
                         weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0'); 

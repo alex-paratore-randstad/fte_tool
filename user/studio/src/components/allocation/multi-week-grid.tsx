@@ -391,14 +391,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     try {
       const [empResponse, clientResponse] = await Promise.all([
         fetch(`/data/v1/consolidated_hr_fte_report_view`),
-        fetch(`/data/v1/ai_report`),
+        fetch(`/data/v1/fte_tool_cost_center_guidance_view`),
       ]);
       const rawEmpData = empResponse.ok ? await empResponse.json() : [];
       const rawClientData = clientResponse.ok ? await clientResponse.json() : [];
       const empData: TeamMember[] = (Array.isArray(rawEmpData) ? rawEmpData : []).filter(e => e && e.full_name && e.person_id);
-      const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : []).filter(c => c && c.Code && c.DisplayName);
-      const tempWorker: TeamMember = { person_id: 'TEMP_WORKER', full_name: 'Temp Worker', title: 'Temporary Staff', employment_type: 'Temporary', status: 'Active', department: 'Temporary', manager_id: 'N/A', manager: 'N/A', manager_email: 'N/A', person_email: 'N/A', start_date: '', end_date: '', country: '', fte: '1.0' };
-      setAllEmployees([tempWorker, ...empData]);
+      const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : []).filter(c => c && c.DisplayName);
+      setAllEmployees(empData);
       const staticClients: AiReportData[] = [
         { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '' },
         { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '' },
@@ -442,7 +441,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     if (prevWeeks.length === 0) { toast({ title: 'No Prior Data', description: `No data found for the previous month.`}); return; }
     try {
         const sourceKeys = prevWeeks.map(w => formatDateKey(w.startDate));
-        const weeklyDataPromises = sourceKeys.map(key => fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${weekKey}'`).then(res => res.ok ? res.json() : []));
+        const weeklyDataPromises = sourceKeys.map(key => fetch(`/domo/datastores/v1/collections/weekly_allocation/documents?q=content.allocation_date='${key}'`).then(res => res.ok ? res.json() : []));
         const nested = await Promise.all(weeklyDataPromises);
         const allPrev = nested.flat().filter(a => a && a.content);
         const empIdString = `[${employee.person_id}]`;
@@ -474,7 +473,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId || !currentDate) return;
     setSelectedEmployeeToAdd(employeeId); 
-    setSelectedManager(''); // Clear manager filter when adding specific employee
+    setSelectedManager(''); 
     const employeeToAdd = allEmployees.find(e => e && e.person_id === employeeId);
     if (employeeToAdd) {
       if (activeAllocations.some(a => a.employee?.person_id === employeeId)) { toast({ variant: 'destructive', title: 'Employee already in grid' }); return; }
@@ -513,7 +512,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     }
 
     setSelectedManager(managerName);
-    setSelectedEmployeeToAdd(''); // Clear individual selection
+    setSelectedEmployeeToAdd(''); 
     
     const team = allEmployees.filter(e => e && e.manager === managerName);
     if (team.length === 0) { 
@@ -547,7 +546,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         return { employee, allocations: rows };
     });
     
-    setActiveAllocations(newAllocations); // Ensure only the filtered manager's team is shown
+    setActiveAllocations(newAllocations); 
     toast({ title: 'Team Loaded', description: `Loaded ${newAllocations.length} members for ${managerName}.` });
   };
 
