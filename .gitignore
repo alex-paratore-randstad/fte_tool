@@ -13,12 +13,11 @@
 # testing
 /coverage
 
-# next.js
+# next.js & builds
 /.next/
 /out/
-
-# production
-/build
+/build/
+/dist/
 
 # misc
 .DS_Store
@@ -37,9 +36,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.genkit/*
+# environment variables & secrets
 .env*
+!.env.example
 
-# firebase
-firebase-debug.log
-firestore-debug.log
+# DOMO CLI & app deployment
+.domo/
+domo-config.json
+.domo-manifest
+*.domocli
+
+# AI tools & local overrides
+.claude/
+.cursor/
+*.local
