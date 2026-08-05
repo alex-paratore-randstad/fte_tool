@@ -18,6 +18,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { cn } from '@/lib/utils';
+import { openExternalLink } from '@/lib/external-link';
 import type { NavGroup } from '@/types/navigation';
 import { Skeleton } from '../ui/skeleton';
 
@@ -166,11 +167,12 @@ export function AppShellClient({ children }: { children: React.ReactNode }) {
                                       <div className="flex flex-col gap-1">
                                           {(group.items || []).filter(item => item && userHasAccess(item.roles)).map(item => (
                                               item.href.startsWith('http') ? (
-                                                <a 
+                                                <a
                                                   key={item.href}
                                                   href={item.href}
                                                   target="_blank"
                                                   rel="noopener noreferrer"
+                                                  onClick={(e) => { e.preventDefault(); openExternalLink(item.href); }}
                                                   className="block rounded-lg p-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                                                 >
                                                   {item.label}

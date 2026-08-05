@@ -1,12 +1,13 @@
 
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { cn } from '@/lib/utils';
+import { openExternalLink } from '@/lib/external-link';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,6 +68,9 @@ const getHref = (href: string) => {
 export function TopNav() {
   const pathname = usePathname();
   const { currentUser, loading } = useCurrentUser();
+  // External links preventDefault() their click, which makes Radix skip its own
+  // close handler, so we drive the open menu ourselves and close it explicitly.
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   const isActive = useCallback((href: string) => {
     if (!pathname) return false;
@@ -121,7 +125,11 @@ export function TopNav() {
         </>
       ) : navGroups.map((group, index) => (
           group && userHasAccess(group.roles) ? (
-            <DropdownMenu key={index}>
+            <DropdownMenu
+              key={index}
+              open={openGroup === group.title}
+              onOpenChange={(isOpen) => setOpenGroup(isOpen ? group.title : null)}
+            >
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -138,10 +146,15 @@ export function TopNav() {
                 {(group.items || []).filter(item => item && userHasAccess(item.roles)).map(item => (
                   <DropdownMenuItem key={item.href} asChild>
                     {item.href.startsWith('http') ? (
-                      <a 
+                      <a
                         href={item.href}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          openExternalLink(item.href);
+                          setOpenGroup(null);
+                        }}
                         className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
                         {item.label}
