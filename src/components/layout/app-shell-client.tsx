@@ -18,7 +18,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { cn } from '@/lib/utils';
-import { openExternalLink } from '@/lib/external-link';
+import { useExternalLink } from '@/hooks/use-external-link';
 import type { NavGroup } from '@/types/navigation';
 import { Skeleton } from '../ui/skeleton';
 
@@ -72,6 +72,7 @@ const getHref = (href: string) => {
 export function AppShellClient({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useCurrentUser();
   const pathname = usePathname();
+  const openExternalLink = useExternalLink();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
   const [hasMounted, setHasMounted] = useState(false);
 
