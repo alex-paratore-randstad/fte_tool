@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { cn } from '@/lib/utils';
-import { openExternalLink } from '@/lib/external-link';
+import { useExternalLink } from '@/hooks/use-external-link';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +71,7 @@ export function TopNav() {
   // External links preventDefault() their click, which makes Radix skip its own
   // close handler, so we drive the open menu ourselves and close it explicitly.
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const openExternalLink = useExternalLink();
 
   const isActive = useCallback((href: string) => {
     if (!pathname) return false;
