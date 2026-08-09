@@ -49,7 +49,7 @@ export default function AllocationPage() {
     <div className="flex flex-col gap-8">
        <PageHeader
         title="Weekly Allocation"
-        description="Allocate FTEs for the current fiscal period."
+        description="Allocate FTEs for the current calendar month."
       />
       <MultiWeekGrid 
         currentDate={currentDate} 

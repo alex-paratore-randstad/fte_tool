@@ -1,5 +1,16 @@
 
-import { startOfWeek, addMonths, subMonths, parse, addDays, subDays, endOfWeek, format, isWithinInterval, isValid } from 'date-fns';
+import { startOfWeek, parse, addDays, subDays, startOfMonth, isSameMonth, format, isWithinInterval, isValid } from 'date-fns';
+
+/**
+ * A week belongs to the calendar month that contains its Friday (Monday + 4 days).
+ *
+ * This MUST stay in step with `month_greg` in the Domo dataflow that publishes
+ * `fte_full_calendar_allocation`, which computes
+ *   DATE_TRUNC('month', DATE_ADD(day, INTERVAL 4 DAY))
+ * Keeping both on the same rule is what guarantees that a month entered in this
+ * tool is the same month reported on downstream.
+ */
+const OWNING_MONTH_OFFSET_DAYS = 4;
 
 export type FiscalCalendarEntry = {
   Week_Number: string;
@@ -13,9 +24,10 @@ export type FiscalCalendarEntry = {
   parsedDate: Date; // For internal use - represents the Sunday week-ending date
 };
 
-export type FiscalWeek = {
-    startDate: Date; // The Monday of that week
-    reportingWeekDate: string; // The formatted Sunday date
+export type AllocationWeek = {
+    startDate: Date; // The Monday of that week - this is the key written to allocation_date
+    endDate: Date;   // The Friday of that week
+    label: string;   // e.g. "Aug 24 - 28", or "Aug 31 - Sep 4" across a month boundary
 };
 
 // This data will be fetched from the 'global_445_calendar' dataset
@@ -75,106 +87,52 @@ export function getFiscalDataForDate(date: Date): Omit<FiscalCalendarEntry, 'par
 
 
 /**
- * Returns an array of objects representing the start of each week
- * and the reporting week end date in the fiscal month that the given date belongs to.
- * @param date The date to find the fiscal month for.
- * @returns An array of week-starting dates.
+ * Returns every week that belongs to the calendar month of the given date.
+ *
+ * Week membership follows OWNING_MONTH_OFFSET_DAYS: a week belongs to the month
+ * containing its Friday. The Mondays themselves come from the 4-4-5 calendar
+ * dataset rather than being generated, so this can never offer a week that the
+ * reporting dataflow's calendar spine does not contain.
+ *
+ * @param date Any date within the target calendar month.
+ * @returns The weeks of that month, ascending by start date.
  */
-export function getWeeksForFiscalMonth(date: Date): FiscalWeek[] {
+export function getWeeksForMonth(date: Date): AllocationWeek[] {
   if (!date || !isValid(date)) return [];
-  
-  const currentFiscalData = getFiscalDataForDate(date);
-  if (!currentFiscalData || parsedCalendar.length === 0) {
-    // Return empty array if calendar is not initialized or date is not found.
-    return [];
+
+  const seenMondays = new Set<string>();
+  const weeks: AllocationWeek[] = [];
+
+  for (const entry of parsedCalendar) {
+    if (!entry) continue;
+
+    // parsedDate is the Sunday week-ending date; the week starts on the Monday before it.
+    const startDate = startOfWeek(entry.parsedDate, { weekStartsOn: 1 });
+    const mondayKey = format(startDate, 'yyyy-MM-dd');
+
+    // Guard against a daily-grain calendar producing one entry per day of the week.
+    if (seenMondays.has(mondayKey)) continue;
+    seenMondays.add(mondayKey);
+
+    const endDate = addDays(startDate, OWNING_MONTH_OFFSET_DAYS);
+    if (!isSameMonth(endDate, date)) continue;
+
+    weeks.push({ startDate, endDate, label: formatWeekLabel(startDate, endDate) });
   }
 
-  const { Reporting_Month, Reporting_Year } = currentFiscalData;
-
-  const weeksInMonth = parsedCalendar.filter(
-    d => d && d.Reporting_Month === Reporting_Month && d.Reporting_Year === Reporting_Year
-  );
-  
-  // The data is already unique per week, so we just need to sort and map it.
-  return weeksInMonth
-    .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
-    .map(d => ({
-        // The start of the week is Monday. parsedDate is the Sunday week-ending date.
-        startDate: startOfWeek(d.parsedDate, { weekStartsOn: 1 }), 
-        reportingWeekDate: format(d.parsedDate, 'MMM d')
-    }));
-}
-
-
-/**
- * Gets the start date of the previous fiscal month.
- * @param currentDate The current date.
- * @returns A Date object for the first day of the previous fiscal month.
- */
-export function getPreviousFiscalMonth(currentDate: Date): Date {
-  if (!currentDate || !isValid(currentDate)) return new Date();
-  
-  const currentFiscalData = getFiscalDataForDate(currentDate);
-  if (!currentFiscalData || parsedCalendar.length === 0) {
-    return subMonths(currentDate, 1);
-  }
-
-  // Find the first week of the current fiscal month
-  const firstWeekOfCurrentMonth = parsedCalendar.find(d => 
-    d && d.Reporting_Month === currentFiscalData.Reporting_Month && d.Reporting_Year === currentFiscalData.Reporting_Year
-  );
-  
-  if (!firstWeekOfCurrentMonth) return subMonths(currentDate, 1); // Fallback
-
-  // Get the date of the day before the start of that first week
-  const dayBefore = subDays(firstWeekOfCurrentMonth.parsedDate, 7);
-
-  // Get the fiscal data for that previous day
-  const prevMonthFiscalData = getFiscalDataForDate(dayBefore);
-  if (!prevMonthFiscalData) return subMonths(currentDate, 1); // Fallback
-
-  // Find the first week of that previous fiscal month
-  const firstWeekOfPrevFiscalMonth = parsedCalendar.find(d => 
-    d && d.Reporting_Month === prevMonthFiscalData.Reporting_Month && d.Reporting_Year === prevMonthFiscalData.Reporting_Year
-  );
-
-  return firstWeekOfPrevFiscalMonth ? startOfWeek(firstWeekOfPrevFiscalMonth.parsedDate, { weekStartsOn: 1}) : subMonths(currentDate, 1);
+  return weeks.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 }
 
 /**
- * Gets the start date of the next fiscal month.
- * @param currentDate The current date.
- * @returns A Date object for the first day of the next fiscal month.
+ * The first day of the calendar month a week is reported under.
+ * @param weekStartMonday The Monday that starts the week.
  */
-export function getNextFiscalMonth(currentDate: Date): Date {
-    if (!currentDate || !isValid(currentDate)) return new Date();
-    
-    const currentFiscalData = getFiscalDataForDate(currentDate);
-    if (!currentFiscalData || parsedCalendar.length === 0) {
-        return addMonths(currentDate, 1);
-    }
-    
-    // Find all weeks in the current fiscal month
-    const allWeeksOfCurrentMonth = parsedCalendar.filter(d => 
-        d && d.Reporting_Month === currentFiscalData.Reporting_Month && d.Reporting_Year === currentFiscalData.Reporting_Year
-    );
+export function getOwningMonth(weekStartMonday: Date): Date {
+  return startOfMonth(addDays(weekStartMonday, OWNING_MONTH_OFFSET_DAYS));
+}
 
-    if (allWeeksOfCurrentMonth.length === 0) return addMonths(currentDate, 1); // Fallback
-
-    // Get the last week of the current fiscal month
-    const lastWeekOfCurrentMonth = allWeeksOfCurrentMonth[allWeeksOfCurrentMonth.length - 1];
-
-    // Get the date of the day after the end of that week
-    const dayAfter = addDays(lastWeekOfCurrentMonth.parsedDate, 1);
-
-    // Get fiscal data for that next day
-    const nextMonthFiscalData = getFiscalDataForDate(dayAfter);
-    if (!nextMonthFiscalData) return addMonths(currentDate, 1); // Fallback
-    
-    // Find the first week of that next fiscal month
-    const firstWeekOfNextFiscalMonth = parsedCalendar.find(d =>
-        d && d.Reporting_Month === nextMonthFiscalData.Reporting_Month && d.Reporting_Year === nextMonthFiscalData.Reporting_Year
-    );
-    
-    return firstWeekOfNextFiscalMonth ? startOfWeek(firstWeekOfNextFiscalMonth.parsedDate, { weekStartsOn: 1 }) : addMonths(currentDate, 1);
+function formatWeekLabel(startDate: Date, endDate: Date): string {
+  return isSameMonth(startDate, endDate)
+    ? `${format(startDate, 'MMM d')} - ${format(endDate, 'd')}`
+    : `${format(startDate, 'MMM d')} - ${format(endDate, 'MMM d')}`;
 }

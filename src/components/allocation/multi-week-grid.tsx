@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, Fragment, useEffect, useCallback } from 'react';
-import { startOfWeek, format, isSameDay, isValid } from 'date-fns';
+import { startOfWeek, format, isSameDay, isValid, addMonths, subMonths } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { getWeeksForFiscalMonth, getFiscalDataForDate, getPreviousFiscalMonth, getNextFiscalMonth, type FiscalWeek } from '@/lib/fiscal-calendar';
+import { getWeeksForMonth, getOwningMonth, type AllocationWeek } from '@/lib/fiscal-calendar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { v4 as uuidv4 } from 'uuid';
 import { writeLog } from '@/lib/logger';
@@ -342,45 +342,19 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     setStartOfCurrentWeek(startOfWeek(now, { weekStartsOn: 1 }));
   }, []);
 
-  const { weeks, fiscalMonthLabel } = useMemo(() => {
-    if (!currentDate || !isValid(currentDate)) return { weeks: [], fiscalMonthLabel: 'Loading...' };
-    const fiscalData = getFiscalDataForDate(currentDate);
-    const monthWeeks: FiscalWeek[] = getWeeksForFiscalMonth(currentDate);
-    const label = fiscalData ? `${fiscalData.Reporting_Month} ${fiscalData.Reporting_Year}` : 'Loading...';
-    return { weeks: monthWeeks, fiscalMonthLabel: label };
+  const { weeks, monthLabel } = useMemo(() => {
+    if (!currentDate || !isValid(currentDate)) return { weeks: [], monthLabel: 'Loading...' };
+    const monthWeeks: AllocationWeek[] = getWeeksForMonth(currentDate);
+    return { weeks: monthWeeks, monthLabel: format(currentDate, 'MMM yyyy') };
   }, [currentDate]);
 
   const isWeekEditable = useCallback((weekStartDate: Date) => {
     if (!todayRef) return false;
-    
-    const weekFiscal = getFiscalDataForDate(weekStartDate);
-    const todayFiscal = getFiscalDataForDate(todayRef);
-    
-    if (!todayFiscal || !weekFiscal) return false;
 
-    const monthMap: Record<string, number> = {
-      'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6,
-      'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
-    };
+    const monthValue = (d: Date) => d.getFullYear() * 12 + d.getMonth();
 
-    const getMonthVal = (f: { Reporting_Month: string, Reporting_Year: string | number }) => {
-        if (!f) return 0;
-        const mStr = String(f.Reporting_Month || '').substring(0, 3).toUpperCase();
-        let m = monthMap[mStr] || 0;
-        if (m === 0) {
-            const numericMatch = String(f.Reporting_Month || '').match(/\d+/);
-            if (numericMatch) m = parseInt(numericMatch[0], 10);
-        }
-        const yStr = String(f.Reporting_Year || '').replace(/\D/g, '');
-        const y = parseInt(yStr, 10) || 0;
-        return y * 12 + m;
-    };
-
-    const currentMonthValue = getMonthVal(todayFiscal);
-    const targetMonthValue = getMonthVal(weekFiscal);
-    
-    // Only current and previous fiscal months are editable
-    return targetMonthValue >= (currentMonthValue - 1);
+    // Weeks before the previous calendar month are closed for editing.
+    return monthValue(getOwningMonth(weekStartDate)) >= (monthValue(todayRef) - 1);
   }, [todayRef]);
 
   const isMonthLocked = useMemo(() => {
@@ -393,8 +367,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     setInternalLoading(true);
     try {
         const currentMonthWeekKeys = weeks.map(w => formatDateKey(w.startDate));
-        const prevMonthDate = getPreviousFiscalMonth(currentDate);
-        const prevMonthWeeks = getWeeksForFiscalMonth(prevMonthDate);
+        const prevMonthWeeks = getWeeksForMonth(subMonths(currentDate, 1));
         const prevMonthWeekKeys = (prevMonthWeeks || []).map(w => formatDateKey(w.startDate));
         const allRelevantWeeks = Array.from(new Set([...currentMonthWeekKeys, ...prevMonthWeekKeys]));
         
@@ -511,8 +484,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     });
   }, [allEmployees, activeAllocations]);
 
-  const handlePrevMonth = () => { if (currentDate && isValid(currentDate)) setCurrentDate(getPreviousFiscalMonth(currentDate)); };
-  const handleNextMonth = () => { if (currentDate && isValid(currentDate)) setCurrentDate(getNextFiscalMonth(currentDate)); };
+  const handlePrevMonth = () => { if (currentDate && isValid(currentDate)) setCurrentDate(subMonths(currentDate, 1)); };
+  const handleNextMonth = () => { if (currentDate && isValid(currentDate)) setCurrentDate(addMonths(currentDate, 1)); };
 
   const handleAddEmployee = (employeeId: string) => {
     if (!employeeId || !currentDate) return;
@@ -764,14 +737,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 )}
               </div>
               <CardDescription>
-                Edits permitted for current and previous fiscal months only. Sorted by first name.
+                Edits permitted for current and previous calendar months only. Sorted by first name.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <EmployeeSelect employees={availableEmployees} onValueChange={handleAddEmployee} value={selectedEmployeeToAdd} disabled={isLoading || isSaving} />
               <ManagerSelect managers={managers} onValueChange={handleAddManagerTeam} value={selectedManager} disabled={isLoading || isSaving} />
               <Button variant="outline" size="icon" onClick={handlePrevMonth} disabled={isLoading || isSaving}><ChevronLeft className="h-4 w-4" /></Button>
-              <span className="text-sm font-medium w-32 text-center">{isLoading ? <Skeleton className="h-5 w-24 mx-auto" /> : fiscalMonthLabel}</span>
+              <span className="text-sm font-medium w-32 text-center">{isLoading ? <Skeleton className="h-5 w-24 mx-auto" /> : monthLabel}</span>
               <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isLoading || isSaving}><ChevronRight className="h-4 w-4" /></Button>
               <Button onClick={handleSave} disabled={isLoading || isSaving || (activeAllocations?.length || 0) === 0 || isMonthLocked}>
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -796,7 +769,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                       <TableHead key={week.startDate.toISOString()} className={cn("text-center min-w-[120px] transition-colors", { "bg-muted/40": locked, "bg-primary/10": isCurrent })}>
                         <div className='flex items-center justify-center gap-2'>
                           {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
-                          <span>W/E {week.reportingWeekDate}</span>
+                          <span>{week.label}</span>
                         </div>
                         {isCurrent && <Badge variant="default" className="w-fit mx-auto mt-1">Current</Badge>}
                       </TableHead>
