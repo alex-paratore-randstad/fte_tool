@@ -12,6 +12,29 @@ import { startOfWeek, parse, addDays, subDays, startOfMonth, isSameMonth, format
  */
 const OWNING_MONTH_OFFSET_DAYS = 4;
 
+/**
+ * Month labels written to `allocation_monthyear` on bulk allocation profiles.
+ *
+ * The dataflow matches this against DATE_FORMAT(<the week's Friday>, '%b %Y'), so
+ * the format is fixed: three-letter English month, one space, four-digit year
+ * ("Aug 2026"). Changing the casing or width breaks the bulk join silently - the
+ * join is an INNER join, so unmatched profiles vanish from reporting without error.
+ */
+export const ALLOCATION_MONTH_LABELS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
+/**
+ * Builds the `allocation_monthyear` value for the calendar month of a date.
+ * Use this everywhere the value is written or compared, so the app never drifts
+ * from the format the dataflow expects.
+ */
+export function formatAllocationMonthYear(date: Date): string {
+  if (!date || !isValid(date)) return '';
+  return `${ALLOCATION_MONTH_LABELS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 export type FiscalCalendarEntry = {
   Week_Number: string;
   Reporting_Week: string;

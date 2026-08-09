@@ -14,6 +14,7 @@ import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import { startOfWeek, subWeeks, format, isValid, parseISO } from 'date-fns';
 import { PageHeader } from '../page-header';
 import { writeLog } from '@/lib/logger';
+import { formatAllocationMonthYear } from '@/lib/fiscal-calendar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Button } from '../ui/button';
@@ -212,8 +213,7 @@ export function DashboardContent() {
     const currentWeekKey = format(startOfThisWeek, 'yyyy-MM-dd');
     const currentWeekAllocations = (weeklyAllocations || []).filter(a => a?.content?.allocation_date === currentWeekKey);
     
-    const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const currentMonthYear = `${monthsShort[today.getMonth()]} ${today.getFullYear()}`;
+    const currentMonthYear = formatAllocationMonthYear(today);
 
     const allocatedFteMap = new Map<string, number>();
     

@@ -28,6 +28,7 @@ import type { TeamMember, SummaryEntry } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { v4 as uuidv4 } from 'uuid';
+import { ALLOCATION_MONTH_LABELS } from '@/lib/fiscal-calendar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { writeLog } from '@/lib/logger';
@@ -49,10 +50,9 @@ type BulkAllocationGridProps = {
   templateToCopy: SummaryEntry[] | null;
 };
 
-const months = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-];
+// Calendar months. The label format is the contract with the reporting dataflow -
+// see ALLOCATION_MONTH_LABELS.
+const months = ALLOCATION_MONTH_LABELS;
 const currentYearValue = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => (currentYearValue - 2 + i).toString());
 
@@ -461,6 +461,8 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
     setIsSubmitting(true);
     const bulkAllocationId = uuidv4();
     const allocationDate = new Date().toISOString();
+    // Must stay in the "MMM yyyy" shape the dataflow joins on - selectedMonth comes
+    // from ALLOCATION_MONTH_LABELS, so this matches by construction.
     const allocationMonthYear = `${selectedMonth} ${selectedYear}`;
 
     const employeeSubmissions = Array.from(selectedEmployees).map(employeeId => {

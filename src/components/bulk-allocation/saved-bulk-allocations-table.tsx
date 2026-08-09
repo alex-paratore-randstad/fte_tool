@@ -363,6 +363,18 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
         return;
     }
 
+    // The reporting dataflow joins allocation_monthyear with an INNER join, so a blank
+    // value would drop newly added employees from reporting with no visible error.
+    if (!editableAlloc.allocationMonthYear) {
+        toast({
+            variant: 'destructive',
+            title: 'Missing Month',
+            description: 'This profile has no month recorded, so new employees cannot be added to it. Recreate the profile from the Bulk Allocation page.',
+        });
+        setIsSaving(prev => ({...prev, [allocId]: false}));
+        return;
+    }
+
     try {
         const operations: Promise<any>[] = [];
 
@@ -413,7 +425,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
                     employee_id: edit.employeeId,
                     employee_name: edit.name,
                     bulk_allocation_date: editableAlloc.allocationDate,
-                    allocation_monthyear: editableAlloc.allocationMonthYear || '',
+                    allocation_monthyear: editableAlloc.allocationMonthYear,
                 };
                 operations.push(fetch(`/domo/datastores/v1/collections/bulk_allocation_fte/documents/`, {
                     method: 'POST',
