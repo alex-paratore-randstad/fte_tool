@@ -20,6 +20,7 @@ import { ChevronLeft, ChevronRight, PlusCircle, Trash2, Lock, Check, ChevronsUpD
 import { useCurrentUser } from '@/hooks/use-current-user';
 import type { TeamMember, WeeklyAllocation } from '@/types';
 import { cn } from '@/lib/utils';
+import { getFullName, getPersonId, normalizeHrRoster } from '@/lib/hr-roster';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
@@ -170,17 +171,17 @@ const EmployeeSelect = ({
   const [search, setSearch] = useState('');
 
   const sortedEmployees = useMemo(() => {
-    return [...(employees || [])].sort((a, b) => (a.full_name || a.Full_Name || '').localeCompare(b.full_name || b.Full_Name || ''));
+    return [...(employees || [])].sort((a, b) => getFullName(a).localeCompare(getFullName(b)));
   }, [employees]);
 
   const filteredEmployees = useMemo(() => {
     if (!search) return sortedEmployees;
     const s = search.toLowerCase();
-    return sortedEmployees.filter(e => (e.full_name || e.Full_Name || '').toLowerCase().includes(s));
+    return sortedEmployees.filter(e => getFullName(e).toLowerCase().includes(s));
   }, [search, sortedEmployees]);
 
   const selectedEmployee = useMemo(() => {
-    return (employees || []).find(e => e && (e.person_id === value || e.Person_Number === value));
+    return (employees || []).find(e => e && getPersonId(e) === value);
   }, [employees, value]);
 
   return (
@@ -194,7 +195,7 @@ const EmployeeSelect = ({
           disabled={disabled}
         >
           <span className="truncate">
-            {selectedEmployee ? (selectedEmployee.full_name || selectedEmployee.Full_Name) : "Load Employee..."}
+            {selectedEmployee ? getFullName(selectedEmployee) : "Load Employee..."}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -211,10 +212,10 @@ const EmployeeSelect = ({
             <CommandGroup>
               {filteredEmployees.map((e) => (
                 <CommandItem
-                  key={e.person_id || e.Person_Number}
-                  value={e.full_name || e.Full_Name}
+                  key={getPersonId(e)}
+                  value={`${getFullName(e)}|${getPersonId(e)}`}
                   onSelect={() => {
-                    onValueChange(e.person_id || e.Person_Number);
+                    onValueChange(getPersonId(e));
                     setOpen(false);
                     setSearch('');
                   }}
@@ -222,10 +223,10 @@ const EmployeeSelect = ({
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === (e.person_id || e.Person_Number) ? "opacity-100" : "opacity-0"
+                      value === getPersonId(e) ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  <span>{e.full_name || e.Full_Name}</span>
+                  <span>{getFullName(e)}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -442,10 +443,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       const rawEmpData = empResponse.ok ? await empResponse.json() : [];
       const rawClientData = clientResponse.ok ? await clientResponse.json() : [];
       
-      const empData: TeamMember[] = (Array.isArray(rawEmpData) ? rawEmpData : [])
-        .filter(e => e && (e.full_name || e.Full_Name) && (e.person_id || e.Person_Number))
-        .sort((a, b) => (a.full_name || a.Full_Name || '').localeCompare(b.full_name || b.Full_Name || ''));
-        
+      const empData: TeamMember[] = normalizeHrRoster(rawEmpData);
+
       const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : []).filter(c => c && c.DisplayName);
       setAllEmployees(empData);
       const staticClients: AiReportData[] = [

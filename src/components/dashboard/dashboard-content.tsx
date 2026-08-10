@@ -14,6 +14,7 @@ import FteAllocationChart from '@/components/dashboard/fte-allocation-chart';
 import { startOfWeek, subWeeks, format, isValid, parseISO } from 'date-fns';
 import { PageHeader } from '../page-header';
 import { writeLog } from '@/lib/logger';
+import { normalizeHrRoster } from '@/lib/hr-roster';
 import { formatAllocationMonthYear } from '@/lib/fiscal-calendar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -163,7 +164,7 @@ export function DashboardContent() {
         const rawBSums = bulkSummaryResponse.ok ? await bulkSummaryResponse.json() : [];
         const rawTargs = targetsResponse.ok ? await targetsResponse.json() : [];
 
-        setAllEmployees(Array.isArray(rawEmps) ? rawEmps.filter(e => e && (e.person_id || e.Person_Number)) : []);
+        setAllEmployees(normalizeHrRoster(rawEmps));
         setWeeklyAllocations(Array.isArray(rawWeekly) ? rawWeekly.filter(a => a?.content) : []);
         setBulkFtes(Array.isArray(rawBFtes) ? rawBFtes.filter(f => f?.content) : []);
         setBulkSummaries(Array.isArray(rawBSums) ? rawBSums.filter(s => s?.content) : []);

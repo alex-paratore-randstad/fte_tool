@@ -28,6 +28,7 @@ import { Copy, Trash2, PlusCircle, X, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SelectSearch } from '../ui/select-search';
 import type { TeamMember, SummaryEntry, EmployeeEntry } from '@/types';
+import { normalizeHrRoster } from '@/lib/hr-roster';
 import { v4 as uuidv4 } from 'uuid';
 import {
   AlertDialog,
@@ -176,7 +177,7 @@ export function SavedBulkAllocationsTable({ refreshKey, onCopyTemplate }: SavedB
       const emps: TeamMember[] = metaEmpResponse.ok ? await metaEmpResponse.json() : [];
       const clients: AiReportData[] = metaClientResponse.ok ? await metaClientResponse.json() : [];
 
-      setAllEmployees(Array.isArray(emps) ? emps.filter(e => e && (e.full_name || e.Full_Name)) : []);
+      setAllEmployees(normalizeHrRoster(emps));
       const staticClients: AiReportData[] = [
         { Code: 'UNALLOCATED', Name: 'Unallocated', DisplayName: 'Unallocated', RollsUpTo: '', Region: '', Country: '' },
         { Code: 'PTO', Name: 'PTO', DisplayName: 'PTO', RollsUpTo: '', Region: '', Country: '' },

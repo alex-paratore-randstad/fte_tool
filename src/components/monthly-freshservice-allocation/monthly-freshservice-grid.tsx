@@ -23,6 +23,7 @@ import {
 import { SelectSearch } from '@/components/ui/select-search';
 import { PlusCircle, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { normalizeHrRoster } from '@/lib/hr-roster';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { format, startOfMonth, addMonths, subMonths } from 'date-fns';
@@ -148,8 +149,8 @@ export function MonthlyFreshserviceGrid({ onSaveSuccess }: MonthlyFreshserviceGr
       }
       
       const ticketData: TicketAllocationData[] = await ticketResponse.json();
-      const employeeData: TeamMember[] = await employeeResponse.json();
-      
+      const employeeData: TeamMember[] = normalizeHrRoster(await employeeResponse.json());
+
       setAllEmployees(employeeData);
 
       // Filter ticket data for the selected month and store it

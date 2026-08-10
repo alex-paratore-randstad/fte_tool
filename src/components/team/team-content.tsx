@@ -39,6 +39,7 @@ import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { writeLog } from '@/lib/logger';
 import { cn } from '@/lib/utils';
+import { normalizeHrRoster } from '@/lib/hr-roster';
 
 type FilterOptions = {
   employees: string[];
@@ -157,8 +158,7 @@ export function TeamContent() {
         }
         const rawData: any[] = await response.json();
         
-        const allData = Array.isArray(rawData) ? rawData : [];
-        const sortedData = allData.sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        const sortedData = normalizeHrRoster(rawData);
         setTeamMembers(sortedData);
 
         const getUniqueSorted = (key: keyof TeamMember) =>
