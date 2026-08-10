@@ -32,6 +32,7 @@ import { ALLOCATION_MONTH_LABELS } from '@/lib/fiscal-calendar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { writeLog } from '@/lib/logger';
+import { normalizeHrRoster } from '@/lib/hr-roster';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -273,9 +274,7 @@ export function BulkAllocationGrid({ onSaveSuccess, templateToCopy }: BulkAlloca
       const rawEmpData = empResponse.ok ? await empResponse.json() : [];
       const rawClientData = clientResponse.ok ? await clientResponse.json() : [];
       
-      const empData: TeamMember[] = (Array.isArray(rawEmpData) ? rawEmpData : [])
-        .filter((e: TeamMember) => e && (e.full_name || e.Full_Name))
-        .sort((a,b) => (a.full_name || a.Full_Name || '').localeCompare(b.full_name || b.Full_Name || ''));
+      const empData: TeamMember[] = normalizeHrRoster(rawEmpData);
       
       const clientData: AiReportData[] = (Array.isArray(rawClientData) ? rawClientData : [])
         .filter((c: AiReportData) => c && c.DisplayName);

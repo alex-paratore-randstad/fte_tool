@@ -12,6 +12,7 @@ import { TeamMember } from '@/types';
 import { SelectSearch } from '../ui/select-search';
 import { ScrollArea } from '../ui/scroll-area';
 import { writeLog } from '@/lib/logger';
+import { normalizeHrRoster } from '@/lib/hr-roster';
 
 type UpdatedTitle = {
   updated_titles: string;
@@ -125,7 +126,7 @@ export function TitleManagementContent({ onSaveSuccess }: TitleManagementContent
 
       const empData: TeamMember[] = empResponse.ok ? await empResponse.json() : [];
       
-      const safeEmps = (Array.isArray(empData) ? empData : []).filter(e => e && (e.full_name || e.Full_Name));
+      const safeEmps = normalizeHrRoster(empData);
       
       const safeTitles = (Array.isArray(titleData) ? titleData : [])
         .map(t => {

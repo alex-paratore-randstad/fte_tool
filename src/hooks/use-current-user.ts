@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import type { TeamMember } from '@/types';
 import { writeLog } from '@/lib/logger';
+import { getFullName, getPersonId, normalizeHrRoster } from '@/lib/hr-roster';
 
 export type CurrentUser = {
   id: string;
@@ -35,13 +36,13 @@ export function useCurrentUser() {
         if (impersonatedUserId) {
             const response = await fetch(`/data/v1/consolidated_hr_fte_report_view`);
             if (response.ok) {
-                const allEmployees: TeamMember[] = await response.json();
+                const allEmployees: TeamMember[] = normalizeHrRoster(await response.json());
                 if (Array.isArray(allEmployees)) {
-                    const impersonatedEmp = allEmployees.find(e => e && e.person_id === impersonatedUserId);
+                    const impersonatedEmp = allEmployees.find(e => e && getPersonId(e) === impersonatedUserId);
                     if (impersonatedEmp) {
                         const impersonatedUser: CurrentUser = {
-                            id: impersonatedEmp.person_id || impersonatedUserId,
-                            name: impersonatedEmp.full_name || 'Impersonated User',
+                            id: getPersonId(impersonatedEmp) || impersonatedUserId,
+                            name: getFullName(impersonatedEmp) || 'Impersonated User',
                             title: impersonatedEmp.title || '',
                             role: 'manager'
                         };

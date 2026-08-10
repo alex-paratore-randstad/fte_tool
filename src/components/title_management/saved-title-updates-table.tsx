@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { TeamMember } from '@/types';
+import { getFullName, getPersonId, normalizeHrRoster } from '@/lib/hr-roster';
 import { ScrollArea } from '../ui/scroll-area';
 
 type SavedUpdateDoc = {
@@ -48,9 +49,9 @@ export function SavedTitleUpdatesTable({ refreshKey }: SavedTitleUpdatesTablePro
       }
 
       const savedUpdates: SavedUpdateDoc[] = updatesResponse.ok ? await updatesResponse.json() : [];
-      const employees: TeamMember[] = await employeesResponse.json();
-      
-      const employeeMap = new Map(employees.map(emp => [emp.person_id, emp.full_name]));
+      const employees: TeamMember[] = normalizeHrRoster(await employeesResponse.json());
+
+      const employeeMap = new Map(employees.map(emp => [getPersonId(emp), getFullName(emp)]));
 
       const structuredUpdates: SavedUpdate[] = savedUpdates.map(update => ({
         id: update.id,

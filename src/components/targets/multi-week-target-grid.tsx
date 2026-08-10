@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { v4 as uuidv4 } from 'uuid';
 import { writeLog } from '@/lib/logger';
+import { getFullName, getPersonId, normalizeHrRoster } from '@/lib/hr-roster';
 
 type AiReportData = {
     Code: string;
@@ -171,11 +172,11 @@ const EmployeeSelect = ({
   const filteredEmployees = useMemo(() => {
     if (!search) return employees || [];
     const s = search.toLowerCase();
-    return (employees || []).filter(e => (e.full_name || e.Full_Name || '').toLowerCase().includes(s));
+    return (employees || []).filter(e => getFullName(e).toLowerCase().includes(s));
   }, [search, employees]);
 
   const selectedEmployee = useMemo(() => {
-    return (employees || []).find(e => e && (e.person_id === value || e.Person_Number === value));
+    return (employees || []).find(e => e && getPersonId(e) === value);
   }, [employees, value]);
 
   return (
@@ -189,7 +190,7 @@ const EmployeeSelect = ({
           disabled={disabled}
         >
           <span className="truncate">
-            {selectedEmployee ? (selectedEmployee.full_name || selectedEmployee.Full_Name) : "Load Employee..."}
+            {selectedEmployee ? getFullName(selectedEmployee) : "Load Employee..."}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -206,10 +207,10 @@ const EmployeeSelect = ({
             <CommandGroup>
               {filteredEmployees.map((e) => (
                 <CommandItem
-                  key={e.person_id || e.Person_Number}
-                  value={e.full_name || e.Full_Name}
+                  key={getPersonId(e)}
+                  value={`${getFullName(e)}|${getPersonId(e)}`}
                   onSelect={() => {
-                    onValueChange(e.person_id || e.Person_Number);
+                    onValueChange(getPersonId(e));
                     setOpen(false);
                     setSearch('');
                   }}
@@ -217,10 +218,10 @@ const EmployeeSelect = ({
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === (e.person_id || e.Person_Number) ? "opacity-100" : "opacity-0"
+                      value === getPersonId(e) ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  <span>{e.full_name || e.Full_Name}</span>
+                  <span>{getFullName(e)}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -391,9 +392,7 @@ export function QuarterlyTargetGrid({ currentYear, setCurrentYear, onSaveSuccess
       const rawEmps = empResponse.ok ? await empResponse.json() : [];
       const rawClients = clientResponse.ok ? await clientResponse.json() : [];
 
-      const empData: TeamMember[] = (Array.isArray(rawEmps) ? rawEmps : [])
-        .filter((e: TeamMember) => e && (e.full_name || e.Full_Name) && (e.person_id || e.Person_Number))
-        .sort((a, b) => (a.full_name || a.Full_Name || '').localeCompare(b.full_name || b.Full_Name || ''));
+      const empData: TeamMember[] = normalizeHrRoster(rawEmps);
 
       const clientData: AiReportData[] = (Array.isArray(rawClients) ? rawClients : [])
         .filter((c: AiReportData) => c && c.DisplayName);
