@@ -132,6 +132,15 @@ anything — which is what makes `'No Logs Entered'` reporting possible.
                       skeleton's department is renamed placeholder_department
 ```
 
+> **The skeleton is person-week grain, not person-cost-centre-week.** `cost_center_name` is not in
+> that join key. So the skeleton fans out to whichever cost centres a person-week *already* has, and
+> never manufactures a row for a cost centre the person holds elsewhere in the month. It emits a
+> single `'Unassigned'` / `placeholder` row only when the person has **nothing at all** that week.
+>
+> Consequence: a person allocated to Philips in three weeks of a four-week month has **no row at all**
+> for Philips in the fourth week — not a zero row. Anything downstream that divides by
+> `COUNT(DISTINCT Day)` therefore divides by 3, not 4. See §6.1.
+
 ### 2.6 `Add Formula 5` — the semantics tile
 
 Expressions run **in listed order** and later ones see earlier results. The order matters:
@@ -259,10 +268,171 @@ Consequences to keep in mind when troubleshooting — see §6.
 
 ## 6. Known traps and failure modes
 
-*(populated below from the audit — see the findings table)*
+### 6.1 The skeleton does not densify cost centres — blanks are absences, not zeros
+
+The single most consequential one. Per §2.5, the skeleton guarantees a row per **person-week**, not
+per **person-cost-centre-week**. Any reporting measure of the form
+`SUM(allocation_amount) / COUNT(DISTINCT Day)` therefore divides by the weeks that *have rows*
+rather than the weeks *in the month*.
+
+This is a live bug in the Beast Mode `allocation_monthly`, used by cards `fte level allocations`
+(1659132694) and `client roll up` (84279959) — see
+[`domo_reporting_dashboard.md` §5.3](domo_reporting_dashboard.md). A person split across two cost
+centres over-reports: their rows sum to 2.0 FTE for a 1.0 FTE person.
+
+Nothing upstream can fix it. The app hard-`DELETE`s the AppDB document when a cell is cleared
+([`multi-week-grid.tsx:689-691`](../src/components/allocation/multi-week-grid.tsx#L689)) and drops
+documents with `allocation_amount <= 0` on read
+([`:390`](../src/components/allocation/multi-week-grid.tsx#L390), and again at `:501` and `:545`), so
+a zero-amount document never exists in `weekly_allocation`. The zero has to be manufactured here.
+
+**Fix, written but not yet deployed:**
+[`domo_sql/densify_full_calendar_allocation.sql`](domo_sql/densify_full_calendar_allocation.sql) — a
+separate SQL dataflow downstream of this one that adds the missing zero rows and publishes a dense
+dataset for the views to read. Deliberately downstream rather than folded in here, so the
+self-referencing history branch (§6.3) keeps reading this flow's own undensified output.
+
+### 6.2 `Add Formula 5` expressions are order-dependent
+
+Expression #6 (`allocation_type` NULL → `'placeholder'`) must run before #7 (`department` =
+`placeholder ? placeholder_department : department`). Reordering them in the Domo UI silently breaks
+department attribution on every skeleton row. See §2.6.
+
+Related: any row arriving at this tile with a null `allocation_type` is stamped `'placeholder'` — and
+card 1659132694's `allocation_type` slicer preselects `placeholder` in a `NOT_IN`, so such rows are
+hidden by default. Anything new that feeds this tile must set `allocation_type` explicitly.
+
+### 6.3 The history mechanism freezes the first-ever value, permanently
+
+`Add Formula 9`'s `COALESCE(historical_department, department)` means whatever manager/department a
+`(person_id, Day)` receives on its first published run wins forever. A bad run does not self-heal on
+re-run; correcting it requires clearing the input dataset or a one-off run with the COALESCE bypassed.
+Test structural changes against a scratch output dataset before publishing to `0ce8e039-…`.
+
+Compounding this: which row survives `Remove Duplicates` on `(person_id, Day)` is not deterministic.
+Where a person-week carries heterogeneous `department` values — which happens whenever bulk rows
+(whose `department` holds the bulk `allocation_group`, §2.4) sit alongside weekly rows — the frozen
+value is effectively arbitrary.
+
+> **Unverified:** whether `Remove Duplicates` is configured on the subset `(person_id, Day)` or on
+> *all columns*. If all columns, a person-week with two different `department` values yields two
+> lookup rows and `Join Data 11` **multiplies the dataset**. Worth confirming.
+
+### 6.4 The bulk explosion axis is contradicted by two sources
+
+[`fiscal-calendar.ts:18`](../src/lib/fiscal-calendar.ts#L18) states the dataflow matches
+`allocation_monthyear` against `DATE_FORMAT(<the week's Friday>, '%b %Y')` — Gregorian. §2.4 of this
+doc describes `Join Data 2` as landing on the Mondays of that **fiscal** month. Both are prose; neither
+is the tile. A third possibility is that `monthyear` is the *Monday's* Gregorian month.
+
+It matters: Gregorian Aug 2026 is Mondays `{08-03, 08-10, 08-17, 08-24}`; fiscal Aug 2026 is
+`{07-27, 08-03, 08-10, 08-17}`. Open `Join Data 2` and settle it, then correct whichever source is
+wrong. Until then, treat any statement about which weeks a bulk profile lands on as unconfirmed.
+
+Query 7.4 answers it from the data without opening the tile. Note that this does **not** gate the
+densification in [`domo_sql/`](domo_sql/README.md) — the cards report Gregorian months, so
+densifying on the Gregorian axis is self-consistent either way. If the explosion turns out to be
+fiscal, bulk per-month averages will visibly drop once densified; that is this mismatch surfacing,
+and the pre-densification figures are wrong in the other direction.
+
+### 6.5 The `INTERVAL 4 DAY` offset lives in two places with nothing enforcing agreement
+
+`OWNING_MONTH_OFFSET_DAYS` in [`fiscal-calendar.ts:13`](../src/lib/fiscal-calendar.ts#L13) and
+`month_greg` in `Add Formula 8`. This is the drift that sent the week of Mon 2026-07-27 to July while
+the tool showed it under August (§3). Any third computation of the same rule should join a single
+shared month map rather than recompute the offset.
+
+### 6.6 `String Operations 1` trims `cost_center_name` after `Group By 2`
+
+So `' Philips'` and `'Philips'` are distinct groups upstream and collapse into one downstream. Sums
+stay correct, but any logic keyed on `cost_center_name` before that tile sees the untrimmed variants.
+Moving the trim upstream of `Group By 2` would make the whole flow work on one normalised value.
+`TRIM` does not address case differences — see query 7.5.
+
+### 6.7 `last_updated` is a formatted string, not a timestamp
+
+`Add Formula 9` writes `DATE_FORMAT(CURRENT_TIMESTAMP(), '%d/%m/%Y %h:%i %p')`. `MAX()` over it is
+lexicographic (`31/01` beats `01/12`). Benign only because `PublishToVault` uses `REPLACE`, giving
+every row an identical value. It would start lying if the flow ever moved to append or upsert.
+
+### 6.8 `allocation_staus` is per-cost-centre, and misspelled
+
+Covered in §4. It compares one cost-centre row against the person's whole FTE, so a correctly
+allocated person split 0.6/0.4 produces two `'Under-Allocated'` rows. Only meaningful after
+`allocation_amount` has been summed to person-week level.
 
 ---
 
 ## 7. Diagnostic queries
 
-*(see below)*
+Read-only, against the published dataset.
+
+### 7.1 How many person-cost-centre-months have sparse weeks (the §6.1 bug)
+
+```sql
+SELECT a.month_greg, COUNT(*) AS person_cc_months,
+       SUM(CASE WHEN a.weeks_present < m.weeks_in_month THEN 1 ELSE 0 END) AS affected
+FROM (SELECT person_id, cost_center_name, allocation_type, month_greg,
+             COUNT(DISTINCT `Day`) AS weeks_present
+      FROM fte_full_calendar_allocation
+      WHERE `rank` = 1 AND allocation_type IN ('bulk','weekly')
+      GROUP BY 1,2,3,4) a
+JOIN (SELECT month_greg, COUNT(DISTINCT `Day`) AS weeks_in_month
+      FROM fte_full_calendar_allocation GROUP BY 1) m ON a.month_greg = m.month_greg
+GROUP BY 1 ORDER BY 1;
+```
+
+### 7.2 Row count if the dataset were densified to cost-centre grain
+
+```sql
+WITH m AS (SELECT month_greg, COUNT(DISTINCT `Day`) w
+           FROM fte_full_calendar_allocation GROUP BY 1),
+     t AS (SELECT DISTINCT person_id, cost_center_name, allocation_type, month_greg
+           FROM fte_full_calendar_allocation
+           WHERE `rank` = 1 AND allocation_type IN ('bulk','weekly')
+             AND cost_center_name NOT IN ('Unassigned','UNALLOCATED'))
+SELECT (SELECT SUM(m.w) FROM t JOIN m ON t.month_greg = m.month_greg) AS dense_target,
+       (SELECT COUNT(*) FROM fte_full_calendar_allocation
+          WHERE `rank` = 1 AND allocation_type IN ('bulk','weekly')
+            AND cost_center_name NOT IN ('Unassigned','UNALLOCATED')) AS existing_real;
+```
+
+### 7.3 Does anything vary within a (person, cost centre, type, month)?
+
+Any row returned is a column that cannot be treated as constant at that grain.
+
+```sql
+SELECT person_id, cost_center_name, allocation_type, month_greg,
+       COUNT(DISTINCT department) d, COUNT(DISTINCT cost_center_number) n,
+       COUNT(DISTINCT fte) f, COUNT(DISTINCT manager) mg
+FROM fte_full_calendar_allocation WHERE `rank` = 1
+GROUP BY 1,2,3,4 HAVING d > 1 OR n > 1 OR f > 1 OR mg > 1;
+```
+
+### 7.4 Which weeks do bulk rows actually land on (settles §6.4)
+
+```sql
+SELECT month_greg, COUNT(DISTINCT `Day`) AS bulk_mondays, MIN(`Day`) AS first_monday
+FROM fte_full_calendar_allocation
+WHERE `rank` = 1 AND allocation_type = 'bulk' GROUP BY 1 ORDER BY 1;
+```
+
+A `first_monday` one week earlier than the month's own first Monday means the explosion is fiscal.
+
+### 7.5 Cost-centre name variants (settles §6.6)
+
+```sql
+SELECT LOWER(TRIM(cost_center_name)) AS norm, COUNT(DISTINCT cost_center_name) AS variants
+FROM fte_full_calendar_allocation GROUP BY 1 HAVING variants > 1;
+```
+
+### 7.6 Duplicate rows at the intended grain
+
+Should return nothing. Anything here means a join is fanning out.
+
+```sql
+SELECT person_id, cost_center_name, allocation_type, `Day`, COUNT(*) AS n
+FROM fte_full_calendar_allocation
+WHERE `rank` = 1
+GROUP BY 1,2,3,4 HAVING n > 1;
+```
