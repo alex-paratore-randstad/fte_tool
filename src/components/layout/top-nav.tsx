@@ -49,7 +49,7 @@ const navGroups: NavGroup[] = [
     roles: ['admin', 'manager', 'vp'],
     items: [
       { 
-        href: 'https://docs.google.com/presentation/d/1wtHy8p1X_fJkA6zQcadK330emwfL9SGIzNtnWYu3I4w/edit?usp=sharing', 
+        href: 'https://docs.google.com/document/d/1EVxmQj5mRkqkt6FX90W3tRwxvlkMayuYjS52Jd-cvMc/edit?usp=sharing',
         label: 'Knowledge Base' 
       },
     ]
