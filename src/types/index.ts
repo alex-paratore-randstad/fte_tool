@@ -58,6 +58,17 @@ export type WeeklyAllocation = {
     cost_center_number: string;
     cost_center_name: string;
     allocation_amount: string; // This is a string from the datastore
+
+    // Retroactive-correction record, written only by the Weekly Allocation grid when an
+    // allocation in a closed month is edited. Absent on every document written before
+    // this shipped, and on documents that have never been corrected.
+    //
+    // All three are STRING, matching how allocation_amount carries a number — the collection
+    // schema in public/manifest.json declares only STRING and DATE, and the ETL casts to DOUBLE
+    // at load. A field missing from that declaration never reaches the dataset at all.
+    baseline_fte_value?: string; // the amount before the first correction of the cycle
+    correction_month?: string; // 'YYYY-MM' — the month that cycle started
+    correction_count?: string; // corrections made within that cycle
   }
 };
 

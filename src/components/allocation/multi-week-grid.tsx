@@ -38,6 +38,9 @@ type AiReportData = {
 
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
+/** Months as a single comparable integer, so month arithmetic never crosses a year boundary wrong. */
+const monthValue = (date: Date) => date.getFullYear() * 12 + date.getMonth();
+
 /**
  * A weekly cell's value.
  *
@@ -55,12 +58,107 @@ const parseCell = (val: string): WeeklyFteValue => {
   return Number.isFinite(n) ? n : '';
 };
 
+/**
+ * A cell exactly as it was loaded from the collection.
+ *
+ * Kept alongside the edited values so a save can tell what actually changed, and so the
+ * correction fields already on a document survive a PUT — see correctionFieldsFor.
+ */
+type LoadedCell = {
+  amount: number;
+  costCenterName: string;
+  costCenterNumber: string;
+  baselineFteValue: number | null;
+  correctionMonth: string | null;
+  correctionCount: number;
+};
+
 type AllocationRow = {
   id: string;
   clientId: string;
   clientName: string;
   weeklyFtes: { [weekKey: string]: WeeklyFteValue };
   docIds: { [weekKey: string]: string };
+  loaded: { [weekKey: string]: LoadedCell };
+};
+
+/**
+ * Hydrate one client row's cells from its documents, restricted to the week keys on screen.
+ *
+ * `loaded` is the snapshot the save path diffs against; it must be built everywhere a row is
+ * built from the collection, or an edit to that row looks clean and is skipped.
+ */
+const hydrateCells = (docs: WeeklyAllocation[], validWeekKeys: string[]) => {
+  const weeklyFtes: { [weekKey: string]: WeeklyFteValue } = {};
+  const docIds: { [weekKey: string]: string } = {};
+  const loaded: { [weekKey: string]: LoadedCell } = {};
+
+  docs.filter(a => a?.content && validWeekKeys.includes(a.content.allocation_date)).forEach(a => {
+    if (!a?.content) return;
+    const amount = parseFloat(a.content.allocation_amount || '0');
+    // The correction fields come back as strings, like allocation_amount. Parsing has to be
+    // tolerant: a baseline that fails to parse would silently re-stamp on the next correction.
+    const baseline = parseFloat(a.content.baseline_fte_value ?? '');
+    const count = parseInt(a.content.correction_count ?? '', 10);
+
+    weeklyFtes[a.content.allocation_date] = amount;
+    docIds[a.content.allocation_date] = a.id;
+    loaded[a.content.allocation_date] = {
+      amount,
+      costCenterName: String(a.content.cost_center_name || '').trim(),
+      costCenterNumber: String(a.content.cost_center_number || '').trim(),
+      baselineFteValue: Number.isFinite(baseline) ? baseline : null,
+      correctionMonth: a.content.correction_month || null,
+      correctionCount: Number.isFinite(count) ? count : 0,
+    };
+  });
+
+  return { weeklyFtes, docIds, loaded };
+};
+
+/**
+ * The correction fields to write on a PUT.
+ *
+ * An AppDB PUT replaces the whole content object, so anything already on the document has
+ * to be written back explicitly or it is erased — which is why the carry-forward below runs
+ * even for edits that are not corrections.
+ *
+ * A week owned by a closed month is a retroactive edit, i.e. a correction. `baseline_fte_value`
+ * is the amount as it stood before the *first* correction of a cycle, so a second edit in the
+ * same month preserves it rather than recomputing. Recomputing would make the corrections card
+ * report the delta between the last two edits instead of the delta from what was reported for
+ * that month.
+ */
+const correctionFieldsFor = (
+  loaded: LoadedCell | undefined,
+  change: { weekStart: Date; today: Date; amountChanged: boolean; costCentreChanged: boolean }
+) => {
+  const fields: { baseline_fte_value?: string; correction_month?: string; correction_count?: string } = {};
+  if (!loaded) return fields;
+
+  // Changing the client moves this document to a different reporting key, and the corrections
+  // card groups by cost centre. Carrying the record across would attribute the old cost centre's
+  // previous value to the new one, so drop it and treat the row as a fresh allocation.
+  if (change.costCentreChanged) return fields;
+
+  if (loaded.baselineFteValue !== null) fields.baseline_fte_value = loaded.baselineFteValue.toString();
+  if (loaded.correctionMonth !== null) fields.correction_month = loaded.correctionMonth;
+  if (loaded.correctionCount > 0) fields.correction_count = loaded.correctionCount.toString();
+
+  // Only an FTE change is a correction, but existing fields are still carried through above:
+  // a PUT replaces the whole content object.
+  if (!change.amountChanged) return fields;
+  if (monthValue(getOwningMonth(change.weekStart)) >= monthValue(change.today)) return fields;
+
+  const currentMonthKey = format(change.today, 'yyyy-MM');
+  if (loaded.correctionMonth === currentMonthKey) {
+    fields.correction_count = (loaded.correctionCount + 1).toString();
+  } else {
+    fields.baseline_fte_value = loaded.amount.toString();
+    fields.correction_month = currentMonthKey;
+    fields.correction_count = '1';
+  }
+  return fields;
 };
 
 type EmployeeAllocation = {
@@ -369,8 +467,6 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   const isWeekEditable = useCallback((weekStartDate: Date) => {
     if (!todayRef) return false;
 
-    const monthValue = (d: Date) => d.getFullYear() * 12 + d.getMonth();
-
     // Weeks before the previous calendar month are closed for editing.
     return monthValue(getOwningMonth(weekStartDate)) >= (monthValue(todayRef) - 1);
   }, [todayRef]);
@@ -411,28 +507,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             empAllAllocs.forEach(a => { if (a?.content?.cost_center_name) clientNames.add(String(a.content.cost_center_name).trim()); });
             
             if (clientNames.size === 0) {
-                return { ...empAlloc, allocations: [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {} }] };
+                return { ...empAlloc, allocations: [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {}, loaded: {} }] };
             }
             
             const newAllocationRows: AllocationRow[] = Array.from(clientNames).map(clientName => {
                 const clientSpecificAllocs = empAllAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === clientName);
                 const masterClient = (clients || []).find(c => c && String(c.DisplayName || '').trim() === clientName);
-                const weeklyFtes: { [weekKey: string]: WeeklyFteValue } = {};
-                const docIds: { [weekKey: string]: string } = {};
-
-                clientSpecificAllocs.filter(a => a?.content && currentMonthWeekKeys.includes(a.content.allocation_date)).forEach(a => {
-                    if (a?.content) {
-                        weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0');
-                        docIds[a.content.allocation_date] = a.id;
-                    }
-                });
-                
                 return {
                     id: uuidv4(),
                     clientId: (masterClient?.Code || clientSpecificAllocs[0]?.content?.cost_center_number || '').trim(),
                     clientName,
-                    weeklyFtes,
-                    docIds
+                    ...hydrateCells(clientSpecificAllocs, currentMonthWeekKeys)
                 };
             });
             return { ...empAlloc, allocations: newAllocationRows };
@@ -518,21 +603,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       const empAllocs = monthDataCache.filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && Number.isFinite(parseFloat(a.content?.allocation_amount || '')));
       let initialRows: AllocationRow[] = [];
       if (empAllocs.length === 0) {
-          initialRows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {} }];
+          initialRows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {}, loaded: {} }];
       } else {
           const names = Array.from(new Set(empAllocs.map(a => String(a?.content?.cost_center_name || '').trim()).filter(Boolean)));
           initialRows = names.map(name => {
               const cAllocs = empAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === name);
               const master = (clients || []).find(c => c && String(c.DisplayName || '').trim() === name);
-              const weeklyFtes: { [weekKey: string]: WeeklyFteValue } = {};
-              const docIds: { [weekKey: string]: string } = {};
-              cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { 
-                  if (a?.content) {
-                      weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0'); 
-                      docIds[a.content.allocation_date] = a.id;
-                  }
-              });
-              return { id: uuidv4(), clientId: (master?.Code || cAllocs[0]?.content?.cost_center_number || '').trim(), clientName: name, weeklyFtes, docIds };
+              return { id: uuidv4(), clientId: (master?.Code || cAllocs[0]?.content?.cost_center_number || '').trim(), clientName: name, ...hydrateCells(cAllocs, currentKeys) };
           });
       }
       setActiveAllocations(prev => [{ employee: employeeToAdd, allocations: initialRows }, ...prev]);
@@ -562,21 +639,13 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
         const empAllocs = monthDataCache.filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && Number.isFinite(parseFloat(a.content?.allocation_amount || '')));
         let rows: AllocationRow[] = [];
         if (empAllocs.length === 0) {
-            rows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {} }];
+            rows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {}, loaded: {} }];
         } else {
             const names = Array.from(new Set(empAllocs.map(a => String(a?.content?.cost_center_name || '').trim()).filter(Boolean)));
             rows = names.map(name => {
                 const cAllocs = empAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === name);
                 const master = (clients || []).find(c => c && String(c.DisplayName || '').trim() === name);
-                const weeklyFtes: { [key: string]: WeeklyFteValue } = {};
-                const docIds: { [key: string]: string } = {};
-                cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { 
-                    if (a?.content) {
-                        weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0'); 
-                        docIds[a.content.allocation_date] = a.id;
-                    }
-                });
-                return { id: uuidv4(), clientId: (master?.Code || cAllocs[0]?.content?.cost_center_number || '').trim(), clientName: name, weeklyFtes, docIds };
+                return { id: uuidv4(), clientId: (master?.Code || cAllocs[0]?.content?.cost_center_number || '').trim(), clientName: name, ...hydrateCells(cAllocs, currentKeys) };
             });
         }
         return { employee, allocations: rows };
@@ -640,7 +709,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   };
 
   const handleAddAllocationRow = (employeeId: string) => {
-    setActiveAllocations(prev => (prev || []).map(ea => (ea.employee?.person_id || ea.employee?.Person_Number) === employeeId ? { ...ea, allocations: [...ea.allocations, { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {} }] } : ea));
+    setActiveAllocations(prev => (prev || []).map(ea => (ea.employee?.person_id || ea.employee?.Person_Number) === employeeId ? { ...ea, allocations: [...ea.allocations, { id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {}, loaded: {} }] } : ea));
   };
 
   const handleRemoveAllocationRow = (employeeId: string, allocId: string) => {
@@ -655,12 +724,16 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   };
 
   const handleSave = async () => {
+    if (!todayRef) return;
     setIsSaving(true);
     const operations: Promise<any>[] = [];
     let invalid = false;
-    
-    const currentKeys = weeks.filter(w => isWeekEditable(w.startDate)).map(w => formatDateKey(w.startDate));
-    const validKeysSet = new Set(currentKeys);
+
+    // Keyed by week so the save can recover each cell's start date, which decides whether an
+    // edit is retroactive (and therefore a correction).
+    const editableWeeks = new Map<string, Date>(
+      weeks.filter(w => isWeekEditable(w.startDate)).map(w => [formatDateKey(w.startDate), w.startDate])
+    );
 
     // Execute pending deletions first
     pendingDeletions.forEach(id => {
@@ -674,14 +747,17 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
 
       ea.allocations.forEach(alloc => {
         Object.entries(alloc.weeklyFtes).forEach(([key, fte]) => {
-          if (validKeysSet.has(key)) {
+          const weekStart = editableWeeks.get(key);
+          if (weekStart) {
             const existingDocId = alloc.docIds[key];
-            const content = { 
-                allocation_date: key, 
-                allocation_name: `[${empId}] ${empName}`, 
-                employee_id: empId, 
-                cost_center_name: alloc.clientName, 
-                cost_center_number: alloc.clientId || alloc.clientName,
+            const loaded = alloc.loaded[key];
+            const costCenterNumber = alloc.clientId || alloc.clientName;
+            const content = {
+                allocation_date: key,
+                allocation_name: `[${empId}] ${empName}`,
+                employee_id: empId,
+                cost_center_name: alloc.clientName,
+                cost_center_number: costCenterNumber,
                 allocation_amount: (typeof fte === 'number' ? fte.toString() : '0')
             };
 
@@ -697,10 +773,20 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 }
                 
                 if (existingDocId) {
+                    // Skip untouched cells. Without this every save rewrites every editable cell
+                    // of every loaded employee, which bumps __modified__ on rows nobody edited
+                    // and inflates correction_count.
+                    const amountChanged = !loaded || loaded.amount !== fte;
+                    const costCentreChanged = !loaded
+                        || loaded.costCenterName !== alloc.clientName
+                        || loaded.costCenterNumber !== costCenterNumber;
+                    if (!amountChanged && !costCentreChanged) return;
+
+                    const correction = correctionFieldsFor(loaded, { weekStart, today: todayRef, amountChanged, costCentreChanged });
                     operations.push(fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${existingDocId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ content })
+                        body: JSON.stringify({ content: { ...content, ...correction } })
                     }));
                 } else {
                     operations.push(fetch('/domo/datastores/v1/collections/weekly_allocation/documents/', { 

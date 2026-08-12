@@ -286,6 +286,18 @@
                     {
                         "name": "no_charge_flag",
                         "type": "STRING"
+                    },
+                    {
+                        "name": "baseline_fte_value",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "correction_month",
+                        "type": "STRING"
+                    },
+                    {
+                        "name": "correction_count",
+                        "type": "STRING"
                     }
                 ]
             },
