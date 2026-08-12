@@ -1,5 +1,17 @@
 # Building `densify_full_calendar_allocation` in Domo
 
+> **SHELVED — not deployed, and not currently needed.** The monthly-average bug was instead fixed in
+> the app: users can now enter an explicit `0` in the Weekly Allocation grid and it persists, so the
+> zero reaches reporting attached to its cost centre. See §6.1 of
+> [`../fte_full_calendar_allocation.md`](../fte_full_calendar_allocation.md).
+>
+> This is kept because it remains a working option. The app fix only creates a row where somebody
+> types a `0` — untouched weeks and existing history are unaffected. If that limitation proves
+> unacceptable, this dataflow is the way to close the gap, and it also backfills history.
+>
+> It was never successfully run: the first build attempt returned no rows from transform 1. The open
+> diagnostic is under **Troubleshooting** below.
+
 Step-by-step build and cutover for
 [`densify_full_calendar_allocation.sql`](densify_full_calendar_allocation.sql).
 

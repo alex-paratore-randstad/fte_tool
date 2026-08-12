@@ -38,12 +38,29 @@ type AiReportData = {
 
 const formatDateKey = (date: Date) => format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
+/**
+ * A weekly cell's value.
+ *
+ * '' means the user explicitly emptied the cell; a missing key means nobody has
+ * touched it. Both save as "no allocation", but 0 is a real value that persists,
+ * because downstream reporting divides by the number of weeks that have rows.
+ */
+type WeeklyFteValue = number | '';
+
+/** '' for an empty cell, a finite number otherwise. Never NaN, never undefined. */
+const parseCell = (val: string): WeeklyFteValue => {
+  const raw = (val ?? '').trim();
+  if (raw === '') return '';
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : '';
+};
+
 type AllocationRow = {
   id: string;
   clientId: string;
   clientName: string;
-  weeklyFtes: { [weekKey: string]: number };
-  docIds: { [weekKey: string]: string }; 
+  weeklyFtes: { [weekKey: string]: WeeklyFteValue };
+  docIds: { [weekKey: string]: string };
 };
 
 type EmployeeAllocation = {
@@ -384,10 +401,10 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             const empId = empAlloc.employee.person_id || empAlloc.employee.Person_Number;
             const employeeIdString = `[${empId}]`;
             
-            const empAllAllocs = allRelevantAllocations.filter(alloc => 
-                alloc?.content?.allocation_name && 
+            const empAllAllocs = allRelevantAllocations.filter(alloc =>
+                alloc?.content?.allocation_name &&
                 String(alloc.content.allocation_name).startsWith(employeeIdString) &&
-                parseFloat(alloc.content?.allocation_amount || '0') > 0
+                Number.isFinite(parseFloat(alloc.content?.allocation_amount || ''))
             );
             
             const clientNames = new Set<string>();
@@ -400,9 +417,9 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             const newAllocationRows: AllocationRow[] = Array.from(clientNames).map(clientName => {
                 const clientSpecificAllocs = empAllAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === clientName);
                 const masterClient = (clients || []).find(c => c && String(c.DisplayName || '').trim() === clientName);
-                const weeklyFtes: { [weekKey: string]: number } = {};
+                const weeklyFtes: { [weekKey: string]: WeeklyFteValue } = {};
                 const docIds: { [weekKey: string]: string } = {};
-                
+
                 clientSpecificAllocs.filter(a => a?.content && currentMonthWeekKeys.includes(a.content.allocation_date)).forEach(a => {
                     if (a?.content) {
                         weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0');
@@ -498,7 +515,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
       }
       const empIdStr = `[${id}]`;
       const currentKeys = weeks.map(w => formatDateKey(w.startDate));
-      const empAllocs = monthDataCache.filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && parseFloat(a.content?.allocation_amount || '0') > 0);
+      const empAllocs = monthDataCache.filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && Number.isFinite(parseFloat(a.content?.allocation_amount || '')));
       let initialRows: AllocationRow[] = [];
       if (empAllocs.length === 0) {
           initialRows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {} }];
@@ -507,7 +524,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
           initialRows = names.map(name => {
               const cAllocs = empAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === name);
               const master = (clients || []).find(c => c && String(c.DisplayName || '').trim() === name);
-              const weeklyFtes: { [weekKey: string]: number } = {};
+              const weeklyFtes: { [weekKey: string]: WeeklyFteValue } = {};
               const docIds: { [weekKey: string]: string } = {};
               cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { 
                   if (a?.content) {
@@ -542,7 +559,7 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
     const newAllocations = team.map(employee => {
         const id = employee.person_id || employee.Person_Number;
         const empIdStr = `[${id}]`;
-        const empAllocs = monthDataCache.filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && parseFloat(a.content?.allocation_amount || '0') > 0);
+        const empAllocs = monthDataCache.filter(a => a?.content?.allocation_name && String(a.content.allocation_name).startsWith(empIdStr) && Number.isFinite(parseFloat(a.content?.allocation_amount || '')));
         let rows: AllocationRow[] = [];
         if (empAllocs.length === 0) {
             rows = [{ id: uuidv4(), clientId: '', clientName: '', weeklyFtes: {}, docIds: {} }];
@@ -551,8 +568,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
             rows = names.map(name => {
                 const cAllocs = empAllocs.filter(a => String(a?.content?.cost_center_name || '').trim() === name);
                 const master = (clients || []).find(c => c && String(c.DisplayName || '').trim() === name);
-                const weeklyFtes: { [key: string]: number } = {};
-                const docIds: { [key: string]: number } = {};
+                const weeklyFtes: { [key: string]: WeeklyFteValue } = {};
+                const docIds: { [key: string]: string } = {};
                 cAllocs.filter(a => a?.content && currentKeys.includes(a.content.allocation_date)).forEach(a => { 
                     if (a?.content) {
                         weeklyFtes[a.content.allocation_date] = parseFloat(a.content.allocation_amount || '0'); 
@@ -580,12 +597,14 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
   };
 
   const handleFteChange = (employeeId: string, allocId: string, weekKey: string, val: string) => {
-    const fte = parseFloat(val) || 0;
+    // Set '' rather than deleting the key: the save loop iterates the keys it finds,
+    // so a deleted key would leave an existing document untouched forever.
+    const fte = parseCell(val);
     setActiveAllocations(prev => (prev || []).map(ea => (ea.employee?.person_id || ea.employee?.Person_Number) === employeeId ? { ...ea, allocations: ea.allocations.map(a => a.id === allocId ? { ...a, weeklyFtes: { ...a.weeklyFtes, [weekKey]: fte } } : a) } : ea));
   };
-  
+
   const handleMonthlyFteChange = (employeeId: string, allocId: string, val: string) => {
-    const monthlyFte = parseFloat(val) || 0;
+    const monthlyFte = parseCell(val);
     setActiveAllocations(prev => (prev || []).map(ea => {
         if ((ea.employee?.person_id || ea.employee?.Person_Number) === employeeId) {
           return { ...ea, allocations: ea.allocations.map(a => {
@@ -662,15 +681,19 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                 allocation_name: `[${empId}] ${empName}`, 
                 employee_id: empId, 
                 cost_center_name: alloc.clientName, 
-                cost_center_number: alloc.clientId || alloc.clientName, 
-                allocation_amount: (Number.isNaN(fte) ? '0' : fte.toString())
+                cost_center_number: alloc.clientId || alloc.clientName,
+                allocation_amount: (typeof fte === 'number' ? fte.toString() : '0')
             };
 
-            if (fte > 0) {
-                if (!alloc.clientName) { 
-                    invalid = true; 
-                    toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${empName}.` }); 
-                    return; 
+            // 0 is a real value and must persist — downstream reporting divides by the
+            // number of weeks that have rows, so a missing row and a zero row differ.
+            // The typeof guard is load-bearing: '' >= 0 is true in JS, which would write
+            // blank cells as zeros and break clearing.
+            if (typeof fte === 'number' && fte >= 0) {
+                if (!alloc.clientName) {
+                    invalid = true;
+                    toast({ variant: 'destructive', title: 'Missing Client', description: `Please select a client for ${empName}.` });
+                    return;
                 }
                 
                 if (existingDocId) {
@@ -687,7 +710,8 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                     }));
                 }
             } else if (existingDocId) {
-                // If FTE set to zero, treat as deletion
+                // Cleared cell (or a negative, which is rejected the same way as before).
+                // Clearing remains the way to un-allocate.
                 operations.push(fetch(`/domo/datastores/v1/collections/weekly_allocation/documents/${existingDocId}`, { method: 'DELETE' }));
             }
           }
@@ -825,23 +849,23 @@ export function MultiWeekGrid({ currentDate, setCurrentDate, onSaveSuccess, init
                       </TableRow>
                       {(allocations || []).map((alloc) => {
                         const weekKey0 = (weeks?.length || 0) > 0 ? formatDateKey(weeks[0].startDate) : '';
-                        const bulkFteValue = (weekKey0 && alloc.weeklyFtes[weekKey0]);
-                        const displayBulkFteNum = parseFloat(bulkFteValue?.toString() || '0') || 0;
-                        const displayBulkFte = Number.isNaN(displayBulkFteNum) ? '0.00' : displayBulkFteNum.toFixed(2);
-                        
+                        const bulkFteValue = weekKey0 ? alloc.weeklyFtes[weekKey0] : undefined;
+                        // typeof, not truthiness: a bulk-entered 0 must display as 0.00, not blank.
+                        const displayBulkFte = typeof bulkFteValue === 'number' ? bulkFteValue.toFixed(2) : '';
+
                         return (
                         <TableRow key={alloc.id}>
                           <TableCell className="sticky left-0 bg-card z-10"></TableCell>
                           <TableCell><ClientSelect clients={clients} value={alloc.clientName} onValueChange={(name) => handleClientChange(employee.person_id || employee.Person_Number, alloc.id, name)} disabled={isMonthLocked || isSaving} /></TableCell>
                           <TableCell className="p-2"><Input value={alloc.clientId} readOnly className="bg-muted w-24" placeholder="Code" /></TableCell>
-                          <TableCell className="text-center"><Input type="number" step="0.05" min="0" placeholder="0.00" className="w-20 text-center mx-auto" value={parseFloat(displayBulkFte) > 0 ? displayBulkFte : ''} onChange={(e) => handleMonthlyFteChange(employee.person_id || employee.Person_Number, alloc.id, e.target.value)} disabled={isMonthLocked || isSaving} /></TableCell>
+                          <TableCell className="text-center"><Input type="number" step="0.05" min="0" placeholder="0.00" className="w-20 text-center mx-auto" value={displayBulkFte} onChange={(e) => handleMonthlyFteChange(employee.person_id || employee.Person_Number, alloc.id, e.target.value)} disabled={isMonthLocked || isSaving} /></TableCell>
                           {(weeks || []).map(week => {
                             const weekKey = formatDateKey(week.startDate);
                             const locked = !isWeekEditable(week.startDate);
                             const isCurrent = startOfCurrentWeek && isSameDay(startOfWeek(week.startDate, { weekStartsOn: 1 }), startOfCurrentWeek);
                             return (
                               <TableCell key={week.startDate.toISOString()} className={cn("text-center", {"bg-muted/40": locked, "bg-primary/10": isCurrent})}>
-                                  <Input type="number" step="0.05" min="0" placeholder="0.00" className={cn("w-20 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": locked })} value={alloc.weeklyFtes[weekKey] || ''} onChange={(e) => handleFteChange(employee.person_id || employee.Person_Number, alloc.id, weekKey, e.target.value)} disabled={locked || isSaving} readOnly={locked} />
+                                  <Input type="number" step="0.05" min="0" placeholder="0.00" className={cn("w-20 text-center mx-auto", { "bg-muted/50 cursor-not-allowed": locked })} value={alloc.weeklyFtes[weekKey] ?? ''} onChange={(e) => handleFteChange(employee.person_id || employee.Person_Number, alloc.id, weekKey, e.target.value)} disabled={locked || isSaving} readOnly={locked} />
                               </TableCell>
                             )
                           })}

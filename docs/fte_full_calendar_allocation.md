@@ -280,17 +280,29 @@ This is a live bug in the Beast Mode `allocation_monthly`, used by cards `fte le
 [`domo_reporting_dashboard.md` §5.3](domo_reporting_dashboard.md). A person split across two cost
 centres over-reports: their rows sum to 2.0 FTE for a 1.0 FTE person.
 
-Nothing upstream can fix it. The app hard-`DELETE`s the AppDB document when a cell is cleared
-([`multi-week-grid.tsx:689-691`](../src/components/allocation/multi-week-grid.tsx#L689)) and drops
-documents with `allocation_amount <= 0` on read
-([`:390`](../src/components/allocation/multi-week-grid.tsx#L390), and again at `:501` and `:545`), so
-a zero-amount document never exists in `weekly_allocation`. The zero has to be manufactured here.
+**Fix: the app now writes explicit zeros.** As of the change described below, a user can type `0`
+into a weekly cell and it persists as a document with `allocation_amount = "0"`, so the zero reaches
+this flow attached to its real cost centre and enters `COUNT(DISTINCT Day)` normally.
 
-**Fix, written but not yet deployed:**
-[`domo_sql/densify_full_calendar_allocation.sql`](domo_sql/densify_full_calendar_allocation.sql) — a
-separate SQL dataflow downstream of this one that adds the missing zero rows and publishes a dense
-dataset for the views to read. Deliberately downstream rather than folded in here, so the
-self-referencing history branch (§6.3) keeps reading this flow's own undensified output.
+- Save gate — [`multi-week-grid.tsx:692`](../src/components/allocation/multi-week-grid.tsx#L692)
+  writes when the value is a number `>= 0`.
+- Clearing a cell to blank still `DELETE`s
+  ([`:715`](../src/components/allocation/multi-week-grid.tsx#L715)) — that remains the way to
+  un-allocate, and blank remains distinct from zero.
+- Zero-amount documents are no longer dropped on read
+  ([`:407`](../src/components/allocation/multi-week-grid.tsx#L407),
+  [`:518`](../src/components/allocation/multi-week-grid.tsx#L518),
+  [`:562`](../src/components/allocation/multi-week-grid.tsx#L562)).
+
+**What this does and does not fix.** It only creates a row where a human types a `0`. A week nobody
+touches still produces no row, and no existing history is corrected — so `allocation_monthly` becomes
+correct for a person-cost-centre-month only once every gap week in it has been explicitly zeroed. The
+symptom resolves as managers adopt the habit, not on deploy. Treat a persisting over-report as a
+data-entry gap before treating it as a bug.
+
+A downstream SQL dataflow that manufactured the missing zeros was written and then **shelved** in
+favour of this — see [`domo_sql/README.md`](domo_sql/README.md). It remains a working option if the
+gap-week limitation above proves unacceptable.
 
 ### 6.2 `Add Formula 5` expressions are order-dependent
 
