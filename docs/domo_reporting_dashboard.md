@@ -374,8 +374,13 @@ Root cause is upstream: the ETL skeleton is person-week grain, not person-cost-c
 zero row is ever created for a cost centre the person holds elsewhere in the month — see
 [§6.1 of the ETL doc](fte_full_calendar_allocation.md). The `'Unassigned'` / `placeholder` rows that
 do exist only appear when a person has nothing at all that week, and they sit on a *different pivot
-row*, so they cannot rescue the denominator. Nor can the app supply the zeros: clearing a cell
-`DELETE`s the document rather than writing `0`.
+row*, so they cannot rescue the denominator.
+
+**Fix applied in the app, not in reporting.** Users can now type an explicit `0` in the Weekly
+Allocation grid and it persists, so the zero arrives attached to its cost centre. Clearing a cell to
+blank still deletes, so blank and zero now mean different things. Caveat that matters for reading
+this card: it only fixes weeks somebody actually zeroes — untouched weeks and existing history are
+unchanged, so a person's rows may still sum to more than their FTE until the gaps are filled in.
 
 There is no Beast Mode-only fix. `SUM(amount) / MAX(weeks_in_month)` is right at the month subtotal
 and wrong (÷4) in every weekly column; `COUNT(DISTINCT Day)` is right weekly and wrong monthly. One
@@ -517,7 +522,22 @@ Not yet captured, and needed to make this doc complete:
 
 ## 8. Open work
 
-**§5.3 `allocation_monthly` denominator.** Reported, root-caused, written; not yet deployed.
+**§5.3 `allocation_monthly` denominator — addressed in the app; the SQL route below is shelved.**
+
+The chosen fix lets users enter an explicit `0` in the Weekly Allocation grid so the zero persists
+and reaches this dataset attached to its cost centre. It fixes only weeks somebody zeroes; untouched
+weeks and existing history are unaffected. See §6.1 of the
+[ETL doc](fte_full_calendar_allocation.md).
+
+Everything below describes the **shelved** downstream densification, kept because it remains a
+working option if the gap-week limitation proves unacceptable. It was never deployed — its first
+build attempt returned no rows from transform 1, diagnostics in
+[`domo_sql/README.md`](domo_sql/README.md).
+
+<details>
+<summary>Shelved: SQL densification</summary>
+
+Reported, root-caused, written; not yet deployed.
 
 The fix densifies the allocation data to person-cost-centre-week grain, so a blank week becomes a
 real zero row and `COUNT(DISTINCT Day)` returns the weeks *in the month* rather than the weeks *with
@@ -557,3 +577,5 @@ on card 84279959 — which are named explicitly. Verification V9 detects any tha
 
 Diagnostics to size the change are in [§7 of the ETL doc](fte_full_calendar_allocation.md);
 verification steps are in the SQL file.
+
+</details>
